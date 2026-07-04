@@ -1,0 +1,474 @@
+{{/* App detail page (/apps/detail?path=): overview, promote/reload/delete
+     actions, requested permissions, containers, params and stage/prod
+     version tables. HTMX partial: block detail_content */}}
+{{/* version_table renders one environment's version list.
+     Context: dict with Versions, Error, Env (prod/stage), Path, AppPath */}}
+{{ define "version_table" }}
+  {{ if .Error }}
+    <p class="text-sm text-base-content/50 px-4 py-4">{{ .Error }}</p>
+  {{ else if not .Versions }}
+    <p class="text-sm text-base-content/50 px-4 py-4">No versions yet</p>
+  {{ else }}
+    {{ $ctx := . }}
+    <div class="overflow-x-auto">
+      <table class="table table-sm">
+        <thead>
+          <tr>
+            <th>Version</th>
+            <th>Git</th>
+            <th class="hidden sm:table-cell">By</th>
+            <th class="hidden md:table-cell">Created</th>
+            <th class="text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{ range .Versions }}
+            <tr class="group hover:bg-base-200/60 {{ if .active }}bg-success/5{{ end }}">
+              <td class="font-mono text-xs tabular-nums whitespace-nowrap">
+                v{{ .version }}
+                {{ if .active }}
+                  <span class="badge badge-success badge-xs badge-soft"
+                    >active</span
+                  >
+                {{ end }}
+              </td>
+              <td
+                class="font-mono text-xs whitespace-nowrap"
+                title="{{ .git_message }}">
+                {{ if .git_sha }}
+                  {{ .git_sha }}{{ if .git_branch }}
+                    <span class="badge badge-ghost badge-xs"
+                      >{{ .git_branch }}</span
+                    >
+                  {{ end }}
+                {{ else }}
+                  <span class="text-base-content/40">—</span>
+                {{ end }}
+              </td>
+              <td class="text-xs text-base-content/60 hidden sm:table-cell">
+                {{ .user }}
+              </td>
+              <td
+                class="text-xs text-base-content/60 whitespace-nowrap hidden md:table-cell">
+                {{ if .create_time }}
+                  {{ template "time_ago" .create_time }}
+                {{ end }}
+              </td>
+              <td class="text-right whitespace-nowrap">
+                <div
+                  class="inline-flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity duration-150">
+                  {{ if not .active }}
+                    <button
+                      class="btn btn-xs btn-ghost text-primary"
+                      {{ if index $ctx.Perms "app:update" }}
+                        title="Make v{{ .version }} the active {{ $ctx.Env }} version"
+                        hx-post="{{ $ctx.AppPath }}/apps/switch"
+                        hx-vals='{"path": "{{ $ctx.Path }}", "env": "{{ $ctx.Env }}", "version": "{{ .version }}"}'
+                        hx-confirm="Switch {{ $ctx.Env }} of {{ $ctx.Path }} to v{{ .version }}?"
+                        hx-target="#detail-content"
+                        hx-swap="innerHTML transition:true"
+                        hx-disabled-elt="this"
+                        hx-indicator="#page-progress"
+                      {{ else }}
+                        disabled title="requires app:update"
+                      {{ end }}>
+                      switch
+                    </button>
+                  {{ end }}
+                  <a
+                    href="{{ $ctx.AppPath }}/apps/files?path={{ $ctx.Path }}&version={{ .version }}&env={{ $ctx.Env }}"
+                    class="btn btn-xs btn-ghost"
+                    title="View the files in this version">
+                    files →
+                  </a>
+                </div>
+              </td>
+            </tr>
+          {{ end }}
+        </tbody>
+      </table>
+    </div>
+  {{ end }}
+{{ end }}
+<!DOCTYPE html>
+<html lang="en">
+  {{ template "head" . }}
+
+  <body class="min-h-screen bg-base-200">
+    <div class="drawer lg:drawer-open">
+      <input id="nav-drawer" type="checkbox" class="drawer-toggle" />
+
+      <div class="drawer-content">
+        <main class="p-4 lg:p-6 max-w-6xl">
+          <div id="detail-content" class="space-y-4">
+          {{ block "detail_content" . }}
+          <!-- Header -->
+          <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+            {{ template "hamburger" }}
+            <div>
+              <div class="breadcrumbs text-xs text-base-content/60 p-0"><ul><li><a href="{{ .AppPath }}/apps">Apps</a></li><li class="font-mono">{{ .Data.Path }}</li></ul></div>
+              <h1 class="text-xl font-semibold font-mono">{{ .Data.Path }}</h1>
+              <p class="text-sm text-base-content/60">
+                {{ if .Data.App }}
+                  {{ .Data.App.name }}
+                  {{ if .Data.App.is_dev }}
+                    <span class="badge badge-warning badge-xs badge-soft"
+                      >dev</span
+                    >
+                  {{ end }}
+                  {{ if .Data.App.staged_changes }}
+                    <span
+                      class="badge badge-info badge-xs badge-soft"
+                      title="staging has changes not promoted to prod"
+                      >staged changes</span
+                    >
+                  {{ end }}
+                {{ end }}
+              </p>
+            </div>
+            <div class="ml-auto flex items-center gap-2">
+              {{ if .Data.App }}
+                <a
+                  href="{{ .Data.App.url }}"
+                  target="_blank"
+                  class="btn btn-sm btn-outline transition-transform duration-150 active:scale-95">
+                  Open app ↗
+                </a>
+                <button
+                  class="btn btn-sm btn-outline transition-transform duration-150 active:scale-95"
+                  {{ if index .Data.Perms "app:reload" }}
+                    title="Reload staging from {{ if .Data.App.git_branch }}git{{ else }}source{{ end }}"
+                    hx-post="{{ .AppPath }}/apps/detail/reload"
+                    hx-vals='{"path": "{{ .Data.Path }}"}'
+                    hx-confirm="Reload {{ .Data.Path }} staging from its source?"
+                    hx-target="#detail-content"
+                    hx-swap="innerHTML transition:true"
+                    hx-disabled-elt="this"
+                    hx-indicator="#page-progress"
+                  {{ else }}
+                    disabled title="requires app:reload"
+                  {{ end }}>
+                  Reload
+                </button>
+                {{ if not .Data.App.is_dev }}
+                  <button
+                    class="btn btn-sm btn-outline btn-primary transition-transform duration-150 active:scale-95"
+                    {{ if index .Data.Perms "app:promote" }}
+                      title="Push the staging version to prod"
+                      hx-post="{{ .AppPath }}/apps/promote"
+                      hx-vals='{"path": "{{ .Data.Path }}"}'
+                      hx-confirm="Promote staged changes of {{ .Data.Path }} to prod?"
+                      hx-target="#detail-content"
+                      hx-swap="innerHTML transition:true"
+                      hx-disabled-elt="this"
+                      hx-indicator="#page-progress"
+                    {{ else }}
+                      disabled title="requires app:promote"
+                    {{ end }}>
+                    Promote
+                  </button>
+                {{ end }}
+                <a
+                  href="{{ .AppPath }}/apps/update?path={{ .Data.Path }}"
+                  class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "app:update") }}btn-disabled{{ end }}"
+                  {{ if not (index .Data.Perms "app:update") }}
+                    title="requires app:update"
+                  {{ end }}>
+                  Edit
+                </a>
+                <button
+                  class="btn btn-sm btn-ghost text-error transition-transform duration-150 active:scale-95"
+                  {{ if index .Data.Perms "app:delete" }}
+                    title="Delete app"
+                    hx-post="{{ .AppPath }}/apps/detail/delete"
+                    hx-vals='{"path": "{{ .Data.Path }}"}'
+                    hx-confirm="Delete {{ .Data.Path }}? This deletes the prod, staging and preview apps."
+                    hx-target="#detail-content"
+                    hx-swap="innerHTML transition:true"
+                    hx-disabled-elt="this"
+                    hx-indicator="#page-progress"
+                  {{ else }}
+                    disabled title="requires app:delete"
+                  {{ end }}>
+                  Delete
+                </button>
+              {{ end }}
+            </div>
+          </div>
+
+          <div class="relative">
+            <div id="page-progress" class="progress-line htmx-indicator"></div>
+          </div>
+
+          {{ if .Data.Error }}
+            <div role="alert" class="alert alert-error alert-soft py-2 text-sm">
+              <span>✕</span>
+              <span class="break-all">{{ .Data.Error }}</span>
+            </div>
+          {{ end }}
+          {{ if .Data.Flash }}
+            <div role="alert" class="alert alert-success alert-soft py-2 text-sm">
+              <span>✓</span>
+              <span>{{ .Data.Flash }}</span>
+            </div>
+          {{ end }}
+          {{ if .Data.FlashError }}
+            <div role="alert" class="alert alert-error alert-soft py-2 text-sm">
+              <span>✕</span>
+              <span class="break-all">{{ .Data.FlashError }}</span>
+            </div>
+          {{ end }}
+
+          {{ if and .Data.AskPromote .Data.App }}
+            <!-- Staging was updated, ask about promotion -->
+            <div
+              role="alert"
+              class="alert alert-info alert-soft py-2 text-sm flex-wrap">
+              <span>✓</span>
+              <span>
+                {{ if eq .Data.AskPromote "reload" }}
+                  Staging was reloaded from source.
+                {{ else if eq .Data.AskPromote "approve" }}
+                  Permissions were approved on the staging app.
+                {{ else }}
+                  Changes were applied to the staging app.
+                {{ end }}
+                Promote to make them live on prod?
+              </span>
+              <div class="ml-auto flex items-center gap-2">
+                <a
+                  href="{{ .AppPath }}/apps/detail?path={{ .Data.Path }}"
+                  class="btn btn-xs btn-ghost">
+                  Keep in staging
+                </a>
+                <button
+                  class="btn btn-xs btn-primary transition-transform duration-150 active:scale-95"
+                  {{ if index .Data.Perms "app:promote" }}
+                    hx-post="{{ .AppPath }}/apps/promote"
+                    hx-vals='{"path": "{{ .Data.Path }}"}'
+                    hx-target="#detail-content"
+                    hx-swap="innerHTML transition:true"
+                    hx-disabled-elt="this"
+                    hx-indicator="#page-progress"
+                  {{ else }}
+                    disabled title="requires app:promote"
+                  {{ end }}>
+                  Promote now
+                </button>
+              </div>
+            </div>
+          {{ end }}
+
+          {{ if .Data.App }}
+            <!-- Overview -->
+            <div class="card bg-base-100 border border-base-300">
+              <div class="card-body p-5 gap-1">
+                <h2 class="text-sm font-medium text-base-content/60 mb-2">
+                  Overview
+                </h2>
+                <div
+                  class="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1.5 text-sm">
+                  <span class="text-xs text-base-content/50 pt-0.5">Source</span>
+                  <span class="font-mono text-xs break-all pt-1"
+                    >{{ .Data.App.source_url }}{{ if .Data.App.git_branch }}
+                      <span class="badge badge-ghost badge-xs"
+                        >{{ .Data.App.git_branch }}</span
+                      >
+                    {{ end }}</span
+                  >
+
+                  {{ if .Data.App.git_commit }}
+                    <span class="text-xs text-base-content/50 pt-0.5"
+                      >Commit</span
+                    >
+                    <span class="font-mono text-xs pt-1"
+                      >{{ .Data.App.git_commit }}
+                      {{ if .Data.App.git_message }}
+                        <span class="text-base-content/50 font-sans"
+                          >— {{ .Data.App.git_message }}</span
+                        >
+                      {{ end }}</span
+                    >
+                  {{ end }}
+
+                  <span class="text-xs text-base-content/50 pt-0.5"
+                    >Managed by</span
+                  >
+                  <span class="pt-1">
+                    {{ if .Data.Sync }}
+                      <span class="font-mono text-xs">{{ .Data.Sync.repo }}</span>
+                      {{ if .Data.Sync.branch }}
+                        <span class="badge badge-ghost badge-xs"
+                          >{{ .Data.Sync.branch }}</span
+                        >
+                      {{ end }}
+                    {{ else }}
+                      <span class="badge badge-outline badge-xs">imperative</span>
+                    {{ end }}
+                  </span>
+
+                  <span class="text-xs text-base-content/50 pt-0.5">Spec</span>
+                  <span class="font-mono text-xs pt-1"
+                    >{{ if .Data.App.spec }}
+                      {{ .Data.App.spec }}
+                    {{ else }}
+                      —
+                    {{ end }}</span
+                  >
+
+                  <span class="text-xs text-base-content/50 pt-0.5">Auth</span>
+                  <span class="pt-1"
+                    ><span class="badge badge-ghost badge-xs"
+                      >{{ if .Data.App.auth }}
+                        {{ .Data.App.auth }}
+                      {{ else }}
+                        default
+                      {{ end }}</span
+                    ></span
+                  >
+
+                  <span class="text-xs text-base-content/50 pt-0.5"
+                    >Version</span
+                  >
+                  <span class="font-mono text-xs pt-1"
+                    >v{{ .Data.App.version }}</span
+                  >
+
+                  {{ if .Data.App.update_time }}
+                    <span class="text-xs text-base-content/50 pt-0.5"
+                      >Updated</span
+                    >
+                    <span class="text-xs pt-1"
+                      >{{ template "time_ago" .Data.App.update_time }}</span
+                    >
+                  {{ end }}
+
+                  {{ if .Data.Containers }}
+                    <span class="text-xs text-base-content/50 pt-0.5"
+                      >Containers</span
+                    >
+                    <span class="pt-1 flex items-center gap-3 flex-wrap">
+                      {{ range .Data.Containers }}
+                        <a
+                          href="{{ $.AppPath }}/containers/detail?id={{ .id }}"
+                          class="link link-hover inline-flex items-center gap-1.5 text-xs"
+                          title="{{ .name }} — stats and logs">
+                          {{ if eq .state "running" }}
+                            <span class="status status-success"></span>
+                          {{ else }}
+                            <span class="status status-error"></span>
+                          {{ end }}
+                          <span class="font-mono"
+                            >{{ .env }} · {{ .state }}</span
+                          >
+                          <span class="text-base-content/50">→</span>
+                        </a>
+                      {{ end }}
+                    </span>
+                  {{ end }}
+
+                  <span class="text-xs text-base-content/50 pt-0.5">Id</span>
+                  <span class="font-mono text-xs text-base-content/60 pt-1"
+                    >{{ .Data.App.id }}</span
+                  >
+                </div>
+              </div>
+            </div>
+
+            <!-- Parameters -->
+            {{ if .Data.ParamsText }}
+              <div class="card bg-base-100 border border-base-300">
+                <div class="card-body p-5 gap-2">
+                  <h2 class="text-sm font-medium text-base-content/60">
+                    Parameters
+                  </h2>
+                  <pre
+                    class="font-mono text-xs bg-base-200 rounded px-3 py-2 whitespace-pre-wrap">{{ .Data.ParamsText }}</pre>
+                </div>
+              </div>
+            {{ end }}
+
+            <!-- Plugin permissions requested by the app -->
+            {{ if .Data.AuditError }}
+              <div class="card bg-base-100 border border-base-300">
+                <div class="card-body p-5 gap-2">
+                  <h2 class="text-sm font-medium text-base-content/60">
+                    Requested permissions
+                  </h2>
+                  <p class="text-sm text-base-content/50 break-all">
+                    Audit failed: {{ .Data.AuditError }}
+                  </p>
+                </div>
+              </div>
+            {{ else if .Data.Audit }}
+              {{ if .Data.NeedsApproval }}
+                <div
+                  role="alert"
+                  class="alert alert-warning alert-soft py-2 text-sm flex-wrap">
+                  <span>⚠</span>
+                  <span
+                    >The app requests permissions which are not approved yet —
+                    it cannot serve requests until they are approved</span
+                  >
+                  <button
+                    class="btn btn-xs btn-warning ml-auto transition-transform duration-150 active:scale-95"
+                    {{ if index .Data.Perms "app:approve" }}
+                      hx-post="{{ .AppPath }}/apps/approve"
+                      hx-vals='{"path": "{{ .Data.Path }}"}'
+                      hx-confirm="Approve the requested plugin permissions for {{ .Data.Path }}?"
+                      hx-target="#detail-content"
+                      hx-swap="innerHTML transition:true"
+                      hx-disabled-elt="this"
+                      hx-indicator="#page-progress"
+                    {{ else }}
+                      disabled title="requires app:approve"
+                    {{ end }}>
+                    Approve permissions
+                  </button>
+                </div>
+              {{ end }}
+              {{ template "perms_card" (dict "Review" .Data.Audit "Note" (ternary "Approval pending — approving grants the usage listed above" "All requested permissions are approved" .Data.NeedsApproval)) }}
+            {{ end }}
+
+            <!-- Versions -->
+            {{ if .Data.App.is_dev }}
+              <div class="card bg-base-100 border border-base-300 py-6">
+                <p class="text-sm text-base-content/50 text-center">
+                  Dev apps serve directly from disk — versions are not tracked
+                </p>
+              </div>
+            {{ else }}
+              <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                <div class="card bg-base-100 border border-base-300">
+                  <div
+                    class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2">
+                    <span class="text-sm font-medium">Staging versions</span>
+                    <span class="text-xs text-base-content/50"
+                      >{{ len .Data.StageVersions }} versions</span
+                    >
+                  </div>
+                  {{ template "version_table" (dict "Versions" .Data.StageVersions "Error" .Data.StageVersionsError "Env" "stage" "Path" .Data.Path "AppPath" .AppPath "Perms" .Data.Perms) }}
+                </div>
+                <div class="card bg-base-100 border border-base-300">
+                  <div
+                    class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2">
+                    <span class="text-sm font-medium">Production versions</span>
+                    <span class="text-xs text-base-content/50"
+                      >{{ len .Data.ProdVersions }} versions</span
+                    >
+                  </div>
+                  {{ template "version_table" (dict "Versions" .Data.ProdVersions "Error" .Data.ProdVersionsError "Env" "prod" "Path" .Data.Path "AppPath" .AppPath "Perms" .Data.Perms) }}
+                </div>
+              </div>
+            {{ end }}
+          {{ end }}
+          {{ end }}
+          <!-- End of "detail_content" block -->
+          </div>
+        </main>
+      </div>
+
+      {{ template "sidebar" . }}
+    </div>
+  </body>
+</html>

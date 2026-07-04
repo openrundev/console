@@ -1,0 +1,7 @@
+{{/* Fragment the app's error_handler retargets into #error-toast when a
+     partial (HTMX) request fails unexpectedly. ace.response can only
+     reference file templates, so this lives in its own file */}}
+<div role="alert" class="alert alert-error py-2 text-sm shadow-lg">
+  <span>✕</span>
+  <span class="break-all">{{ .Data.Error }}</span>
+</div>

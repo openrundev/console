@@ -1,0 +1,534 @@
+{{/* Configuration page (/config): staged-changes banner with publish and
+     discard, RBAC groups/roles/grants tables (staged view when a draft
+     exists), coming-soon cards and config history with restore.
+     HTMX partial: block config_content */}}
+<!DOCTYPE html>
+<html lang="en">
+  {{ template "head" . }}
+
+  <body class="min-h-screen bg-base-200">
+    <div class="drawer lg:drawer-open">
+      <input id="nav-drawer" type="checkbox" class="drawer-toggle" />
+
+      <div class="drawer-content">
+        <main class="p-4 lg:p-6 max-w-6xl">
+          <div id="config-content" class="space-y-4">
+          {{ block "config_content" . }}
+            <!-- Header -->
+            <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+              {{ template "hamburger" }}
+              <div>
+                <h1
+                  class="text-2xl md:text-3xl font-extrabold italic tracking-tight">
+                  OpenRun Configuration
+                </h1>
+                <p class="text-sm text-base-content/60">
+                  Server configuration — changes are staged and go live on
+                  publish
+                </p>
+              </div>
+            </div>
+
+            <div class="relative">
+              <div id="page-progress" class="progress-line htmx-indicator"></div>
+            </div>
+
+            {{ if .Data.Error }}
+              <div role="alert" class="alert alert-error alert-soft py-2 text-sm">
+                <span>✕</span>
+                <span class="break-all">{{ .Data.Error }}</span>
+              </div>
+            {{ else }}
+              {{ if .Data.Flash }}
+                <div
+                  role="alert"
+                  class="alert alert-success alert-soft py-2 text-sm">
+                  <span>✓</span>
+                  <span>{{ .Data.Flash }}</span>
+                </div>
+              {{ end }}
+              {{ if .Data.FlashError }}
+                <div
+                  role="alert"
+                  class="alert alert-error alert-soft py-2 text-sm">
+                  <span>✕</span>
+                  <span class="break-all">{{ .Data.FlashError }}</span>
+                </div>
+              {{ end }}
+
+              {{ if .Data.HasStaged }}
+                <!-- Staged changes banner -->
+                <div
+                  role="alert"
+                  class="alert alert-info alert-soft py-2 text-sm flex-wrap">
+                  <span>⧗</span>
+                  <span>
+                    Staged changes by
+                    <b>{{ .Data.Draft.created_by }}</b>
+                    ({{ template "time_ago" .Data.Draft.create_time }}{{ if ne .Data.Draft.updated_by .Data.Draft.created_by }},
+                      last edit by <b>{{ .Data.Draft.updated_by }}</b>
+                      {{ template "time_ago" .Data.Draft.update_time }}{{ end }})
+                    —
+                    {{ if .Data.Diff.enabled }}
+                      enabled flag,
+                    {{ end }}
+                    {{ if .Data.Diff.groups }}
+                      groups: {{ range $i, $n := .Data.Diff.groups }}{{ if $i }},
+                        {{ end }}<span class="font-mono text-xs">{{ $n }}</span>
+                      {{- end }},
+                    {{ end }}
+                    {{ if .Data.Diff.roles }}
+                      roles: {{ range $i, $n := .Data.Diff.roles }}{{ if $i }},
+                        {{ end }}<span class="font-mono text-xs">{{ $n }}</span>
+                      {{- end }},
+                    {{ end }}
+                    {{ if .Data.Diff.grants }}
+                      grants changed,
+                    {{ end }}
+                    enforcement still uses the live config
+                  </span>
+                  <div class="ml-auto flex items-center gap-2">
+                    <button
+                      class="btn btn-xs btn-ghost"
+                      {{ if index .Data.Perms "config:update" }}
+                        hx-post="{{ .AppPath }}/config/action"
+                        hx-vals='{"action": "discard", "draft_version": "{{ .Data.DraftVersion }}"}'
+                        hx-confirm="Discard the staged changes started by {{ .Data.Draft.created_by }} (last edit by {{ .Data.Draft.updated_by }})? This cannot be undone."
+                        hx-target="#config-content"
+                        hx-swap="innerHTML transition:true"
+                        hx-disabled-elt="this"
+                        hx-indicator="#page-progress"
+                      {{ else }}
+                        disabled title="requires config:update"
+                      {{ end }}>
+                      Discard
+                    </button>
+                    <button
+                      class="btn btn-xs btn-primary"
+                      {{ if index .Data.Perms "config:update" }}
+                        hx-post="{{ .AppPath }}/config/action"
+                        hx-vals='{"action": "publish", "draft_version": "{{ .Data.DraftVersion }}"}'
+                        hx-confirm="Publish the staged RBAC configuration? It is validated and becomes live immediately."
+                        hx-target="#config-content"
+                        hx-swap="innerHTML transition:true"
+                        hx-disabled-elt="this"
+                        hx-indicator="#page-progress"
+                      {{ else }}
+                        disabled title="requires config:update"
+                      {{ end }}>
+                      Publish
+                    </button>
+                    {{ if and .Data.FlashError (contains "force" .Data.FlashError) (index .Data.Perms "config:update") }}
+                      <button
+                        class="btn btn-xs btn-warning"
+                        hx-post="{{ .AppPath }}/config/action"
+                        hx-vals='{"action": "publish", "draft_version": "{{ .Data.DraftVersion }}", "force": "true"}'
+                        hx-confirm="Force publish, overriding the failed safety check? Make sure you reviewed the warning."
+                        hx-target="#config-content"
+                        hx-swap="innerHTML transition:true"
+                        hx-disabled-elt="this"
+                        hx-indicator="#page-progress">
+                        Force publish
+                      </button>
+                    {{ end }}
+                  </div>
+                </div>
+              {{ end }}
+
+              {{ $view := .Data.View }}
+              {{ $canEdit := index .Data.Perms "config:update" }}
+              <!-- RBAC card -->
+              <div class="card bg-base-100 border border-base-300">
+                <div
+                  class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
+                  <span class="text-sm font-medium">RBAC</span>
+                  {{ if .Data.Live.enabled }}
+                    <span class="badge badge-success badge-sm badge-soft"
+                      >enabled</span
+                    >
+                  {{ else }}
+                    <span class="badge badge-ghost badge-sm">disabled</span>
+                  {{ end }}
+                  {{ if .Data.HasStaged }}
+                    <span
+                      class="badge badge-info badge-sm badge-soft"
+                      title="the tables below show the staged draft"
+                      >staged changes</span
+                    >
+                  {{ end }}
+                  <span class="text-xs text-base-content/50">
+                    role based access control for the management APIs
+                  </span>
+                  <button
+                    class="btn btn-xs btn-outline ml-auto"
+                    {{ if $canEdit }}
+                      hx-post="{{ .AppPath }}/config/action"
+                      hx-vals='{"action": "toggle_enabled", "enabled": "{{ if $view.enabled }}false{{ else }}true{{ end }}", "draft_version": "{{ .Data.DraftVersion }}"}'
+                      hx-confirm="{{ if $view.enabled }}Stage disabling RBAC? After publish, API access control stops being enforced.{{ else }}Stage enabling RBAC? After publish, users without grants lose access to apps with rbac: auth. Admin access always works.{{ end }}"
+                      hx-target="#config-content"
+                      hx-swap="innerHTML transition:true"
+                      hx-disabled-elt="this"
+                      hx-indicator="#page-progress"
+                    {{ else }}
+                      disabled title="requires config:update"
+                    {{ end }}>
+                    {{ if $view.enabled }}
+                      Disable
+                    {{ else }}
+                      Enable
+                    {{ end }}
+                    (staged)
+                  </button>
+                </div>
+
+                <div class="card-body p-4 gap-5">
+                  <!-- Groups -->
+                  <div>
+                    <div class="flex items-center gap-2 mb-2">
+                      <h2 class="text-sm font-medium">Groups</h2>
+                      <span class="text-xs text-base-content/50"
+                        >{{ len $view.groups }} groups — user id lists,
+                        usable in grants</span
+                      >
+                      <a
+                        href="{{ .AppPath }}/config/rbac/group"
+                        class="btn btn-xs btn-outline ml-auto {{ if not $canEdit }}btn-disabled{{ end }}"
+                        {{ if not $canEdit }}
+                          title="requires config:update"
+                        {{ end }}
+                        >+ Add group</a
+                      >
+                    </div>
+                    {{ if $view.groups }}
+                      <table class="table table-sm">
+                        <tbody>
+                          {{ range $view.groups }}
+                            <tr class="group hover:bg-base-200/60">
+                              <td
+                                class="font-mono text-xs font-medium w-48 align-top">
+                                {{ .name }}
+                              </td>
+                              <td>
+                                {{ range .users }}
+                                  <span
+                                    class="badge badge-ghost badge-xs font-mono"
+                                    >{{ . }}</span
+                                  >
+                                {{ end }}
+                              </td>
+                              <td class="text-right whitespace-nowrap w-32">
+                                <div
+                                  class="inline-flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity duration-150">
+                                  <a
+                                    href="{{ $.AppPath }}/config/rbac/group?name={{ .name }}"
+                                    class="btn btn-xs btn-ghost {{ if not $canEdit }}btn-disabled{{ end }}"
+                                    >edit</a
+                                  >
+                                  <button
+                                    class="btn btn-xs btn-ghost text-error"
+                                    {{ if $canEdit }}
+                                      hx-post="{{ $.AppPath }}/config/action"
+                                      hx-vals='{"action": "delete_group", "name": "{{ .name }}", "draft_version": "{{ $.Data.DraftVersion }}"}'
+                                      hx-confirm="Delete group {{ .name }} from the staged config?"
+                                      hx-target="#config-content"
+                                      hx-swap="innerHTML transition:true"
+                                      hx-disabled-elt="this"
+                                      hx-indicator="#page-progress"
+                                    {{ else }}
+                                      disabled title="requires config:update"
+                                    {{ end }}>
+                                    delete
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          {{ end }}
+                        </tbody>
+                      </table>
+                    {{ else }}
+                      <p class="text-xs text-base-content/50">
+                        No groups defined
+                      </p>
+                    {{ end }}
+                  </div>
+
+                  <!-- Roles -->
+                  <div>
+                    <div class="flex items-center gap-2 mb-2">
+                      <h2 class="text-sm font-medium">Roles</h2>
+                      <span class="text-xs text-base-content/50"
+                        >{{ len $view.roles }} roles — permission sets;
+                        the built-in <span class="font-mono">admin</span> role
+                        always exists</span
+                      >
+                      <a
+                        href="{{ .AppPath }}/config/rbac/role"
+                        class="btn btn-xs btn-outline ml-auto {{ if not $canEdit }}btn-disabled{{ end }}"
+                        {{ if not $canEdit }}
+                          title="requires config:update"
+                        {{ end }}
+                        >+ Add role</a
+                      >
+                    </div>
+                    {{ if $view.roles }}
+                      <table class="table table-sm">
+                        <tbody>
+                          {{ range $view.roles }}
+                            <tr class="group hover:bg-base-200/60">
+                              <td
+                                class="font-mono text-xs font-medium w-48 align-top">
+                                {{ .name }}
+                              </td>
+                              <td>
+                                {{ range .permissions }}
+                                  <span
+                                    class="badge badge-soft badge-primary badge-xs font-mono"
+                                    >{{ . }}</span
+                                  >
+                                {{ end }}
+                              </td>
+                              <td class="text-right whitespace-nowrap w-32">
+                                <div
+                                  class="inline-flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity duration-150">
+                                  <a
+                                    href="{{ $.AppPath }}/config/rbac/role?name={{ .name }}"
+                                    class="btn btn-xs btn-ghost {{ if not $canEdit }}btn-disabled{{ end }}"
+                                    >edit</a
+                                  >
+                                  <button
+                                    class="btn btn-xs btn-ghost text-error"
+                                    {{ if $canEdit }}
+                                      hx-post="{{ $.AppPath }}/config/action"
+                                      hx-vals='{"action": "delete_role", "name": "{{ .name }}", "draft_version": "{{ $.Data.DraftVersion }}"}'
+                                      hx-confirm="Delete role {{ .name }} from the staged config? Publish fails while grants still reference it."
+                                      hx-target="#config-content"
+                                      hx-swap="innerHTML transition:true"
+                                      hx-disabled-elt="this"
+                                      hx-indicator="#page-progress"
+                                    {{ else }}
+                                      disabled title="requires config:update"
+                                    {{ end }}>
+                                    delete
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          {{ end }}
+                        </tbody>
+                      </table>
+                    {{ else }}
+                      <p class="text-xs text-base-content/50">
+                        No roles defined
+                      </p>
+                    {{ end }}
+                  </div>
+
+                  <!-- Grants -->
+                  <div>
+                    <div class="flex items-center gap-2 mb-2">
+                      <h2 class="text-sm font-medium">Grants</h2>
+                      <span class="text-xs text-base-content/50"
+                        >{{ len $view.grants }} grants — who gets which roles
+                        on which apps</span
+                      >
+                      <a
+                        href="{{ .AppPath }}/config/rbac/grant"
+                        class="btn btn-xs btn-outline ml-auto {{ if not $canEdit }}btn-disabled{{ end }}"
+                        {{ if not $canEdit }}
+                          title="requires config:update"
+                        {{ end }}
+                        >+ Add grant</a
+                      >
+                    </div>
+                    {{ if $view.grants }}
+                      <table class="table table-sm">
+                        <thead>
+                          <tr>
+                            <th>Description</th>
+                            <th>Users / groups</th>
+                            <th>Roles</th>
+                            <th>Targets</th>
+                            <th class="text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {{ range $view.grants }}
+                            <tr class="group hover:bg-base-200/60">
+                              <td class="text-xs">{{ .description }}</td>
+                              <td>
+                                {{ range .users }}
+                                  <span
+                                    class="badge badge-ghost badge-xs font-mono"
+                                    >{{ . }}</span
+                                  >
+                                {{ end }}
+                              </td>
+                              <td>
+                                {{ range .roles }}
+                                  <span
+                                    class="badge badge-soft badge-secondary badge-xs font-mono"
+                                    >{{ . }}</span
+                                  >
+                                {{ end }}
+                              </td>
+                              <td>
+                                {{ range .targets }}
+                                  <span class="font-mono text-xs">{{ . }}</span>
+                                {{ end }}
+                              </td>
+                              <td class="text-right whitespace-nowrap w-32">
+                                <div
+                                  class="inline-flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity duration-150">
+                                  <a
+                                    href="{{ $.AppPath }}/config/rbac/grant?index={{ .index }}"
+                                    class="btn btn-xs btn-ghost {{ if not $canEdit }}btn-disabled{{ end }}"
+                                    >edit</a
+                                  >
+                                  <button
+                                    class="btn btn-xs btn-ghost text-error"
+                                    {{ if $canEdit }}
+                                      hx-post="{{ $.AppPath }}/config/action"
+                                      hx-vals='{"action": "delete_grant", "index": "{{ .index }}", "draft_version": "{{ $.Data.DraftVersion }}"}'
+                                      hx-confirm="Delete this grant from the staged config?"
+                                      hx-target="#config-content"
+                                      hx-swap="innerHTML transition:true"
+                                      hx-disabled-elt="this"
+                                      hx-indicator="#page-progress"
+                                    {{ else }}
+                                      disabled title="requires config:update"
+                                    {{ end }}>
+                                    delete
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          {{ end }}
+                        </tbody>
+                      </table>
+                    {{ else }}
+                      <p class="text-xs text-base-content/50">
+                        No grants defined — with RBAC enabled, only admins can
+                        use the management APIs
+                      </p>
+                    {{ end }}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Coming soon config areas -->
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="card bg-base-100 border border-base-300 opacity-50">
+                  <div class="card-body p-4">
+                    <span class="text-sm font-medium"
+                      >OAuth accounts
+                      <span class="badge badge-ghost badge-xs">coming soon</span>
+                    </span>
+                    <p class="text-xs text-base-content/50">
+                      Manage OAuth client configurations
+                    </p>
+                  </div>
+                </div>
+                <div class="card bg-base-100 border border-base-300 opacity-50">
+                  <div class="card-body p-4">
+                    <span class="text-sm font-medium"
+                      >SAML policies
+                      <span class="badge badge-ghost badge-xs">coming soon</span>
+                    </span>
+                    <p class="text-xs text-base-content/50">
+                      Manage SAML identity provider settings
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Config history -->
+              <div class="card bg-base-100 border border-base-300">
+                <div
+                  class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2">
+                  <span class="text-sm font-medium">History</span>
+                  <span class="text-xs text-base-content/50"
+                    >{{ len .Data.History }} config versions — restoring
+                    creates a new version</span
+                  >
+                </div>
+                {{ if .Data.History }}
+                  <div class="overflow-x-auto">
+                    <table class="table table-sm">
+                      <thead>
+                        <tr>
+                          <th>Version</th>
+                          <th>By</th>
+                          <th>When</th>
+                          <th class="text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {{ range $i, $h := .Data.History }}
+                          <tr
+                            class="group hover:bg-base-200/60 {{ if eq $h.version_id $.Data.VersionId }}bg-success/5{{ end }}">
+                            <td class="font-mono text-xs">
+                              {{ trunc 16 $h.version_id }}…
+                              {{ if eq $h.version_id $.Data.VersionId }}
+                                <span
+                                  class="badge badge-success badge-xs badge-soft"
+                                  >live</span
+                                >
+                              {{ end }}
+                            </td>
+                            <td class="text-xs text-base-content/60">
+                              {{ if $h.user_id }}
+                                {{ $h.user_id }}
+                              {{ else }}
+                                —
+                              {{ end }}
+                            </td>
+                            <td class="text-xs text-base-content/60">
+                              {{ template "time_ago" $h.update_time }}
+                            </td>
+                            <td class="text-right whitespace-nowrap">
+                              <a
+                                href="{{ $.AppPath }}/config/history?version={{ $h.version_id }}"
+                                class="btn btn-xs btn-ghost opacity-60 group-hover:opacity-100 transition-opacity duration-150"
+                                title="View this config snapshot as JSON">
+                                view
+                              </a>
+                              {{ if ne $h.version_id $.Data.VersionId }}
+                                <button
+                                  class="btn btn-xs btn-ghost text-primary opacity-60 group-hover:opacity-100 transition-opacity duration-150"
+                                  {{ if index $.Data.Perms "config:update" }}
+                                    hx-post="{{ $.AppPath }}/config/action"
+                                    hx-vals='{"action": "restore", "restore_version": "{{ $h.version_id }}"}'
+                                    hx-confirm="Restore the full configuration from this snapshot? It is validated and written as a new version."
+                                    hx-target="#config-content"
+                                    hx-swap="innerHTML transition:true"
+                                    hx-disabled-elt="this"
+                                    hx-indicator="#page-progress"
+                                  {{ else }}
+                                    disabled title="requires config:update"
+                                  {{ end }}>
+                                  restore
+                                </button>
+                              {{ end }}
+                            </td>
+                          </tr>
+                        {{ end }}
+                      </tbody>
+                    </table>
+                  </div>
+                {{ else }}
+                  <p class="text-sm text-base-content/50 px-4 py-4">
+                    No configuration changes recorded yet
+                  </p>
+                {{ end }}
+              </div>
+            {{ end }}
+          {{ end }}
+          <!-- End of "config_content" block -->
+          </div>
+        </main>
+      </div>
+
+      {{ template "sidebar" . }}
+    </div>
+  </body>
+</html>

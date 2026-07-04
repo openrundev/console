@@ -1,0 +1,264 @@
+{{/* RBAC group/role/grant form (/config/rbac/*): one shared form, sections
+     switch on .Data.Kind. Submissions edit the staged config draft */}}
+<!DOCTYPE html>
+<html lang="en">
+  {{ template "head" . }}
+
+  <body class="min-h-screen bg-base-200">
+    <div class="drawer lg:drawer-open">
+      <input id="nav-drawer" type="checkbox" class="drawer-toggle" />
+
+      <div class="drawer-content">
+        <main class="p-4 lg:p-6 space-y-4 max-w-2xl">
+          <!-- Header -->
+          <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+            {{ template "hamburger" }}
+            <div>
+              <div class="breadcrumbs text-xs text-base-content/60 p-0">
+                <ul>
+                  <li>
+                    <a href="{{ .AppPath }}/config">Configuration</a>
+                  </li>
+                  <li>
+                    {{ if .Data.Values.is_edit }}edit{{ else }}new{{ end }}
+                    {{ .Data.Kind }}
+                  </li>
+                </ul>
+              </div>
+              <h1 class="text-xl font-semibold">
+                {{ if .Data.Values.is_edit }}
+                  Edit
+                {{ else }}
+                  New
+                {{ end }}
+                {{ .Data.Kind }}
+              </h1>
+              <p class="text-sm text-base-content/60">
+                Changes are staged — publish from the Configuration page to
+                make them live
+              </p>
+            </div>
+          </div>
+
+          {{ if .Data.Error }}
+            <div role="alert" class="alert alert-error alert-soft py-2 text-sm">
+              <span>✕</span>
+              <span class="break-all">{{ .Data.Error }}</span>
+            </div>
+          {{ end }}
+
+
+          <form
+            method="post"
+            action="{{ .AppPath }}/config/rbac/{{ .Data.Kind }}{{ if and (eq .Data.Kind "grant") .Data.Values.is_edit }}?index={{ .Data.Values.index }}{{ end }}"
+            class="card bg-base-100 border border-base-300">
+            <div class="card-body p-5 gap-5">
+              <input
+                type="hidden"
+                name="draft_version"
+                value="{{ .Data.DraftVersion }}" />
+              <input
+                type="hidden"
+                name="is_edit"
+                value="{{ if .Data.Values.is_edit }}true{{ else }}false{{ end }}" />
+
+              {{ if eq .Data.Kind "group" }}
+                <div>
+                  <label class="block text-sm font-medium mb-1" for="rbac-name"
+                    >Group name</label
+                  >
+                  <input
+                    id="rbac-name"
+                    name="name"
+                    type="text"
+                    required
+                    value="{{ .Data.Values.name }}"
+                    {{ if .Data.Values.is_edit }}readonly{{ end }}
+                    placeholder="developers"
+                    class="input w-full font-mono text-sm {{ if .Data.Values.is_edit }}bg-base-200{{ end }}" />
+                  <p class="text-xs text-base-content/50 mt-1">
+                    Reference the group in grants as
+                    <span class="font-mono">group:name</span>
+                  </p>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1" for="rbac-users"
+                    >Members</label
+                  >
+                  <textarea
+                    id="rbac-users"
+                    name="users_text"
+                    rows="6"
+                    placeholder="user1@example.com&#10;user2@example.com"
+                    class="textarea w-full font-mono text-sm leading-relaxed">{{ .Data.Values.users_text }}</textarea>
+                  <p class="text-xs text-base-content/50 mt-1">
+                    One user id per line. These are merged with any groups
+                    coming from SAML
+                  </p>
+                </div>
+              {{ else if eq .Data.Kind "role" }}
+                <div>
+                  <label class="block text-sm font-medium mb-1" for="rbac-name"
+                    >Role name</label
+                  >
+                  <input
+                    id="rbac-name"
+                    name="name"
+                    type="text"
+                    required
+                    value="{{ .Data.Values.name }}"
+                    {{ if .Data.Values.is_edit }}readonly{{ end }}
+                    placeholder="developer"
+                    class="input w-full font-mono text-sm {{ if .Data.Values.is_edit }}bg-base-200{{ end }}" />
+                </div>
+                <div>
+                  <span class="block text-sm font-medium mb-2">Permissions</span>
+                  <div class="space-y-3">
+                    {{ $selected := .Data.Values.selected }}
+                    {{ range .Data.PermGroups }}
+                      <div>
+                        <span
+                          class="text-xs text-base-content/50 uppercase tracking-wide"
+                          >{{ .resource }}</span
+                        >
+                        <div
+                          class="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1 mt-1">
+                          {{ range .permissions }}
+                            <label
+                              class="flex items-center gap-2 cursor-pointer text-xs font-mono">
+                              <input
+                                type="checkbox"
+                                name="permissions"
+                                value="{{ . }}"
+                                class="checkbox checkbox-xs checkbox-primary"
+                                {{ if index $selected . }}checked{{ end }} />
+                              {{ . }}
+                            </label>
+                          {{ end }}
+                        </div>
+                      </div>
+                    {{ end }}
+                  </div>
+                </div>
+                <div>
+                  <label
+                    class="block text-sm font-medium mb-1"
+                    for="rbac-custom"
+                    >Custom entries</label
+                  >
+                  <textarea
+                    id="rbac-custom"
+                    name="custom_text"
+                    rows="2"
+                    placeholder="app:*&#10;role:other_role"
+                    class="textarea w-full font-mono text-sm leading-relaxed">{{ .Data.Values.custom_text }}</textarea>
+                  <p class="text-xs text-base-content/50 mt-1">
+                    One entry per line: permission globs like
+                    <span class="font-mono">app:*</span> or role references
+                    like <span class="font-mono">role:other</span>
+                  </p>
+                </div>
+              {{ else }}
+                <div>
+                  <label class="block text-sm font-medium mb-1" for="rbac-desc"
+                    >Description</label
+                  >
+                  <input
+                    id="rbac-desc"
+                    name="description"
+                    type="text"
+                    value="{{ .Data.Values.description }}"
+                    placeholder="developers can manage team apps"
+                    class="input w-full text-sm" />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1" for="rbac-users"
+                    >Users / groups</label
+                  >
+                  <textarea
+                    id="rbac-users"
+                    name="users_text"
+                    rows="4"
+                    placeholder="user1@example.com&#10;group:developers"
+                    class="textarea w-full font-mono text-sm leading-relaxed">{{ .Data.Values.users_text }}</textarea>
+                  <p class="text-xs text-base-content/50 mt-1">
+                    One per line: user ids or
+                    <span class="font-mono">group:name</span> references
+                    {{ if .Data.GroupNames }}
+                      — groups:
+                      {{ range .Data.GroupNames }}
+                        <span class="font-mono">{{ . }}</span>
+                      {{ end }}
+                    {{ end }}
+                  </p>
+                </div>
+                <div>
+                  <span class="block text-sm font-medium mb-2">Roles</span>
+                  {{ if .Data.RoleNames }}
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1">
+                      {{ $granted := .Data.Values.roles }}
+                      {{ range .Data.RoleNames }}
+                        <label
+                          class="flex items-center gap-2 cursor-pointer text-xs font-mono">
+                          <input
+                            type="checkbox"
+                            name="roles"
+                            value="{{ . }}"
+                            class="checkbox checkbox-xs checkbox-primary"
+                            {{ if index $granted . }}checked{{ end }} />
+                          {{ . }}
+                        </label>
+                      {{ end }}
+                    </div>
+                  {{ else }}
+                    <p class="text-xs text-base-content/50">
+                      No roles defined yet — add a role first, or save the
+                      grant and add roles before publishing
+                    </p>
+                  {{ end }}
+                </div>
+                <div>
+                  <label
+                    class="block text-sm font-medium mb-1"
+                    for="rbac-targets"
+                    >Targets</label
+                  >
+                  <textarea
+                    id="rbac-targets"
+                    name="targets_text"
+                    rows="3"
+                    placeholder="/myteam/*&#10;example.com:/**"
+                    class="textarea w-full font-mono text-sm leading-relaxed">{{ .Data.Values.targets_text }}</textarea>
+                  <p class="text-xs text-base-content/50 mt-1">
+                    One app path glob per line. Empty means the grant applies
+                    to global (non app) permissions only
+                  </p>
+                </div>
+              {{ end }}
+
+              <div class="card-actions justify-end pt-2">
+                <a href="{{ .AppPath }}/config" class="btn btn-ghost btn-sm"
+                  >Cancel</a
+                >
+                <button
+                  type="submit"
+                  {{ if not (index .Data.Perms "config:update") }}
+                    disabled title="requires config:update"
+                  {{ end }}
+                  class="btn btn-primary btn-sm transition-transform duration-150 active:scale-95">
+                  {{ if .Data.Values.is_edit }}
+                    Save to staged config
+                  {{ else }}
+                    Add to staged config
+                  {{ end }}
+                </button>
+              </div>
+            </div>
+          </form>
+        </main>
+      </div>
+
+      {{ template "sidebar" . }}
+    </div>
+  </body>
+</html>

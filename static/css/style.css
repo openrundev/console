@@ -1,0 +1,214 @@
+/* Interaction & polish layer, per design/design.md. Theme colors come from
+   the daisyui custom themes defined in app.star (ace.style custom_themes);
+   everything here uses theme variables so it adapts to light/dark. */
+
+:root {
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ---- Branded loading indicator ----------------------------------------
+   A thin primary-colored progress line instead of a generic spinner. The
+   element carries .htmx-indicator, so htmx fades it in during requests;
+   the sweep communicates activity without blocking content. */
+.progress-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  overflow: hidden;
+  pointer-events: none;
+  transition: opacity 200ms ease;
+}
+.progress-line::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  border-radius: 2px;
+  background: var(--color-primary);
+  animation: progress-sweep 1.1s var(--ease-out-soft) infinite;
+}
+@keyframes progress-sweep {
+  from {
+    transform: translateX(-110%);
+  }
+  to {
+    transform: translateX(360%);
+  }
+}
+
+/* ---- In-flight actions -----------------------------------------------
+   Buttons disabled by htmx during their own request (hx-disabled-elt="this")
+   show an inline spinner. Statically disabled buttons are unaffected. */
+button[hx-disabled-elt][disabled] {
+  pointer-events: none;
+  opacity: 0.75;
+}
+button[hx-disabled-elt][disabled]::before {
+  content: "";
+  display: inline-block;
+  width: 0.7em;
+  height: 0.7em;
+  flex: none;
+  border-radius: 9999px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: btn-spin 0.5s linear infinite;
+}
+@keyframes btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---- Sidebar navigation ------------------------------------------------
+   Active item gets a primary accent bar that grows in; inactive items ease
+   toward the content on hover. Felt, not seen. */
+.menu li > a {
+  position: relative;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease,
+    translate 200ms var(--ease-out-soft);
+}
+.menu li > a:hover:not(.menu-active) {
+  translate: 2px 0;
+}
+.menu li > a::before {
+  content: "";
+  position: absolute;
+  left: -0.4rem;
+  top: 50%;
+  width: 3px;
+  height: 0;
+  border-radius: 2px;
+  background: var(--color-primary);
+  transform: translateY(-50%);
+  transition: height 250ms var(--ease-out-soft);
+}
+.menu li > a.menu-active::before {
+  height: 55%;
+}
+
+/* ---- Status dots ---------------------------------------------------------
+   Healthy state breathes gently; errors pulse a little more insistently to
+   direct attention (200-400ms attention band, slowed to stay calm). */
+.status-success {
+  animation: status-breathe 3s ease-in-out infinite;
+}
+@keyframes status-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-success) 35%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 4px color-mix(in oklab, var(--color-success) 10%, transparent);
+  }
+}
+.status-error {
+  animation: status-alert 1.6s ease-in-out infinite;
+}
+@keyframes status-alert {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-error) 45%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 5px color-mix(in oklab, var(--color-error) 12%, transparent);
+  }
+}
+
+/* ---- Field focus ---------------------------------------------------------
+   Focused input glows softly in the brand color and grows slightly wider
+   (width utility transition set in markup). */
+label.input {
+  transition:
+    border-color 200ms ease,
+    box-shadow 200ms ease;
+}
+label.input:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 15%, transparent);
+}
+
+/* Visible keyboard focus everywhere, in the brand color */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ---- Tables ---------------------------------------------------------------
+   Crisp column headers; rows respond immediately to hover. */
+.table thead th {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: color-mix(in oklab, var(--color-base-content) 55%, transparent);
+}
+.table tbody tr {
+  transition: background-color 150ms ease;
+}
+
+/* ---- Logo mark -------------------------------------------------------------
+   A small moment of delight, discovered on hover. */
+/* Cross-document view transitions: same-origin page navigation (e.g. the
+   sidebar links) crossfades instead of flashing */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition {
+    navigation: auto;
+  }
+}
+
+/* ---- Navigation progress -----------------------------------------------
+   Fixed top bar shown between clicking a link and the next page rendering,
+   so slow pages (containers, detail views) give immediate feedback. */
+.nav-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 100;
+  display: none;
+  overflow: hidden;
+  background: color-mix(in oklab, var(--color-primary) 20%, transparent);
+}
+.nav-progress::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: var(--color-primary);
+  animation: nav-progress-sweep 1s ease-in-out infinite;
+}
+.nav-progress.active {
+  display: block;
+}
+@keyframes nav-progress-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(350%);
+  }
+}
+
+.logo-mark {
+  transition: transform 250ms var(--ease-out-soft);
+}
+.logo-mark:hover {
+  transform: scale(1.05);
+}
+
+/* ---- Accessibility ---------------------------------------------------------
+   All motion is removed for users who prefer reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

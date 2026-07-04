@@ -1,0 +1,288 @@
+{{/* Sync detail page (/syncs/detail?id=): settings, status and the stored
+     results of the last invocation. HTMX partial: block sync_content */}}
+<!DOCTYPE html>
+<html lang="en">
+  {{ template "head" . }}
+
+  <body class="min-h-screen bg-base-200">
+    <div class="drawer lg:drawer-open">
+      <input id="nav-drawer" type="checkbox" class="drawer-toggle" />
+
+      <div class="drawer-content">
+        <main class="p-4 lg:p-6 max-w-6xl">
+          <div
+            id="sync-content"
+            class="space-y-4"
+            hx-get="{{ .AppPath }}/syncs/detail?id={{ .Data.Id }}"
+            hx-trigger="every 30s"
+            hx-swap="innerHTML transition:true"
+            hx-indicator="#page-progress">
+          {{ block "sync_content" . }}
+            <!-- Header -->
+            <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+              {{ template "hamburger" }}
+              <div>
+                <div class="breadcrumbs text-xs text-base-content/60 p-0">
+                  <ul>
+                    <li><a href="{{ .AppPath }}/syncs">Syncs</a></li>
+                    <li class="font-mono">{{ .Data.Id }}</li>
+                  </ul>
+                </div>
+                <h1 class="text-xl font-semibold font-mono break-all">
+                  {{ if .Data.Sync }}{{ .Data.Sync.repo }}{{ else }}{{ .Data.Id }}{{ end }}
+                </h1>
+                <p class="text-sm text-base-content/60">
+                  {{ if .Data.Sync }}
+                    {{ if eq .Data.Sync.state "Failing" }}
+                      <span class="status status-error"></span>
+                      <span class="text-error text-xs">failing</span>
+                    {{ else if eq .Data.Sync.state "Disabled" }}
+                      <span class="status status-warning"></span>
+                      <span class="text-xs">disabled</span>
+                    {{ else }}
+                      <span class="status status-success"></span>
+                      <span class="text-xs">healthy</span>
+                    {{ end }}
+                    {{ if .Data.Sync.branch }}
+                      <span class="badge badge-ghost badge-xs"
+                        >{{ .Data.Sync.branch }}</span
+                      >
+                    {{ end }}
+                  {{ end }}
+                </p>
+              </div>
+              <div class="ml-auto flex items-center gap-2">
+                {{ if .Data.Sync }}
+                  <button
+                    class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95"
+                    {{ if index .Data.Perms "sync:run" }}
+                      title="Fetch from the source and apply now"
+                      hx-post="{{ .AppPath }}/syncs/detail/run"
+                      hx-vals='{"id": "{{ .Data.Id }}"}'
+                      hx-target="#sync-content"
+                      hx-swap="innerHTML transition:true"
+                      hx-disabled-elt="this"
+                      hx-indicator="#page-progress"
+                    {{ else }}
+                      disabled title="requires sync:run"
+                    {{ end }}>
+                    Sync now
+                  </button>
+                  <button
+                    class="btn btn-sm btn-ghost text-error transition-transform duration-150 active:scale-95"
+                    {{ if index .Data.Perms "sync:delete" }}
+                      title="Remove this sync source"
+                      hx-post="{{ .AppPath }}/syncs/detail/delete"
+                      hx-vals='{"id": "{{ .Data.Id }}"}'
+                      hx-confirm="Remove sync source {{ .Data.Sync.repo }}? Apps applied by it are not deleted."
+                      hx-target="#sync-content"
+                      hx-swap="innerHTML transition:true"
+                      hx-disabled-elt="this"
+                      hx-indicator="#page-progress"
+                    {{ else }}
+                      disabled title="requires sync:delete"
+                    {{ end }}>
+                    Delete
+                  </button>
+                {{ end }}
+              </div>
+            </div>
+
+            <div class="relative">
+              <div id="page-progress" class="progress-line htmx-indicator"></div>
+            </div>
+
+            {{ if .Data.Error }}
+              <div role="alert" class="alert alert-error alert-soft py-2 text-sm">
+                <span>✕</span>
+                <span class="break-all">{{ .Data.Error }}</span>
+              </div>
+            {{ end }}
+            {{ if .Data.Flash }}
+              <div role="alert" class="alert alert-success alert-soft py-2 text-sm">
+                <span>✓</span>
+                <span>{{ .Data.Flash }}</span>
+              </div>
+            {{ end }}
+            {{ if .Data.FlashError }}
+              <div role="alert" class="alert alert-error alert-soft py-2 text-sm">
+                <span>✕</span>
+                <span class="break-all">{{ .Data.FlashError }}</span>
+              </div>
+            {{ end }}
+
+            {{ if .Data.Sync }}
+              {{ $s := .Data.Sync }}
+              <!-- Overview -->
+              <div class="card bg-base-100 border border-base-300">
+                <div class="card-body p-5 gap-1">
+                  <h2 class="text-sm font-medium text-base-content/60 mb-2">
+                    Overview
+                  </h2>
+                  <div
+                    class="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1.5 text-sm">
+                    <span class="text-xs text-base-content/50 pt-0.5"
+                      >Source</span
+                    >
+                    <span class="font-mono text-xs break-all pt-1"
+                      >{{ $s.repo }}</span
+                    >
+
+                    {{ if $s.branch }}
+                      <span class="text-xs text-base-content/50 pt-0.5"
+                        >Branch</span
+                      >
+                      <span class="font-mono text-xs pt-1">{{ $s.branch }}</span>
+                    {{ end }}
+
+                    {{ if $s.git_auth }}
+                      <span class="text-xs text-base-content/50 pt-0.5"
+                        >Git auth</span
+                      >
+                      <span class="font-mono text-xs pt-1"
+                        >{{ $s.git_auth }}</span
+                      >
+                    {{ end }}
+
+                    <span class="text-xs text-base-content/50 pt-0.5"
+                      >Trigger</span
+                    >
+                    <span class="text-xs pt-1">
+                      {{ if $s.is_scheduled }}
+                        scheduled — every {{ $s.schedule_frequency }} minutes
+                      {{ else }}
+                        webhook
+                        {{ if $s.webhook_url }}
+                          <span class="font-mono break-all"
+                            >{{ $s.webhook_url }}</span
+                          >
+                        {{ end }}
+                      {{ end }}
+                    </span>
+
+                    <span class="text-xs text-base-content/50 pt-0.5"
+                      >Flags</span
+                    >
+                    <span class="pt-1 flex items-center gap-1 flex-wrap">
+                      {{ range $s.flags }}
+                        {{ if eq . "clobber" }}
+                          <span class="badge badge-xs badge-soft badge-warning"
+                            >{{ . }}</span
+                          >
+                        {{ else }}
+                          <span class="badge badge-xs badge-soft badge-primary"
+                            >{{ . }}</span
+                          >
+                        {{ end }}
+                      {{ else }}
+                        <span class="text-xs text-base-content/40"
+                          >staging only — no promote</span
+                        >
+                      {{ end }}
+                    </span>
+
+                    {{ if $s.reload }}
+                      <span class="text-xs text-base-content/50 pt-0.5"
+                        >Reload</span
+                      >
+                      <span class="font-mono text-xs pt-1">{{ $s.reload }}</span>
+                    {{ end }}
+
+                    {{ if $s.user }}
+                      <span class="text-xs text-base-content/50 pt-0.5"
+                        >Created by</span
+                      >
+                      <span class="text-xs pt-1">
+                        {{ $s.user }}
+                        {{ if $s.create_time }}
+                          · {{ template "time_ago" $s.create_time }}
+                        {{ end }}
+                      </span>
+                    {{ end }}
+
+                    <span class="text-xs text-base-content/50 pt-0.5">Id</span>
+                    <span
+                      class="font-mono text-xs text-base-content/60 break-all pt-1"
+                      >{{ $s.id }}</span
+                    >
+                  </div>
+                </div>
+              </div>
+
+              <!-- Last invocation -->
+              <div class="card bg-base-100 border border-base-300">
+                <div
+                  class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
+                  <span class="text-sm font-medium">Last invocation</span>
+                  {{ if $s.last_exec }}
+                    <span class="text-xs text-base-content/50"
+                      >{{ template "time_ago" $s.last_exec }}</span
+                    >
+                    {{ if $s.commit_short }}
+                      <span
+                        class="font-mono text-xs text-base-content/60"
+                        title="{{ $s.commit }}"
+                        >{{ $s.commit_short }}</span
+                      >
+                    {{ end }}
+                  {{ end }}
+                  {{ if $s.failure_count }}
+                    <span class="badge badge-error badge-sm badge-soft ml-auto"
+                      >{{ $s.failure_count }} failed runs</span
+                    >
+                  {{ end }}
+                </div>
+                <div class="card-body p-4 gap-3">
+                  {{ if not $s.last_exec }}
+                    <p class="text-sm text-base-content/50">
+                      This sync has not run yet
+                    </p>
+                  {{ else }}
+                    {{ if $s.error }}
+                      <div
+                        role="alert"
+                        class="alert alert-error alert-soft py-2 text-sm">
+                        <span>✕</span>
+                        <span class="break-all">{{ $s.error }}</span>
+                      </div>
+                    {{ end }}
+                    {{ if .Data.LastResult }}
+                      {{ $r := .Data.LastResult }}
+                      <div class="text-xs text-base-content/50">
+                        {{ if $r.skipped_apply }}
+                          No new commit was found, the apply was skipped
+                        {{ else if not $r.changed }}
+                          {{ $r.total }} apps checked — everything matched the
+                          declared state, no changes were applied
+                        {{ else }}
+                          {{ $r.total }} apps in scope — changes applied:
+                        {{ end }}
+                      </div>
+                      {{ if $r.changed }}
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-1">
+                          {{ template "sync_result_row" (dict "Label" "Created" "Items" $r.created) }}
+                          {{ template "sync_result_row" (dict "Label" "Updated" "Items" $r.updated) }}
+                          {{ template "sync_result_row" (dict "Label" "Reloaded" "Items" $r.reloaded) }}
+                          {{ template "sync_result_row" (dict "Label" "Promoted" "Items" $r.promoted) }}
+                          {{ template "sync_result_row" (dict "Label" "Approved" "Items" $r.approved) }}
+                          {{ template "sync_result_row" (dict "Label" "Skipped" "Items" $r.skipped) }}
+                          {{ template "sync_result_row" (dict "Label" "Bindings +" "Items" $r.bindings_created) }}
+                          {{ template "sync_result_row" (dict "Label" "Bindings ~" "Items" $r.bindings_updated) }}
+                          {{ template "sync_result_row" (dict "Label" "Bindings ↑" "Items" $r.bindings_promoted) }}
+                        </div>
+                      {{ end }}
+                    {{ end }}
+                  {{ end }}
+                </div>
+              </div>
+            {{ end }}
+          {{ end }}
+          <!-- End of "sync_content" block -->
+          </div>
+        </main>
+      </div>
+
+      {{ template "sidebar" . }}
+    </div>
+  </body>
+</html>

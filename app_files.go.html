@@ -1,0 +1,91 @@
+{{/* Version files page (/apps/files?path=&version=&env=): the file listing
+     of one app version */}}
+<!DOCTYPE html>
+<html lang="en">
+  {{ template "head" . }}
+
+  <body class="min-h-screen bg-base-200">
+    <div class="drawer lg:drawer-open">
+      <input id="nav-drawer" type="checkbox" class="drawer-toggle" />
+
+      <div class="drawer-content">
+        <main class="p-4 lg:p-6 space-y-4 max-w-4xl">
+          <!-- Header -->
+          <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+            {{ template "hamburger" }}
+            <div>
+              <div class="breadcrumbs text-xs text-base-content/60 p-0"><ul><li><a href="{{ .AppPath }}/apps">Apps</a></li><li class="font-mono"><a href="{{ .AppPath }}/apps/detail?path={{ .Data.Path }}">{{ .Data.Path }}</a></li><li>files</li></ul></div>
+              <h1 class="text-xl font-semibold">
+                Files
+                <span class="font-mono text-base"
+                  >{{ if .Data.Version }}v{{ .Data.Version }}{{ end }}</span
+                >
+                <span
+                  class="badge {{ if eq .Data.Env "stage" }}
+                    badge-info
+                  {{ else }}
+                    badge-primary
+                  {{ end }} badge-sm badge-soft align-middle"
+                  >{{ .Data.Env }}</span
+                >
+              </h1>
+              <p class="text-sm text-base-content/60">
+                {{ len .Data.Files }} files · {{ .Data.TotalSize }}
+              </p>
+            </div>
+            <div class="ml-auto flex items-center gap-2">
+            </div>
+          </div>
+
+          {{ if .Data.Error }}
+            <div role="alert" class="alert alert-error alert-soft py-2 text-sm">
+              <span>✕</span>
+              <span class="break-all">{{ .Data.Error }}</span>
+            </div>
+          {{ else }}
+            <div class="card bg-base-100 border border-base-300">
+              <div class="overflow-x-auto">
+                <table class="table table-sm">
+                  <thead>
+                    <tr>
+                      <th>File</th>
+                      <th class="text-right">Size</th>
+                      <th class="hidden md:table-cell">Etag</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {{ range .Data.Files }}
+                      <tr class="hover:bg-base-200/60">
+                        <td class="font-mono text-xs break-all">
+                          {{ .name }}
+                        </td>
+                        <td
+                          class="font-mono text-xs tabular-nums text-right whitespace-nowrap">
+                          {{ .size }}
+                        </td>
+                        <td
+                          class="font-mono text-xs text-base-content/50 hidden md:table-cell">
+                          {{ .etag }}
+                        </td>
+                      </tr>
+                    {{ else }}
+                      <tr>
+                        <td
+                          colspan="3"
+                          class="text-center text-sm text-base-content/50 py-6">
+                          No files in this version
+                        </td>
+                      </tr>
+                    {{ end }}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          {{ end }}
+        </main>
+      </div>
+
+      {{ template "sidebar" . }}
+    </div>
+  </body>
+</html>

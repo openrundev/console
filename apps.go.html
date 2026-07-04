@@ -1,0 +1,432 @@
+{{/* Apps list page (/apps): apps grouped by their managing sync plus an
+     unmanaged section, count stats double as declarative/imperative filters.
+     HTMX partial: block app_groups */}}
+{{/* app_table renders one group's list of app rows.
+     Context: dict with Apps (row list), AppPath (console root path) and
+     Perms (the user's management permissions) */}}
+{{ define "app_table" }}
+  {{ $root := .AppPath }}
+  {{ $perms := .Perms }}
+  <div class="overflow-x-auto">
+    <table class="table table-sm">
+      <thead>
+        <tr>
+          <th>App</th>
+          <th class="hidden md:table-cell">Source</th>
+          <th>Prod</th>
+          <th class="hidden sm:table-cell">Staging</th>
+          <th class="hidden lg:table-cell">Auth</th>
+          <th class="hidden lg:table-cell">By</th>
+          <th class="hidden xl:table-cell">Updated</th>
+          <th class="text-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{ range .Apps }}
+          <tr class="group hover:bg-base-200/60">
+            <td>
+              <a
+                href="{{ $root }}/apps/detail?path={{ .path }}"
+                class="link link-hover font-mono font-medium"
+                title="{{ .name }} — view details"
+                >{{ .path }}</a
+              ><a
+                href="{{ .url }}"
+                target="_blank"
+                title="Open app"
+                class="inline-block text-primary text-xs opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-200 ml-0.5"
+                >↗</a
+              >
+            </td>
+            <td class="hidden md:table-cell">
+              {{ if .is_git }}
+                {{ if .source_url }}
+                  <a
+                    href="{{ .source_url }}"
+                    target="_blank"
+                    class="link link-hover font-mono text-xs"
+                    >{{ .source }}</a
+                  >
+                {{ else }}
+                  <span class="font-mono text-xs">{{ .source }}</span>
+                {{ end }}
+                <span class="badge badge-ghost badge-xs">{{ .git_branch }}</span>
+              {{ else if .source }}
+                <span
+                  class="font-mono text-xs inline-block max-w-60 truncate align-bottom"
+                  >{{ .source }}</span
+                >
+              {{ end }}
+            </td>
+            <td
+              class="font-mono text-xs tabular-nums whitespace-nowrap"
+              title="{{ .git_message }}">
+              v{{ .version }}{{ if .git_sha }}
+                ·
+                {{ .git_sha }}
+              {{ end }}
+            </td>
+            <td
+              class="font-mono text-xs tabular-nums whitespace-nowrap hidden sm:table-cell">
+              {{ if .staging }}
+                {{ if .staging.ahead }}
+                  <span title="{{ .staging.git_message }}"
+                    >v{{ .staging.version }}{{ if .staging.git_sha }}
+                      ·
+                      {{ .staging.git_sha }}
+                    {{ end }}</span
+                  >
+                  <span class="badge badge-info badge-xs badge-soft">ahead</span>
+                {{ else }}
+                  <span class="text-base-content/60">= prod</span>
+                {{ end }}
+              {{ else }}
+                <span class="text-base-content/40">—</span>
+              {{ end }}
+            </td>
+            <td class="hidden lg:table-cell">
+              <span class="badge badge-ghost badge-xs">{{ .auth }}</span>
+            </td>
+            <td
+              class="text-xs text-base-content/60 whitespace-nowrap hidden lg:table-cell max-w-32 truncate"
+              title="{{ .created_by }}">
+              {{ if .created_by }}
+                {{ .created_by }}
+              {{ else }}
+                —
+              {{ end }}
+            </td>
+            <td
+              class="text-xs text-base-content/60 whitespace-nowrap hidden xl:table-cell">
+              {{ .update_age }}
+            </td>
+            <td class="text-right whitespace-nowrap">
+              <div
+                class="inline-flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity duration-150">
+                <a
+                  href="{{ $root }}/apps/update?path={{ .path }}"
+                  class="btn btn-xs btn-ghost btn-square {{ if not (index $perms "app:update") }}btn-disabled{{ end }}"
+                  title="{{ if index $perms "app:update" }}Edit auth and parameters{{ else }}requires app:update{{ end }}">
+                  <svg
+                    class="w-3.5 h-3.5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <path
+                      d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                  </svg>
+                </a>
+                <button
+                  class="btn btn-xs btn-ghost btn-square"
+                  {{ if index $perms "app:reload" }}
+                    title="{{ if .is_git }}Reload from git{{ else }}Reload from source{{ end }}"
+                    hx-post="{{ $root }}/apps/reload"
+                    hx-disabled-elt="this"
+                    hx-vals='{"path": "{{ .path }}"}'
+                    hx-confirm="Reload {{ .path }} from its source and promote?"
+                    hx-target="#app-groups"
+                    hx-swap="innerHTML transition:true"
+                    hx-include="#page-search, #app-filter-value"
+                    hx-indicator="#page-progress"
+                  {{ else }}
+                    disabled title="requires app:reload"
+                  {{ end }}>
+                  <svg
+                    class="w-3.5 h-3.5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                    <path d="M21 3v6h-6" />
+                  </svg>
+                </button>
+                <button
+                  class="btn btn-xs btn-ghost btn-square text-error"
+                  {{ if index $perms "app:delete" }}
+                    title="Delete app"
+                    hx-post="{{ $root }}/apps/delete"
+                    hx-disabled-elt="this"
+                    hx-vals='{"path": "{{ .path }}"}'
+                    hx-confirm="Delete {{ .path }}? This deletes the prod, staging and preview apps."
+                    hx-target="#app-groups"
+                    hx-swap="innerHTML transition:true"
+                    hx-include="#page-search, #app-filter-value"
+                    hx-indicator="#page-progress"
+                  {{ else }}
+                    disabled title="requires app:delete"
+                  {{ end }}>
+                  <svg
+                    class="w-3.5 h-3.5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <path d="M3 6h18" />
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                    <path d="M10 11v6" />
+                    <path d="M14 11v6" />
+                  </svg>
+                </button>
+              </div>
+            </td>
+          </tr>
+        {{ end }}
+      </tbody>
+    </table>
+  </div>
+{{ end }}
+<!DOCTYPE html>
+<html lang="en">
+  {{ template "head" . }}
+
+
+  <body class="min-h-screen bg-base-200">
+    <div class="drawer lg:drawer-open">
+      <input id="nav-drawer" type="checkbox" class="drawer-toggle" />
+
+      <div class="drawer-content">
+        <main class="p-4 lg:p-6 space-y-4 max-w-6xl">
+          <!-- Header -->
+          <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+            {{ template "hamburger" }}
+            <div>
+              <h1 class="text-2xl md:text-3xl font-extrabold italic tracking-tight">
+                OpenRun Apps
+              </h1>
+              <p class="text-sm text-base-content/60">
+                Deployed apps, grouped by the sync source managing them
+              </p>
+            </div>
+            <div class="ml-auto flex items-center gap-2">
+              <label
+                class="input input-sm w-48 focus-within:w-60 transition-[width] duration-300 hidden sm:flex">
+                <kbd class="kbd kbd-xs">⌘K</kbd>
+                <input
+                  id="page-search"
+                  type="search"
+                  name="query"
+                  value="{{ .Data.Query }}"
+                  placeholder="Filter apps…"
+                  hx-get="{{ .AppPath }}/apps"
+                  hx-trigger="input changed delay:300ms, search"
+                  hx-push-url="true"
+                  hx-target="#app-groups"
+                  hx-swap="innerHTML transition:true"
+                  hx-include="#app-filter-value"
+                  hx-indicator="#page-progress" />
+              </label>
+              <a
+                href="{{ .AppPath }}/apps/create"
+                class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "app:create") }}btn-disabled{{ end }}"
+                {{ if not (index .Data.Perms "app:create") }}
+                  title="requires app:create" aria-disabled="true"
+                {{ end }}>
+                + New app
+              </a>
+            </div>
+          </div>
+
+          <!-- Filter chips -->
+          <div class="flex items-center gap-2 flex-wrap">
+            <input
+              type="hidden"
+              id="app-filter-value"
+              name="filter"
+              value="{{ .Data.Filter }}"
+              hx-push-url="true"
+              hx-get="{{ .AppPath }}/apps"
+              hx-trigger="change"
+              hx-target="#app-groups"
+              hx-swap="innerHTML transition:true"
+              hx-include="#page-search"
+              hx-indicator="#page-progress" />
+            <!-- Count stats double as the source filter -->
+            <div
+              class="stats stats-horizontal bg-base-100 border border-base-300 overflow-x-auto">
+              <button
+                class="stat py-2 px-5 place-items-start cursor-pointer transition-colors duration-150 hover:bg-base-200/60 {{ if eq .Data.Filter "" }}bg-primary/5{{ end }}"
+                data-filter="" onclick="setAppFilter(this, '')"
+                title="Show all apps">
+                <div class="stat-title text-xs">All apps</div>
+                <div
+                  class="stat-value text-xl tabular-nums {{ if eq .Data.Filter "" }}text-primary{{ end }}">
+                  {{ .Data.Total }}
+                </div>
+              </button>
+              <button
+                class="stat py-2 px-5 place-items-start cursor-pointer transition-colors duration-150 hover:bg-base-200/60 {{ if eq .Data.Filter "declarative" }}bg-primary/5{{ end }}"
+                data-filter="declarative" onclick="setAppFilter(this, 'declarative')"
+                title="Apps managed by a sync source">
+                <div class="stat-title text-xs">Declarative</div>
+                <div
+                  class="stat-value text-xl tabular-nums {{ if eq .Data.Filter "declarative" }}text-primary{{ end }}">
+                  {{ .Data.DeclarativeCount }}
+                </div>
+              </button>
+              <button
+                class="stat py-2 px-5 place-items-start cursor-pointer transition-colors duration-150 hover:bg-base-200/60 {{ if eq .Data.Filter "imperative" }}bg-primary/5{{ end }}"
+                data-filter="imperative" onclick="setAppFilter(this, 'imperative')"
+                title="Apps created via UI/CLI">
+                <div class="stat-title text-xs">Imperative</div>
+                <div
+                  class="stat-value text-xl tabular-nums {{ if eq .Data.Filter "imperative" }}text-primary{{ end }}">
+                  {{ .Data.ImperativeCount }}
+                </div>
+              </button>
+            </div>
+            <span class="text-xs text-base-content/50 ml-auto hidden md:inline self-end"
+              >auto-refresh 30s</span
+            >
+          </div>
+
+          <div class="relative">
+            <div id="page-progress" class="progress-line htmx-indicator"></div>
+          </div>
+
+          <!-- Apps grouped by the sync entry which last applied them -->
+          <div
+            id="app-groups"
+            class="space-y-4"
+            hx-get="{{ .AppPath }}/apps"
+            hx-trigger="every 30s"
+            hx-swap="innerHTML transition:true"
+            hx-include="#page-search, #app-filter-value"
+            hx-indicator="#page-progress">
+            {{ block "app_groups" . }}
+              {{ if .Data.Flash }}
+                <div
+                  role="alert"
+                  class="alert alert-success alert-soft py-2 text-sm">
+                  <span>✓</span>
+                  <span>{{ .Data.Flash }}</span>
+                </div>
+              {{ end }}
+              {{ if .Data.FlashError }}
+                <div
+                  role="alert"
+                  class="alert alert-error alert-soft py-2 text-sm">
+                  <span>✕</span>
+                  <span class="break-all">{{ .Data.FlashError }}</span>
+                </div>
+              {{ end }}
+              {{ if .Data.SyncResult }}
+                {{ template "sync_result" .Data.SyncResult }}
+              {{ end }}
+
+              {{ range .Data.Groups }}
+                <div class="card bg-base-100 border border-base-300">
+                  <div
+                    class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
+                    {{ if eq .sync.state "Failing" }}
+                      <span class="status status-error"></span>
+                    {{ else if eq .sync.state "Disabled" }}
+                      <span class="status status-warning"></span>
+                    {{ else }}
+                      <span class="status status-success"></span>
+                    {{ end }}
+                    <span class="font-mono text-sm font-medium"
+                      >{{ .sync.repo }}</span
+                    >
+                    {{ if .sync.branch }}
+                      <span class="badge badge-ghost badge-xs"
+                        >{{ .sync.branch }}</span
+                      >
+                    {{ end }}
+                    <span class="text-xs text-base-content/50">
+                      {{ len .apps }} apps{{ if .sync.last_exec }}
+                        · synced {{ template "time_ago" .sync.last_exec }}
+                      {{ end }}
+                    </span>
+                    <div class="ml-auto flex items-center gap-2">
+                      <a
+                        href="{{ $.AppPath }}/syncs/detail?id={{ .sync.id }}"
+                        class="link link-hover text-xs text-primary"
+                        >sync detail →</a
+                      >
+                      <button
+                        class="btn btn-xs btn-primary btn-soft transition-transform duration-150 active:scale-95"
+                        {{ if index $.Data.Perms "sync:run" }}
+                          hx-post="{{ $.AppPath }}/apps/sync"
+                          hx-disabled-elt="this"
+                          hx-vals='{"sync_id": "{{ .sync.id }}"}'
+                          hx-target="#app-groups"
+                          hx-swap="innerHTML transition:true"
+                          hx-include="#page-search, #app-filter-value"
+                          hx-indicator="#page-progress"
+                        {{ else }}
+                          disabled title="requires sync:run"
+                        {{ end }}>
+                        Sync now
+                      </button>
+                    </div>
+                  </div>
+                  {{ template "app_table" (dict "Apps" .apps "AppPath" $.AppPath "Perms" $.Data.Perms) }}
+                </div>
+              {{ end }}
+
+              {{ if .Data.Unmanaged }}
+                <div class="card bg-base-100 border border-dashed border-base-300">
+                  <div
+                    class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
+                    <span class="text-sm font-medium">Unmanaged apps</span>
+                    <span class="text-xs text-base-content/50"
+                      >created via UI/CLI — not applied by any sync source</span
+                    >
+                  </div>
+                  {{ template "app_table" (dict "Apps" .Data.Unmanaged "AppPath" .AppPath "Perms" .Data.Perms) }}
+                </div>
+              {{ end }}
+
+              {{ if and (not .Data.Groups) (not .Data.Unmanaged) }}
+                <div class="card bg-base-100 border border-base-300 py-10">
+                  <div
+                    class="flex flex-col items-center gap-2 text-center text-sm text-base-content/60">
+                    {{ if or .Data.Query .Data.Filter }}
+                      <span class="text-xl">🔍</span>
+                      <p>
+                        No apps match
+                        {{ if .Data.Query }}
+                          "{{ .Data.Query }}"
+                        {{ else }}
+                          the current filter
+                        {{ end }}
+                      </p>
+                      <button
+                        class="btn btn-xs btn-outline transition-transform duration-150 active:scale-95"
+                        onclick="clearAppFilter()">
+                        Clear filters
+                      </button>
+                    {{ else }}
+                      <span class="text-xl">🌱</span>
+                      <p>No apps installed yet</p>
+                      <a
+                        href="{{ .AppPath }}/apps/create"
+                        class="btn btn-xs btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "app:create") }}btn-disabled{{ end }}"
+                        {{ if not (index .Data.Perms "app:create") }}
+                          title="requires app:create"
+                        {{ end }}
+                        >+ New app</a
+                      >
+                    {{ end }}
+                  </div>
+                </div>
+              {{ end }}
+            {{ end }}
+            <!-- End of "app_groups" block -->
+          </div>
+        </main>
+      </div>
+
+      {{ template "sidebar" . }}
+    </div>
+  </body>
+</html>

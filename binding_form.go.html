@@ -1,0 +1,251 @@
+{{/* Binding create/update form (/bindings/create, /bindings/update).
+     Updates edit the staged grants as a textarea diff */}}
+<!DOCTYPE html>
+<html lang="en">
+  {{ template "head" . }}
+
+  <body class="min-h-screen bg-base-200">
+    <div class="drawer lg:drawer-open">
+      <input id="nav-drawer" type="checkbox" class="drawer-toggle" />
+
+      <div class="drawer-content">
+        <main class="p-4 lg:p-6 space-y-4 max-w-2xl">
+          <!-- Header -->
+          <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+            {{ template "hamburger" }}
+            <div>
+              <div class="breadcrumbs text-xs text-base-content/60 p-0"><ul><li><a href="{{ .AppPath }}/bindings">Bindings</a></li><li>{{ if eq .Data.Mode "create" }}new{{ else }}edit{{ end }}</li></ul></div>
+              <h1 class="text-xl font-semibold">
+                {{ if eq .Data.Mode "create" }}
+                  New binding
+                {{ else }}
+                  Update
+                  <span class="font-mono">{{ .Data.Values.path }}</span>
+                {{ end }}
+              </h1>
+              <p class="text-sm text-base-content/60">
+                {{ if eq .Data.Mode "create" }}
+                  Bind apps to a service or a base binding
+                {{ else }}
+                  Grant changes apply to staging and are promoted to prod
+                {{ end }}
+              </p>
+            </div>
+            <div class="ml-auto flex items-center gap-2">
+            </div>
+          </div>
+
+          {{ if .Data.Error }}
+            <div role="alert" class="alert alert-error alert-soft py-2 text-sm">
+              <span>✕</span>
+              <span class="break-all">{{ .Data.Error }}</span>
+            </div>
+          {{ end }}
+
+          {{ if .Data.Validated }}
+            <div role="alert" class="alert alert-success alert-soft py-2 text-sm">
+              <span>✓</span>
+              <span
+                >Validation succeeded —
+                <span class="font-mono">{{ .Data.Values.path }}</span> is ready
+                to be created</span
+              >
+            </div>
+          {{ end }}
+
+          {{ if and (eq .Data.Mode "update") (not .Data.Binding) }}
+            <div class="card bg-base-100 border border-base-300 py-10">
+              <div
+                class="flex flex-col items-center gap-2 text-center text-sm text-base-content/60">
+                <span class="text-xl">🔍</span>
+                <p>The binding could not be loaded</p>
+                <a class="btn btn-xs btn-outline" href="{{ .AppPath }}/bindings"
+                  >Back to bindings</a
+                >
+              </div>
+            </div>
+          {{ else }}
+            {{ if eq .Data.Mode "update" }}
+              <!-- Current binding summary -->
+              <div class="card bg-base-100 border border-base-300">
+                <div
+                  class="px-4 py-3 grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1 text-sm">
+                  <div>
+                    <div class="text-xs text-base-content/50">Source</div>
+                    <div
+                      class="font-mono text-xs truncate"
+                      title="{{ .Data.Binding.source }}">
+                      {{ .Data.Binding.source }}
+                    </div>
+                  </div>
+                  <div>
+                    <div class="text-xs text-base-content/50">Base binding</div>
+                    <div class="font-mono text-xs">
+                      {{ if .Data.Binding.derived_from }}
+                        {{ .Data.Binding.derived_from }}
+                      {{ else }}
+                        —
+                      {{ end }}
+                    </div>
+                  </div>
+                  <div>
+                    <div class="text-xs text-base-content/50">Service</div>
+                    <div class="font-mono text-xs">
+                      {{ .Data.Binding.service_type }}{{ if .Data.Binding.service_name }}/{{ .Data.Binding.service_name }}{{ end }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            {{ end }}
+
+
+            <form
+              method="post"
+              action="{{ .AppPath }}/bindings/{{ .Data.Mode }}"
+              class="card bg-base-100 border border-base-300">
+              <div class="card-body p-5 gap-5">
+                {{ if eq .Data.Mode "create" }}
+                  <div class="space-y-4">
+                    <div>
+                      <label
+                        class="block text-sm font-medium mb-1"
+                        for="binding-path"
+                        >Binding path</label
+                      >
+                      <input
+                        id="binding-path"
+                        name="path"
+                        type="text"
+                        required
+                        value="{{ .Data.Values.path }}"
+                        placeholder="/db/main"
+                        class="input w-full font-mono text-sm" />
+                      <p class="text-xs text-base-content/50 mt-1">
+                        Unique path apps use to reference this binding
+                      </p>
+                    </div>
+
+                    <div>
+                      <label
+                        class="block text-sm font-medium mb-1"
+                        for="binding-source"
+                        >Source</label
+                      >
+                      <input
+                        id="binding-source"
+                        name="source"
+                        type="text"
+                        required
+                        value="{{ .Data.Values.source }}"
+                        placeholder="postgres/main or /base/binding"
+                        class="input w-full font-mono text-sm" />
+                      <p class="text-xs text-base-content/50 mt-1">
+                        A service id (type/name) for a base binding, or an
+                        existing binding path to derive from
+                      </p>
+                    </div>
+                  </div>
+
+                  <div class="divider my-0"></div>
+                {{ else }}
+                  <input
+                    type="hidden"
+                    name="path"
+                    value="{{ .Data.Values.path }}" />
+                {{ end }}
+
+
+                <div class="space-y-4">
+                  <div>
+                    <label
+                      class="block text-sm font-medium mb-1"
+                      for="binding-grants"
+                      >Grants</label
+                    >
+                    <textarea
+                      id="binding-grants"
+                      name="grants_text"
+                      rows="4"
+                      spellcheck="false"
+                      placeholder="read:*&#10;full:/tools/**"
+                      class="textarea w-full font-mono text-sm leading-relaxed">{{ .Data.Values.grants_text }}</textarea>
+                    <p class="text-xs text-base-content/50 mt-1">
+                      One type:target grant per line, for derived bindings
+                      only.
+                      {{ if eq .Data.Mode "update" }}
+                        Removing a line deletes the grant.
+                      {{ end }}
+                    </p>
+                  </div>
+
+                  {{ if eq .Data.Mode "create" }}
+                    <div>
+                      <label
+                        class="block text-sm font-medium mb-1"
+                        for="binding-config"
+                        >Config</label
+                      >
+                      <textarea
+                        id="binding-config"
+                        name="config_text"
+                        rows="4"
+                        spellcheck="false"
+                        placeholder="timeout=30&#10;pool_size=5"
+                        class="textarea w-full font-mono text-sm leading-relaxed">{{ .Data.Values.config_text }}</textarea>
+                      <p class="text-xs text-base-content/50 mt-1">
+                        One KEY=value config entry per line
+                      </p>
+                    </div>
+                  {{ end }}
+                </div>
+
+                <div class="card-actions justify-end pt-2">
+                  <a
+                    href="{{ .AppPath }}/bindings"
+                    class="btn btn-ghost btn-sm"
+                    >Cancel</a
+                  >
+                  {{ if eq .Data.Mode "create" }}
+                    <button
+                      type="submit"
+                      name="action"
+                      value="validate"
+                      {{ if index .Data.Perms "binding:create" }}
+                        title="Dry run: check the binding without creating it"
+                      {{ else }}
+                        disabled title="requires binding:create"
+                      {{ end }}
+                      class="btn btn-outline btn-sm transition-transform duration-150 active:scale-95">
+                      Validate
+                    </button>
+                    <button
+                      type="submit"
+                      name="action"
+                      value="create"
+                      {{ if not (index .Data.Perms "binding:create") }}
+                        disabled title="requires binding:create"
+                      {{ end }}
+                      class="btn btn-primary btn-sm transition-transform duration-150 active:scale-95">
+                      Create binding
+                    </button>
+                  {{ else }}
+                    <button
+                      type="submit"
+                      {{ if not (index .Data.Perms "binding:update") }}
+                        disabled title="requires binding:update"
+                      {{ end }}
+                      class="btn btn-primary btn-sm transition-transform duration-150 active:scale-95">
+                      Save changes
+                    </button>
+                  {{ end }}
+                </div>
+              </div>
+            </form>
+          {{ end }}
+        </main>
+      </div>
+
+      {{ template "sidebar" . }}
+    </div>
+  </body>
+</html>

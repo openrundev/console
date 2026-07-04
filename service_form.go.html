@@ -1,0 +1,164 @@
+{{/* Service create form (/bindings/services/create) with a Validate
+     (dry run) option */}}
+<!DOCTYPE html>
+<html lang="en">
+  {{ template "head" . }}
+
+  <body class="min-h-screen bg-base-200">
+    <div class="drawer lg:drawer-open">
+      <input id="nav-drawer" type="checkbox" class="drawer-toggle" />
+
+      <div class="drawer-content">
+        <main class="p-4 lg:p-6 space-y-4 max-w-2xl">
+          <!-- Header -->
+          <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+            {{ template "hamburger" }}
+            <div>
+              <div class="breadcrumbs text-xs text-base-content/60 p-0">
+                <ul>
+                  <li><a href="{{ .AppPath }}/bindings">Bindings</a></li>
+                  <li>new service</li>
+                </ul>
+              </div>
+              <h1 class="text-xl font-semibold">New service</h1>
+              <p class="text-sm text-base-content/60">
+                A named backing service (database etc.) that app bindings
+                connect to
+              </p>
+            </div>
+          </div>
+
+          {{ if .Data.Error }}
+            <div role="alert" class="alert alert-error alert-soft py-2 text-sm">
+              <span>✕</span>
+              <span class="break-all">{{ .Data.Error }}</span>
+            </div>
+          {{ end }}
+          {{ if .Data.Validated }}
+            <div
+              role="alert"
+              class="alert alert-success alert-soft py-2 text-sm">
+              <span>✓</span>
+              <span
+                >Validation succeeded —
+                <span class="font-mono">{{ .Data.Values.id }}</span> is ready
+                to be created</span
+              >
+            </div>
+          {{ end }}
+
+
+          <form
+            method="post"
+            action="{{ .AppPath }}/bindings/services/create"
+            class="card bg-base-100 border border-base-300">
+            <div class="card-body p-5 gap-5">
+              <div>
+                <label class="block text-sm font-medium mb-1" for="service-id"
+                  >Service id</label
+                >
+                <input
+                  id="service-id"
+                  name="id"
+                  type="text"
+                  required
+                  value="{{ .Data.Values.id }}"
+                  placeholder="postgres/main"
+                  class="input w-full font-mono text-sm" />
+                <p class="text-xs text-base-content/50 mt-1">
+                  Format is
+                  <span class="font-mono">service_type/name</span>, for example
+                  <span class="font-mono">postgres/main</span> or
+                  <span class="font-mono">mysql/reports</span>
+                </p>
+              </div>
+
+              <div>
+                <label
+                  class="block text-sm font-medium mb-1"
+                  for="service-config"
+                  >Config</label
+                >
+                <textarea
+                  id="service-config"
+                  name="config_text"
+                  rows="5"
+                  placeholder="host=db.internal&#10;port=5432&#10;user=app&#10;password=secret"
+                  class="textarea w-full font-mono text-sm leading-relaxed">{{ .Data.Values.config_text }}</textarea>
+                <p class="text-xs text-base-content/50 mt-1">
+                  One KEY=value per line. Connection settings for the service
+                </p>
+              </div>
+
+              <div
+                class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 items-start">
+                <label class="flex items-center gap-3 cursor-pointer pt-6">
+                  <input
+                    type="checkbox"
+                    name="is_default"
+                    class="toggle toggle-sm toggle-primary"
+                    {{ if .Data.Values.is_default }}checked{{ end }} />
+                  <span class="text-sm">
+                    Default for its type
+                    <span class="block text-xs text-base-content/50">
+                      used when apps reference the type without a name
+                    </span>
+                  </span>
+                </label>
+                <div>
+                  <label
+                    class="block text-sm font-medium mb-1"
+                    for="service-staging"
+                    >Staging service</label
+                  >
+                  <input
+                    id="service-staging"
+                    name="staging"
+                    type="text"
+                    value="{{ .Data.Values.staging }}"
+                    placeholder="optional"
+                    class="input w-full font-mono text-sm" />
+                  <p class="text-xs text-base-content/50 mt-1">
+                    Service name staging apps should use instead
+                  </p>
+                </div>
+              </div>
+
+              <div class="card-actions justify-end pt-2">
+                <a
+                  href="{{ .AppPath }}/bindings"
+                  class="btn btn-ghost btn-sm"
+                  >Cancel</a
+                >
+                <button
+                  type="submit"
+                  name="action"
+                  value="validate"
+                  {{ if index .Data.Perms "service:create" }}
+                    title="Dry run: check the service without creating it"
+                  {{ else }}
+                    disabled title="requires service:create"
+                  {{ end }}
+                  class="btn btn-outline btn-sm transition-transform duration-150 active:scale-95">
+                  Validate
+                </button>
+                <button
+                  type="submit"
+                  name="action"
+                  value="create"
+                  {{ if not (index .Data.Perms "service:create") }}
+                    disabled title="requires service:create"
+                  {{ end }}
+                  class="btn btn-primary btn-sm transition-transform duration-150 active:scale-95">
+                  Create service
+                </button>
+              </div>
+            </div>
+          </form>
+        </main>
+      </div>
+
+      {{ template "sidebar" . }}
+    </div>
+  </body>
+</html>

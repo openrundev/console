@@ -1,0 +1,381 @@
+{{/* Audit logs page (/audit): filter form, rid trace banner and the events
+     table with infinite scroll. HTMX partial: block audit_rows renders the
+     next page of rows */}}
+<!DOCTYPE html>
+<html lang="en">
+  {{ template "head" . }}
+
+  <body class="min-h-screen bg-base-200">
+    <div class="drawer lg:drawer-open">
+      <input id="nav-drawer" type="checkbox" class="drawer-toggle" />
+
+      <div class="drawer-content">
+        <main class="p-4 lg:p-6 space-y-4 max-w-6xl">
+          <!-- Header -->
+          <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+            {{ template "hamburger" }}
+            <div>
+              <h1 class="text-2xl md:text-3xl font-extrabold italic tracking-tight">
+                OpenRun Audit Logs
+              </h1>
+              <p class="text-sm text-base-content/60">
+                HTTP, system and custom events recorded for every app
+              </p>
+            </div>
+          </div>
+
+          <!-- Filters -->
+          <form
+            id="audit-filters"
+            class="card bg-base-100 border border-base-300"
+            hx-get="{{ .AppPath }}/audit"
+            hx-trigger="input changed delay:500ms, change"
+            hx-target="#audit-rows"
+            hx-swap="innerHTML"
+            hx-params="*"
+            hx-push-url="true"
+            hx-include="closest form"
+            hx-indicator="#page-progress"
+            onsubmit="return false">
+            <div class="card-body p-4 gap-3">
+              <div class="grid grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-3">
+                <div>
+                  <label
+                    class="block text-xs text-base-content/60 mb-1"
+                    for="app_glob"
+                    >App</label
+                  >
+                  <input
+                    list="audit-app-list"
+                    class="input input-sm w-full font-mono"
+                    id="app_glob"
+                    name="app_glob"
+                    value="{{ .Data.Filters.app_glob }}"
+                    placeholder="all apps, glob ok"
+                    onfocus="this.select()" />
+                  <datalist id="audit-app-list">
+                    {{ range .Data.Apps }}
+                      <option value="{{ . }}"></option>
+                    {{ end }}
+                  </datalist>
+                </div>
+
+                <div>
+                  <label
+                    class="block text-xs text-base-content/60 mb-1"
+                    for="event_type"
+                    >Event type</label
+                  >
+                  <select
+                    class="select select-sm w-full"
+                    id="event_type"
+                    name="event_type">
+                    <option value="">all</option>
+                    {{ range $t := list "http" "system" "action" "custom" }}
+                      <option
+                        value="{{ $t }}"
+                        {{ if eq $.Data.Filters.event_type $t }}selected{{ end }}>
+                        {{ $t }}
+                      </option>
+                    {{ end }}
+                  </select>
+                </div>
+
+                <div>
+                  <label
+                    class="block text-xs text-base-content/60 mb-1"
+                    for="operation"
+                    >Operation</label
+                  >
+                  <input
+                    list="audit-op-list"
+                    id="operation"
+                    name="operation"
+                    class="input input-sm w-full font-mono"
+                    value="{{ .Data.Filters.operation }}"
+                    placeholder="all"
+                    onfocus="this.select()" />
+                  <datalist id="audit-op-list">
+                    {{ range .Data.Operations }}
+                      <option value="{{ . }}"></option>
+                    {{ end }}
+                  </datalist>
+                </div>
+
+                <div>
+                  <label
+                    class="block text-xs text-base-content/60 mb-1"
+                    for="target"
+                    >Target</label
+                  >
+                  <input
+                    type="text"
+                    id="target"
+                    name="target"
+                    value="{{ .Data.Filters.target }}"
+                    placeholder="url path, app path…"
+                    class="input input-sm w-full font-mono" />
+                </div>
+              </div>
+
+              <details
+                class="collapse collapse-arrow bg-base-200/40 rounded-lg"
+                {{ if or .Data.Filters.user_id .Data.Filters.status .Data.Filters.start_date .Data.Filters.end_date }}
+                  open
+                {{ end }}>
+                <summary
+                  class="collapse-title min-h-0 py-2 text-xs font-medium text-base-content/60">
+                  Advanced filters
+                </summary>
+                <div class="collapse-content">
+                  <div class="grid grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-3 pt-1">
+                    <div>
+                      <label
+                        class="block text-xs text-base-content/60 mb-1"
+                        for="user_id"
+                        >User</label
+                      >
+                      <input
+                        type="text"
+                        class="input input-sm w-full font-mono"
+                        id="user_id"
+                        name="user_id"
+                        value="{{ .Data.Filters.user_id }}" />
+                    </div>
+
+                    <div>
+                      <label
+                        class="block text-xs text-base-content/60 mb-1"
+                        for="status"
+                        >Status</label
+                      >
+                      <select
+                        class="select select-sm w-full"
+                        id="status"
+                        name="status">
+                        <option value="">all</option>
+                        {{ range $s := list "Success" "Failed" "200" "400" "401" "403" "404" "500" }}
+                          <option
+                            value="{{ $s }}"
+                            {{ if eq $.Data.Filters.status $s }}selected{{ end }}>
+                            {{ $s }}
+                          </option>
+                        {{ end }}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label
+                        class="block text-xs text-base-content/60 mb-1"
+                        for="start_date"
+                        >From</label
+                      >
+                      <input
+                        type="date"
+                        class="input input-sm w-full"
+                        id="start_date"
+                        name="start_date"
+                        value="{{ .Data.Filters.start_date }}" />
+                    </div>
+
+                    <div>
+                      <label
+                        class="block text-xs text-base-content/60 mb-1"
+                        for="end_date"
+                        >To</label
+                      >
+                      <input
+                        type="date"
+                        class="input input-sm w-full"
+                        id="end_date"
+                        name="end_date"
+                        value="{{ .Data.Filters.end_date }}" />
+                    </div>
+                  </div>
+                </div>
+              </details>
+
+              {{ if .Data.Filters.rid }}
+                <!-- Trace mode: all events of one request -->
+                <div
+                  role="alert"
+                  class="alert alert-info alert-soft py-2 text-sm">
+                  <span>🔍</span>
+                  <span>
+                    Showing all events for request
+                    <span class="font-mono text-xs">{{ .Data.Filters.rid }}</span>
+                  </span>
+                  <a
+                    href="{{ .AppPath }}/audit"
+                    class="btn btn-xs btn-ghost ml-auto"
+                    >Clear trace</a
+                  >
+                </div>
+                <input type="hidden" name="rid" value="{{ .Data.Filters.rid }}" />
+              {{ end }}
+            </div>
+          </form>
+
+          <div class="relative">
+            <div id="page-progress" class="progress-line htmx-indicator"></div>
+          </div>
+
+          {{ if .Data.FlashError }}
+            <div role="alert" class="alert alert-error alert-soft py-2 text-sm">
+              <span>✕</span>
+              <span class="break-all">{{ .Data.FlashError }}</span>
+            </div>
+          {{ end }}
+
+          <!-- Events, infinite scroll -->
+          <div class="card bg-base-100 border border-base-300">
+            <div class="overflow-x-auto">
+              <table class="table table-sm">
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Type</th>
+                    <th>Operation</th>
+                    <th>Target</th>
+                    <th class="hidden md:table-cell">App</th>
+                    <th class="hidden lg:table-cell">User</th>
+                    <th>Status</th>
+                    <th class="text-right">Trace</th>
+                  </tr>
+                </thead>
+                <tbody id="audit-rows">
+                  {{ block "audit_rows" . }}
+                    {{ $count := len .Data.Events }}
+                    {{ range $i, $e := .Data.Events }}
+                      <tr
+                        class="hover:bg-base-200/60"
+                        {{ if eq $count (add $i 1) }}
+                          hx-get="{{ $.Data.NextPage }}"
+                          hx-trigger="revealed"
+                          hx-swap="afterend"
+                          hx-indicator="#audit-loading"
+                        {{ end }}>
+                        <td
+                          class="text-xs text-base-content/60 whitespace-nowrap"
+                          title="{{ $e.create_time }}">
+                          {{ template "time_ago" $e.create_time }}
+                        </td>
+                        <td>
+                          {{ if eq $e.event_type "http" }}
+                            <span class="badge badge-xs badge-soft badge-primary"
+                              >http</span
+                            >
+                          {{ else if eq $e.event_type "system" }}
+                            <span class="badge badge-xs badge-soft badge-warning"
+                              >system</span
+                            >
+                          {{ else }}
+                            <span class="badge badge-xs badge-ghost"
+                              >{{ $e.event_type }}</span
+                            >
+                          {{ end }}
+                        </td>
+                        <td class="font-mono text-xs whitespace-nowrap">
+                          {{ $e.operation }}
+                        </td>
+                        <td>
+                          <span
+                            class="font-mono text-xs inline-block max-w-56 truncate align-bottom"
+                            title="{{ $e.target }}"
+                            >{{ $e.target }}</span
+                          >
+                        </td>
+                        <td class="hidden md:table-cell">
+                          {{ if and $e.app_path (ne $e.app_env "preview") }}
+                            <a
+                              href="{{ $.AppPath }}/apps/detail?path={{ $e.app_path }}"
+                              class="link link-hover font-mono text-xs inline-block max-w-40 truncate align-bottom"
+                              title="{{ $e.app_name }} — view app details"
+                              >{{ $e.app_path }}</a
+                            >
+                            {{ if eq $e.app_env "stage" }}
+                              <span class="badge badge-ghost badge-xs"
+                                >stage</span
+                              >
+                            {{ end }}
+                          {{ else if $e.app_path }}
+                            <span
+                              class="font-mono text-xs text-base-content/60 inline-block max-w-40 truncate align-bottom"
+                              title="{{ $e.app_name }}"
+                              >{{ $e.app_path }}</span
+                            >
+                            <span class="badge badge-ghost badge-xs"
+                              >preview</span
+                            >
+                          {{ else if $e.app_name }}
+                            <span
+                              class="font-mono text-xs text-base-content/60 inline-block max-w-40 truncate align-bottom"
+                              title="{{ $e.app_name }}"
+                              >{{ $e.app_name }}</span
+                            >
+                          {{ else }}
+                            <span class="text-base-content/40 text-xs">—</span>
+                          {{ end }}
+                        </td>
+                        <td
+                          class="text-xs text-base-content/60 hidden lg:table-cell max-w-32 truncate"
+                          title="{{ $e.user_id }}">
+                          {{ $e.user_id }}
+                        </td>
+                        <td>
+                          {{ if eq $e.status_style "ok" }}
+                            <span
+                              class="badge badge-xs badge-soft badge-success"
+                              title="{{ $e.detail }}"
+                              >{{ $e.status }}</span
+                            >
+                          {{ else if eq $e.status_style "error" }}
+                            <span
+                              class="badge badge-xs badge-soft badge-error"
+                              title="{{ $e.detail }}"
+                              >{{ $e.status }}</span
+                            >
+                          {{ else }}
+                            <span class="text-base-content/40 text-xs">—</span>
+                          {{ end }}
+                        </td>
+                        <td class="text-right whitespace-nowrap">
+                          <a
+                            class="btn btn-xs btn-ghost"
+                            title="See all events for this request"
+                            href="{{ $.AppPath }}/audit?rid={{ $e.rid }}">
+                            trace →
+                          </a>
+                        </td>
+                      </tr>
+                    {{ else }}
+                      {{ if not .Data.IsMore }}
+                        <tr>
+                          <td colspan="8">
+                            <div
+                              class="flex flex-col items-center gap-2 py-10 text-center text-sm text-base-content/60">
+                              <span class="text-xl">📜</span>
+                              <p>No audit events match the filters</p>
+                            </div>
+                          </td>
+                        </tr>
+                      {{ end }}
+                    {{ end }}
+                  {{ end }}
+                  <!-- End of "audit_rows" block -->
+                </tbody>
+              </table>
+            </div>
+            <div class="flex justify-center py-1">
+              <span
+                id="audit-loading"
+                class="htmx-indicator loading loading-dots loading-sm text-primary"></span>
+            </div>
+          </div>
+        </main>
+      </div>
+
+      {{ template "sidebar" . }}
+    </div>
+  </body>
+</html>

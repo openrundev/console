@@ -1,0 +1,310 @@
+{{/* Shared layout pieces for all console pages. Defines used across page
+     templates must live here (page-local defines are not visible to other
+     pages) */}}
+
+{{/* head renders the html head: title, pre-paint theme/background scripts,
+     console.js and the generated style/htmx imports */}}
+{{ define "head" }}
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OpenRun — {{ .Data.Title }}</title>
+
+    <script>
+      // The generated daisyui styles follow the system preference by default
+      // (light and dark themes from ace.style). Apply the persisted manual
+      // choice, if any, before styles load to avoid a flash.
+      const theme = localStorage.getItem("theme");
+      if (theme == "light" || theme == "dark") {
+        document.documentElement.setAttribute(
+          "data-theme",
+          "openrun-" + theme,
+        );
+      }
+    </script>
+    <style>
+      /* Paint the page background before the stylesheets apply, so
+         navigating between pages does not flash white in dark mode.
+         Values match base-200 of the openrun themes */
+      html {
+        background-color: #f1f6f1;
+      }
+      html[data-theme="openrun-dark"] {
+        background-color: #101a13;
+        color-scheme: dark;
+      }
+      @media (prefers-color-scheme: dark) {
+        html:not([data-theme="openrun-light"]) {
+          background-color: #101a13;
+          color-scheme: dark;
+        }
+      }
+    </style>
+    <script src="{{ static "console.js" }}"></script>
+
+    {{ template "openrun_gen_import" . }}
+  </head>
+{{ end }}
+
+{{/* hamburger opens the nav drawer on small screens */}}
+{{ define "hamburger" }}
+  <label
+    for="nav-drawer"
+    class="btn btn-ghost btn-square btn-xl lg:hidden"
+    aria-label="Open navigation"
+    >☰</label
+  >
+{{ end }}
+
+{{/* time_ago renders an RFC3339 timestamp as a compact "4m ago" style age */}}
+{{ define "time_ago" }}
+  {{- $d := ago (toDate "2006-01-02T15:04:05Z07:00" .) -}}
+  {{- $d = regexReplaceAll "([hm])[0-9]+(\\.[0-9]+)?s$" $d "${1}" -}}
+  {{- $d = regexReplaceAll "(h)[0-9]+m$" $d "${1}" -}}
+  {{- $d }} ago
+{{- end }}
+
+{{/* sync_result_row renders one category line of a sync result */}}
+{{ define "sync_result_row" }}
+  {{ if .Items }}
+    <div class="flex items-baseline gap-2 min-w-0">
+      <span class="text-xs text-base-content/50 w-24 flex-none text-right"
+        >{{ .Label }}</span
+      >
+      <span class="font-mono text-xs break-all"
+        >{{ range $i, $item := .Items }}{{ if $i }},
+          {{ end }}{{ $item }}{{ end }}</span
+      >
+    </div>
+  {{ end }}
+{{ end }}
+
+{{/* sync_result renders the detailed results of a sync run.
+     Context: the SyncResult summary dict */}}
+{{ define "sync_result" }}
+  <div class="card bg-base-100 border border-success/40">
+    <div class="card-body p-4 gap-2">
+      <div class="flex items-center gap-2 text-sm flex-wrap">
+        <span class="text-success">✓</span>
+        <span class="font-medium">Sync completed</span>
+        {{ if .commit }}
+          <span class="font-mono text-xs text-base-content/60"
+            >{{ .commit }}</span
+          >
+        {{ end }}
+        <span class="text-xs text-base-content/50">
+          {{ if .skipped_apply }}
+            — no new commit, apply was skipped
+          {{ else if not .changed }}
+            — {{ .total }} apps checked, everything matches the declared state
+          {{ else }}
+            — {{ .total }} apps in scope
+          {{ end }}
+        </span>
+      </div>
+      {{ if .changed }}
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-1">
+          {{ template "sync_result_row" (dict "Label" "Created" "Items" .created) }}
+          {{ template "sync_result_row" (dict "Label" "Updated" "Items" .updated) }}
+          {{ template "sync_result_row" (dict "Label" "Reloaded" "Items" .reloaded) }}
+          {{ template "sync_result_row" (dict "Label" "Promoted" "Items" .promoted) }}
+          {{ template "sync_result_row" (dict "Label" "Approved" "Items" .approved) }}
+          {{ template "sync_result_row" (dict "Label" "Skipped" "Items" .skipped) }}
+          {{ template "sync_result_row" (dict "Label" "Bindings +" "Items" .bindings_created) }}
+          {{ template "sync_result_row" (dict "Label" "Bindings ~" "Items" .bindings_updated) }}
+          {{ template "sync_result_row" (dict "Label" "Bindings ↑" "Items" .bindings_promoted) }}
+        </div>
+      {{ end }}
+    </div>
+  </div>
+{{ end }}
+
+{{/* perms_card renders the requested permissions summary.
+     Context: dict with Review (loads + permissions) and Note (footer text) */}}
+{{ define "perms_card" }}
+  <div class="card bg-base-100 border border-base-300">
+    <div class="card-body p-5 gap-3">
+      <h2 class="text-sm font-medium text-base-content/60">
+        Requested permissions
+      </h2>
+      {{ if or .Review.loads .Review.permissions }}
+        {{ if .Review.loads }}
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span class="text-xs text-base-content/50">Plugins</span>
+            {{ range .Review.loads }}
+              <span class="badge badge-sm badge-soft badge-primary font-mono"
+                >{{ . }}</span
+              >
+            {{ end }}
+          </div>
+        {{ end }}
+        {{ if .Review.permissions }}
+          <div
+            class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-6 gap-y-1.5">
+            {{ range .Review.permissions }}
+              <div
+                class="flex items-center gap-1.5 min-w-0 rounded bg-base-200/60 px-2 py-1">
+                <span class="font-mono text-xs whitespace-nowrap"
+                  >{{ .plugin }}.{{ .method }}</span
+                >
+                {{ if .arguments }}
+                  <span
+                    class="font-mono text-xs text-base-content/50 truncate"
+                    title="{{ .arguments }}"
+                    >{{ .arguments }}</span
+                  >
+                {{ end }}
+                {{ if eq .access "read" }}
+                  <span class="badge badge-xs badge-soft badge-primary ml-auto"
+                    >read</span
+                  >
+                {{ else if eq .access "write" }}
+                  <span class="badge badge-xs badge-soft badge-warning ml-auto"
+                    >write</span
+                  >
+                {{ end }}
+              </div>
+            {{ end }}
+          </div>
+        {{ end }}
+        <p class="text-xs text-base-content/50">{{ .Note }}</p>
+      {{ else }}
+        <p class="text-sm text-base-content/60">
+          This app requests no plugin permissions
+        </p>
+      {{ end }}
+    </div>
+  </div>
+{{ end }}
+
+{{/* container_state renders the state dot and label for a container */}}
+{{ define "container_state" }}
+  {{ if eq .state "running" }}
+    <span class="status status-success"></span>
+    <span class="text-xs">running</span>
+  {{ else if eq .state "exited" }}
+    <span class="status status-error"></span>
+    <span class="text-xs text-error">exited</span>
+  {{ else if eq .state "failed" }}
+    <span class="status status-error"></span>
+    <span class="text-xs text-error">failed</span>
+  {{ else if eq .state "pending" }}
+    <span class="status status-warning"></span>
+    <span class="text-xs">pending</span>
+  {{ else }}
+    <span class="status status-warning"></span>
+    <span class="text-xs">{{ .state }}</span>
+  {{ end }}
+{{ end }}
+
+{{/* theme_toggle is the sun/moon switch, persisted via localStorage */}}
+{{ define "theme_toggle" }}
+  <label
+    class="swap swap-rotate btn btn-sm btn-ghost btn-circle"
+    title="Switch between dark and light themes">
+    <input id="theme-toggle" class="hidden" type="checkbox" />
+    <span class="swap-on">☀️</span>
+    <span class="swap-off">🌙</span>
+  </label>
+  <script>
+    // Set the toggle to the active theme before first paint; doing this
+    // after DOMContentLoaded plays the swap animation on every page load
+    (() => {
+      const toggle = document.getElementById("theme-toggle");
+      const attr = document.documentElement.getAttribute("data-theme");
+      const systemDark =
+        window.matchMedia &&
+        window.matchMedia("(prefers-color-scheme: dark)").matches;
+      toggle.checked = attr ? attr == "openrun-light" : !systemDark;
+    })();
+  </script>
+{{ end }}
+
+{{/* sidebar renders the nav drawer: logo, menu (highlighted via .Data.Nav),
+     user footer with theme toggle, the nav progress bar and the error toast
+     target used by the error_handler fallback */}}
+{{ define "sidebar" }}
+  <!-- Indeterminate top bar shown while navigating to the next page -->
+  <div id="nav-progress" class="nav-progress" aria-hidden="true"></div>
+  <!-- Fallback error target: error_handler retargets failed HTMX requests here -->
+  <div id="error-toast" class="toast toast-end z-50"></div>
+  <div class="drawer-side z-20">
+    <label
+      for="nav-drawer"
+      aria-label="Close navigation"
+      class="drawer-overlay"></label>
+    <aside
+      class="w-60 min-h-full bg-base-100 border-r border-base-300 flex flex-col">
+      <div class="px-3 py-1.5 flex items-center justify-center border-b border-base-300">
+        <a href="{{ .AppPath }}/" title="OpenRun home" class="logo-mark inline-block">
+          <img
+            src="{{ static "openrun.png" }}"
+            alt="OpenRun"
+            width="600"
+            height="325"
+            class="h-10 md:h-20 w-auto" />
+        </a>
+      </div>
+      <ul class="menu w-full grow px-2 pt-3 gap-1 text-[0.95rem]">
+        <li>
+          <a
+            href="{{ .AppPath }}/apps"
+            class="{{ if eq .Data.Nav "apps" }}menu-active{{ end }}"
+            >Apps</a
+          >
+        </li>
+        <li>
+          <a
+            href="{{ .AppPath }}/syncs"
+            class="{{ if eq .Data.Nav "syncs" }}menu-active{{ end }}"
+            >Syncs</a
+          >
+        </li>
+        <li>
+          <a
+            href="{{ .AppPath }}/bindings"
+            class="{{ if eq .Data.Nav "bindings" }}menu-active{{ end }}"
+            >Bindings</a
+          >
+        </li>
+        <li>
+          <a
+            href="{{ .AppPath }}/containers"
+            class="{{ if eq .Data.Nav "containers" }}menu-active{{ end }}"
+            >Containers</a
+          >
+        </li>
+        <li>
+          <a
+            href="{{ .AppPath }}/audit"
+            class="{{ if eq .Data.Nav "audit" }}menu-active{{ end }}"
+            >Audit Logs</a
+          >
+        </li>
+        <li>
+          <a
+            href="{{ .AppPath }}/config"
+            class="{{ if eq .Data.Nav "config" }}menu-active{{ end }}"
+            >Configuration</a
+          >
+        </li>
+      </ul>
+      <div
+        class="px-4 py-3 border-t border-base-300 flex items-center gap-2 text-sm">
+        {{ if .UserId }}
+          <div class="avatar avatar-placeholder">
+            <div class="w-7 rounded-full bg-neutral text-neutral-content">
+              <span class="text-xs">{{ upper (trunc 1 .UserId) }}</span>
+            </div>
+          </div>
+          <div class="min-w-0">
+            <div class="truncate" title="{{ .UserId }}">{{ .UserId }}</div>
+          </div>
+        {{ end }}
+        <div class="ml-auto">
+          {{ template "theme_toggle" . }}
+        </div>
+      </div>
+    </aside>
+  </div>
+{{ end }}

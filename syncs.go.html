@@ -1,0 +1,275 @@
+{{/* Syncs page (/syncs): sync entries table with run/delete actions.
+     HTMX partial: block sync_rows */}}
+<!DOCTYPE html>
+<html lang="en">
+  {{ template "head" . }}
+
+  <body class="min-h-screen bg-base-200">
+    <div class="drawer lg:drawer-open">
+      <input id="nav-drawer" type="checkbox" class="drawer-toggle" />
+
+      <div class="drawer-content">
+        <main class="p-4 lg:p-6 space-y-4 max-w-6xl">
+          <!-- Header -->
+          <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+            {{ template "hamburger" }}
+            <div>
+              <h1 class="text-2xl md:text-3xl font-extrabold italic tracking-tight">
+                OpenRun Syncs
+              </h1>
+              <p class="text-sm text-base-content/60">
+                Declarative sources of truth — apps are created and updated
+                from these repos
+              </p>
+            </div>
+            <div class="ml-auto flex items-center gap-2">
+              <label
+                class="input input-sm w-48 focus-within:w-60 transition-[width] duration-300 hidden sm:flex">
+                <kbd class="kbd kbd-xs">⌘K</kbd>
+                <input
+                  id="page-search"
+                  type="search"
+                  name="query"
+                  value="{{ .Data.Query }}"
+                  placeholder="Filter syncs…"
+                  hx-get="{{ .AppPath }}/syncs"
+                  hx-trigger="input changed delay:300ms, search"
+                  hx-push-url="true"
+                  hx-target="#sync-rows"
+                  hx-swap="innerHTML transition:true"
+                  hx-indicator="#page-progress" />
+              </label>
+              <a
+                href="{{ .AppPath }}/syncs/create"
+                class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "sync:create") }}btn-disabled{{ end }}"
+                {{ if not (index .Data.Perms "sync:create") }}
+                  title="requires sync:create" aria-disabled="true"
+                {{ end }}>
+                + Add sync source
+              </a>
+            </div>
+          </div>
+
+          <div class="relative">
+            <div id="page-progress" class="progress-line htmx-indicator"></div>
+          </div>
+
+          <!-- Sync source rows -->
+          <div
+            id="sync-rows"
+            class="space-y-4"
+            hx-get="{{ .AppPath }}/syncs"
+            hx-trigger="every 30s"
+            hx-swap="innerHTML transition:true"
+            hx-include="#page-search"
+            hx-indicator="#page-progress">
+            {{ block "sync_rows" . }}
+              {{ if .Data.Flash }}
+                <div
+                  role="alert"
+                  class="alert alert-success alert-soft py-2 text-sm">
+                  <span>✓</span>
+                  <span>{{ .Data.Flash }}</span>
+                </div>
+              {{ end }}
+              {{ if .Data.FlashError }}
+                <div
+                  role="alert"
+                  class="alert alert-error alert-soft py-2 text-sm">
+                  <span>✕</span>
+                  <span class="break-all">{{ .Data.FlashError }}</span>
+                </div>
+              {{ end }}
+              {{ if .Data.SyncResult }}
+                {{ template "sync_result" .Data.SyncResult }}
+              {{ end }}
+
+              {{ if .Data.Syncs }}
+                <div class="card bg-base-100 border border-base-300">
+                  <div class="overflow-x-auto">
+                    <table class="table table-sm">
+                      <thead>
+                        <tr>
+                          <th>State</th>
+                          <th>Source</th>
+                          <th class="hidden md:table-cell">Trigger</th>
+                          <th class="hidden lg:table-cell">Flags</th>
+                          <th class="hidden lg:table-cell">By</th>
+                          <th class="hidden sm:table-cell">Last sync</th>
+                          <th class="text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {{ range .Data.Syncs }}
+                          <tr class="group hover:bg-base-200/60">
+                            <td class="whitespace-nowrap">
+                              {{ if eq .state "Failing" }}
+                                <span class="status status-error"></span>
+                                <span class="text-xs text-error">failing</span>
+                              {{ else if eq .state "Disabled" }}
+                                <span class="status status-warning"></span>
+                                <span class="text-xs">disabled</span>
+                              {{ else }}
+                                <span class="status status-success"></span>
+                                <span class="text-xs">healthy</span>
+                              {{ end }}
+                            </td>
+                            <td>
+                              <a
+                                href="{{ $.AppPath }}/syncs/detail?id={{ .id }}"
+                                class="link link-hover font-mono text-xs font-medium break-all"
+                                title="View sync details and last run"
+                                >{{ .repo }}</a
+                              >
+                              {{ if .branch }}
+                                <span class="badge badge-ghost badge-xs"
+                                  >{{ .branch }}</span
+                                >
+                              {{ end }}
+                            </td>
+                            <td
+                              class="text-xs text-base-content/60 hidden md:table-cell whitespace-nowrap">
+                              {{ if .is_scheduled }}
+                                every {{ .schedule_frequency }}m
+                              {{ else }}
+                                webhook
+                              {{ end }}
+                            </td>
+                            <td class="hidden lg:table-cell">
+                              {{ range .flags }}
+                                {{ if eq . "clobber" }}
+                                  <span
+                                    class="badge badge-xs badge-soft badge-warning"
+                                    >{{ . }}</span
+                                  >
+                                {{ else }}
+                                  <span
+                                    class="badge badge-xs badge-soft badge-primary"
+                                    >{{ . }}</span
+                                  >
+                                {{ end }}
+                              {{ else }}
+                                <span
+                                  class="text-xs text-base-content/40"
+                                  title="staging only — no promote"
+                                  >staging only</span
+                                >
+                              {{ end }}
+                            </td>
+                            <td
+                              class="text-xs text-base-content/60 hidden lg:table-cell whitespace-nowrap max-w-32 truncate"
+                              title="{{ .user }}">
+                              {{ if .user }}
+                                {{ .user }}
+                              {{ else }}
+                                —
+                              {{ end }}
+                            </td>
+                            <td
+                              class="text-xs text-base-content/60 hidden sm:table-cell whitespace-nowrap">
+                              {{ if .last_exec }}
+                                {{ template "time_ago" .last_exec }}
+                              {{ else }}
+                                never
+                              {{ end }}
+                              {{ if .commit }}
+                                <span class="font-mono">{{ .commit }}</span>
+                              {{ end }}
+                              {{ if .failure_count }}
+                                <span
+                                  class="badge badge-error badge-xs badge-soft"
+                                  >{{ .failure_count }} fails</span
+                                >
+                              {{ end }}
+                            </td>
+                            <td class="text-right whitespace-nowrap">
+                              <div
+                                class="inline-flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity duration-150">
+                                <button
+                                  class="btn btn-xs btn-ghost text-primary"
+                                  {{ if index $.Data.Perms "sync:run" }}
+                                    title="Fetch from the source and apply now"
+                                    hx-post="{{ $.AppPath }}/syncs/run"
+                                    hx-vals='{"sync_id": "{{ .id }}"}'
+                                    hx-target="#sync-rows"
+                                    hx-swap="innerHTML transition:true"
+                                    hx-include="#page-search"
+                                    hx-disabled-elt="this"
+                                    hx-indicator="#page-progress"
+                                  {{ else }}
+                                    disabled title="requires sync:run"
+                                  {{ end }}>
+                                  sync now
+                                </button>
+                                <a
+                                  href="{{ $.AppPath }}/syncs/detail?id={{ .id }}"
+                                  class="btn btn-xs btn-ghost"
+                                  title="Details and last run results">
+                                  detail →
+                                </a>
+                                <button
+                                  class="btn btn-xs btn-ghost text-error"
+                                  {{ if index $.Data.Perms "sync:delete" }}
+                                    title="Remove this sync source (apps are not deleted)"
+                                    hx-post="{{ $.AppPath }}/syncs/delete"
+                                    hx-vals='{"sync_id": "{{ .id }}"}'
+                                    hx-confirm="Remove sync source {{ .repo }}? Apps applied by it are not deleted."
+                                    hx-target="#sync-rows"
+                                    hx-swap="innerHTML transition:true"
+                                    hx-include="#page-search"
+                                    hx-disabled-elt="this"
+                                    hx-indicator="#page-progress"
+                                  {{ else }}
+                                    disabled title="requires sync:delete"
+                                  {{ end }}>
+                                  delete
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        {{ end }}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              {{ else if not .Data.FlashError }}
+                <div class="card bg-base-100 border border-base-300 py-10">
+                  <div
+                    class="flex flex-col items-center gap-2 text-center text-sm text-base-content/60">
+                    {{ if .Data.Query }}
+                      <span class="text-xl">🔍</span>
+                      <p>No syncs match "{{ .Data.Query }}"</p>
+                      <button
+                        class="btn btn-xs btn-outline transition-transform duration-150 active:scale-95"
+                        onclick="clearAppFilter()">
+                        Clear search
+                      </button>
+                    {{ else }}
+                      <span class="text-xl">🔄</span>
+                      <p>No sync sources configured yet</p>
+                      <p class="text-xs text-base-content/50">
+                        Manage apps declaratively — point OpenRun at a git repo
+                        with app definitions
+                      </p>
+                      <a
+                        href="{{ .AppPath }}/syncs/create"
+                        class="btn btn-xs btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "sync:create") }}btn-disabled{{ end }}"
+                        {{ if not (index .Data.Perms "sync:create") }}
+                          title="requires sync:create"
+                        {{ end }}
+                        >+ Add sync source</a
+                      >
+                    {{ end }}
+                  </div>
+                </div>
+              {{ end }}
+            {{ end }}
+            <!-- End of "sync_rows" block -->
+          </div>
+        </main>
+      </div>
+
+      {{ template "sidebar" . }}
+    </div>
+  </body>
+</html>
