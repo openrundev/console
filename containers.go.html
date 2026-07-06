@@ -6,7 +6,7 @@
 
   <body class="min-h-screen bg-base-200">
     <div class="drawer lg:drawer-open">
-      <input id="nav-drawer" type="checkbox" class="drawer-toggle" />
+      <input id="nav-drawer" type="checkbox" class="drawer-toggle" tabindex="-1" aria-hidden="true" />
 
       <div class="drawer-content">
         <main class="p-4 lg:p-6 space-y-4 max-w-6xl">
@@ -17,7 +17,7 @@
               <h1 class="text-2xl md:text-3xl font-extrabold italic tracking-tight">
                 OpenRun Containers
               </h1>
-              <p class="text-sm text-base-content/60">
+              <p class="text-sm text-base-content/70">
                 {{ .Data.Total }} containers · {{ .Data.Running }} running
                 {{ if .Data.Runtime }}
                   <span class="badge badge-ghost badge-xs align-middle"
@@ -29,11 +29,12 @@
             <div class="ml-auto flex items-center gap-2">
               <label
                 class="input input-sm w-48 focus-within:w-60 transition-[width] duration-300 hidden sm:flex">
-                <kbd class="kbd kbd-xs">⌘K</kbd>
+                <kbd class="kbd kbd-xs" aria-hidden="true">⌘K</kbd>
                 <input
                   id="page-search"
                   type="search"
                   name="query"
+                  aria-label="Filter containers"
                   value="{{ .Data.Query }}"
                   placeholder="Filter containers…"
                   hx-get="{{ .AppPath }}/containers"
@@ -60,24 +61,27 @@
               hx-swap="innerHTML transition:true"
               hx-include="#page-search"
               hx-indicator="#page-progress" />
-            <div class="join">
+            <div class="join" role="group" aria-label="Filter containers by state">
               <button
                 class="btn btn-sm join-item transition-transform duration-150 active:scale-95 {{ if eq .Data.Filter "running" }}btn-primary{{ end }}"
+                aria-pressed="{{ if eq .Data.Filter "running" }}true{{ else }}false{{ end }}"
                 data-filter="running" onclick="setAppFilter(this, 'running')">
                 Running
               </button>
               <button
                 class="btn btn-sm join-item transition-transform duration-150 active:scale-95 {{ if eq .Data.Filter "exited" }}btn-primary{{ end }}"
+                aria-pressed="{{ if eq .Data.Filter "exited" }}true{{ else }}false{{ end }}"
                 data-filter="exited" onclick="setAppFilter(this, 'exited')">
                 Stopped
               </button>
               <button
                 class="btn btn-sm join-item transition-transform duration-150 active:scale-95 {{ if eq .Data.Filter "all" }}btn-primary{{ end }}"
+                aria-pressed="{{ if eq .Data.Filter "all" }}true{{ else }}false{{ end }}"
                 data-filter="all" onclick="setAppFilter(this, 'all')">
                 All
               </button>
             </div>
-            <span class="text-xs text-base-content/50 ml-auto hidden md:inline"
+            <span class="text-xs text-base-content/70 ml-auto hidden md:inline"
               >auto-refresh 30s</span
             >
           </div>
@@ -99,7 +103,7 @@
                 <div
                   role="alert"
                   class="alert alert-success alert-soft py-2 text-sm">
-                  <span>✓</span>
+                  <span aria-hidden="true">✓</span>
                   <span>{{ .Data.Flash }}</span>
                 </div>
               {{ end }}
@@ -107,7 +111,7 @@
                 <div
                   role="alert"
                   class="alert alert-error alert-soft py-2 text-sm">
-                  <span>✕</span>
+                  <span aria-hidden="true">✕</span>
                   <span class="break-all">{{ .Data.FlashError }}</span>
                 </div>
               {{ end }}
@@ -118,14 +122,14 @@
                     <table class="table table-sm">
                       <thead>
                         <tr>
-                          <th>State</th>
-                          <th>Id</th>
-                          <th>Container</th>
-                          <th>App</th>
-                          <th class="hidden md:table-cell">Image</th>
-                          <th class="hidden lg:table-cell">Ports</th>
-                          <th class="hidden xl:table-cell">Status</th>
-                          <th class="text-right">Actions</th>
+                          <th scope="col">State</th>
+                          <th scope="col">Id</th>
+                          <th scope="col">Container</th>
+                          <th scope="col">App</th>
+                          <th scope="col" class="hidden md:table-cell">Image</th>
+                          <th scope="col" class="hidden lg:table-cell">Ports</th>
+                          <th scope="col" class="hidden xl:table-cell">Status</th>
+                          <th scope="col" class="text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -163,18 +167,18 @@
                                   >
                                 {{ end }}
                               {{ else }}
-                                <span class="text-base-content/40 text-xs"
+                                <span class="text-base-content/70 text-xs"
                                   >—</span
                                 >
                               {{ end }}
                             </td>
                             <td
-                              class="font-mono text-xs text-base-content/60 hidden md:table-cell max-w-60 truncate"
+                              class="font-mono text-xs text-base-content/70 hidden md:table-cell max-w-60 truncate"
                               title="{{ .image }}">
                               {{ .image }}
                             </td>
                             <td
-                              class="font-mono text-xs text-base-content/60 hidden lg:table-cell whitespace-nowrap">
+                              class="font-mono text-xs text-base-content/70 hidden lg:table-cell whitespace-nowrap">
                               {{ if .ports }}
                                 {{ .ports }}
                               {{ else }}
@@ -182,17 +186,18 @@
                               {{ end }}
                             </td>
                             <td
-                              class="text-xs text-base-content/60 hidden xl:table-cell whitespace-nowrap">
+                              class="text-xs text-base-content/70 hidden xl:table-cell whitespace-nowrap">
                               {{ .status }}
                             </td>
                             <td class="text-right whitespace-nowrap">
                               <div
-                                class="inline-flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity duration-150">
+                                class="inline-flex items-center gap-0.5">
                                 {{ if ne .runtime "kubernetes" }}
                                   {{ if eq .state "running" }}
                                     <button
                                       class="btn btn-xs btn-ghost text-error"
                                       title="Stop container"
+                                      aria-label="Stop container {{ .name }}"
                                       hx-post="{{ $.AppPath }}/containers/lifecycle"
                                       hx-vals='{"id": "{{ .id }}", "action": "stop"}'
                                       hx-confirm="Stop container {{ .name }}? The app will be unavailable until it is started again."
@@ -207,6 +212,7 @@
                                     <button
                                       class="btn btn-xs btn-ghost text-primary"
                                       title="Start container"
+                                      aria-label="Start container {{ .name }}"
                                       hx-post="{{ $.AppPath }}/containers/lifecycle"
                                       hx-vals='{"id": "{{ .id }}", "action": "start"}'
                                       hx-target="#container-rows"
@@ -221,8 +227,9 @@
                                 <a
                                   href="{{ $.AppPath }}/containers/detail?id={{ .id }}"
                                   class="btn btn-xs btn-ghost"
-                                  title="Details, stats and logs">
-                                  logs →
+                                  title="Details, stats and logs"
+                                  aria-label="Logs and details for container {{ .name }}">
+                                  logs <span aria-hidden="true">→</span>
                                 </a>
                               </div>
                             </td>
@@ -235,9 +242,9 @@
               {{ else if not .Data.FlashError }}
                 <div class="card bg-base-100 border border-base-300 py-10">
                   <div
-                    class="flex flex-col items-center gap-2 text-center text-sm text-base-content/60">
+                    class="flex flex-col items-center gap-2 text-center text-sm text-base-content/70">
                     {{ if .Data.Query }}
-                      <span class="text-xl">🔍</span>
+                      <span class="text-xl" aria-hidden="true">🔍</span>
                       <p>No containers match "{{ .Data.Query }}"</p>
                       <button
                         class="btn btn-xs btn-outline transition-transform duration-150 active:scale-95"
@@ -245,9 +252,9 @@
                         Clear search
                       </button>
                     {{ else }}
-                      <span class="text-xl">📦</span>
+                      <span class="text-xl" aria-hidden="true">📦</span>
                       <p>No containers are being managed</p>
-                      <p class="text-xs text-base-content/50">
+                      <p class="text-xs text-base-content/70">
                         Apps with a container spec start containers when they
                         serve requests
                       </p>

@@ -5,20 +5,20 @@
      Context: dict with Versions, Error, Env (prod/stage), Path, AppPath */}}
 {{ define "version_table" }}
   {{ if .Error }}
-    <p class="text-sm text-base-content/50 px-4 py-4">{{ .Error }}</p>
+    <p class="text-sm text-base-content/70 px-4 py-4">{{ .Error }}</p>
   {{ else if not .Versions }}
-    <p class="text-sm text-base-content/50 px-4 py-4">No versions yet</p>
+    <p class="text-sm text-base-content/70 px-4 py-4">No versions yet</p>
   {{ else }}
     {{ $ctx := . }}
     <div class="overflow-x-auto">
       <table class="table table-sm">
         <thead>
           <tr>
-            <th>Version</th>
-            <th>Git</th>
-            <th class="hidden sm:table-cell">By</th>
-            <th class="hidden md:table-cell">Created</th>
-            <th class="text-right">Actions</th>
+            <th scope="col">Version</th>
+            <th scope="col">Git</th>
+            <th scope="col" class="hidden sm:table-cell">By</th>
+            <th scope="col" class="hidden md:table-cell">Created</th>
+            <th scope="col" class="text-right">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -42,24 +42,25 @@
                     >
                   {{ end }}
                 {{ else }}
-                  <span class="text-base-content/40">—</span>
+                  <span class="text-base-content/70">—</span>
                 {{ end }}
               </td>
-              <td class="text-xs text-base-content/60 hidden sm:table-cell">
+              <td class="text-xs text-base-content/70 hidden sm:table-cell">
                 {{ .user }}
               </td>
               <td
-                class="text-xs text-base-content/60 whitespace-nowrap hidden md:table-cell">
+                class="text-xs text-base-content/70 whitespace-nowrap hidden md:table-cell">
                 {{ if .create_time }}
                   {{ template "time_ago" .create_time }}
                 {{ end }}
               </td>
               <td class="text-right whitespace-nowrap">
                 <div
-                  class="inline-flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity duration-150">
+                  class="inline-flex items-center gap-0.5">
                   {{ if not .active }}
                     <button
                       class="btn btn-xs btn-ghost text-primary"
+                      aria-label="Switch {{ $ctx.Env }} to v{{ .version }}"
                       {{ if index $ctx.Perms "app:update" }}
                         title="Make v{{ .version }} the active {{ $ctx.Env }} version"
                         hx-post="{{ $ctx.AppPath }}/apps/switch"
@@ -78,8 +79,9 @@
                   <a
                     href="{{ $ctx.AppPath }}/apps/files?path={{ $ctx.Path }}&version={{ .version }}&env={{ $ctx.Env }}"
                     class="btn btn-xs btn-ghost"
-                    title="View the files in this version">
-                    files →
+                    title="View the files in this version"
+                    aria-label="Files of {{ $ctx.Env }} v{{ .version }}">
+                    files <span aria-hidden="true">→</span>
                   </a>
                 </div>
               </td>
@@ -96,7 +98,7 @@
 
   <body class="min-h-screen bg-base-200">
     <div class="drawer lg:drawer-open">
-      <input id="nav-drawer" type="checkbox" class="drawer-toggle" />
+      <input id="nav-drawer" type="checkbox" class="drawer-toggle" tabindex="-1" aria-hidden="true" />
 
       <div class="drawer-content">
         <main class="p-4 lg:p-6 max-w-6xl">
@@ -106,9 +108,9 @@
           <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" }}
             <div>
-              <div class="breadcrumbs text-xs text-base-content/60 p-0"><ul><li><a href="{{ .AppPath }}/apps">Apps</a></li><li class="font-mono">{{ .Data.Path }}</li></ul></div>
+              <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0"><ul><li><a href="{{ .AppPath }}/apps">Apps</a></li><li class="font-mono">{{ .Data.Path }}</li></ul></nav>
               <h1 class="text-xl font-semibold font-mono">{{ .Data.Path }}</h1>
-              <p class="text-sm text-base-content/60">
+              <p class="text-sm text-base-content/70">
                 {{ if .Data.App }}
                   {{ .Data.App.name }}
                   {{ if .Data.App.is_dev }}
@@ -131,8 +133,10 @@
                 <a
                   href="{{ .Data.App.url }}"
                   target="_blank"
+                  rel="noopener"
+                  title="Opens the app in a new tab"
                   class="btn btn-sm btn-outline transition-transform duration-150 active:scale-95">
-                  Open app ↗
+                  Open app <span aria-hidden="true">↗</span>
                 </a>
                 <button
                   class="btn btn-sm btn-outline transition-transform duration-150 active:scale-95"
@@ -172,7 +176,7 @@
                   href="{{ .AppPath }}/apps/update?path={{ .Data.Path }}"
                   class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "app:update") }}btn-disabled{{ end }}"
                   {{ if not (index .Data.Perms "app:update") }}
-                    title="requires app:update"
+                    title="requires app:update" aria-disabled="true" tabindex="-1"
                   {{ end }}>
                   Edit
                 </a>
@@ -202,19 +206,19 @@
 
           {{ if .Data.Error }}
             <div role="alert" class="alert alert-error alert-soft py-2 text-sm">
-              <span>✕</span>
+              <span aria-hidden="true">✕</span>
               <span class="break-all">{{ .Data.Error }}</span>
             </div>
           {{ end }}
           {{ if .Data.Flash }}
             <div role="alert" class="alert alert-success alert-soft py-2 text-sm">
-              <span>✓</span>
+              <span aria-hidden="true">✓</span>
               <span>{{ .Data.Flash }}</span>
             </div>
           {{ end }}
           {{ if .Data.FlashError }}
             <div role="alert" class="alert alert-error alert-soft py-2 text-sm">
-              <span>✕</span>
+              <span aria-hidden="true">✕</span>
               <span class="break-all">{{ .Data.FlashError }}</span>
             </div>
           {{ end }}
@@ -224,7 +228,7 @@
             <div
               role="alert"
               class="alert alert-info alert-soft py-2 text-sm flex-wrap">
-              <span>✓</span>
+              <span aria-hidden="true">✓</span>
               <span>
                 {{ if eq .Data.AskPromote "reload" }}
                   Staging was reloaded from source.
@@ -263,12 +267,12 @@
             <!-- Overview -->
             <div class="card bg-base-100 border border-base-300">
               <div class="card-body p-5 gap-1">
-                <h2 class="text-sm font-medium text-base-content/60 mb-2">
+                <h2 class="text-sm font-medium text-base-content/70 mb-2">
                   Overview
                 </h2>
                 <div
                   class="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1.5 text-sm">
-                  <span class="text-xs text-base-content/50 pt-0.5">Source</span>
+                  <span class="text-xs text-base-content/70 pt-0.5">Source</span>
                   <span class="font-mono text-xs break-all pt-1"
                     >{{ .Data.App.source_url }}{{ if .Data.App.git_branch }}
                       <span class="badge badge-ghost badge-xs"
@@ -278,20 +282,20 @@
                   >
 
                   {{ if .Data.App.git_commit }}
-                    <span class="text-xs text-base-content/50 pt-0.5"
+                    <span class="text-xs text-base-content/70 pt-0.5"
                       >Commit</span
                     >
                     <span class="font-mono text-xs pt-1"
                       >{{ .Data.App.git_commit }}
                       {{ if .Data.App.git_message }}
-                        <span class="text-base-content/50 font-sans"
+                        <span class="text-base-content/70 font-sans"
                           >— {{ .Data.App.git_message }}</span
                         >
                       {{ end }}</span
                     >
                   {{ end }}
 
-                  <span class="text-xs text-base-content/50 pt-0.5"
+                  <span class="text-xs text-base-content/70 pt-0.5"
                     >Managed by</span
                   >
                   <span class="pt-1">
@@ -307,7 +311,7 @@
                     {{ end }}
                   </span>
 
-                  <span class="text-xs text-base-content/50 pt-0.5">Spec</span>
+                  <span class="text-xs text-base-content/70 pt-0.5">Spec</span>
                   <span class="font-mono text-xs pt-1"
                     >{{ if .Data.App.spec }}
                       {{ .Data.App.spec }}
@@ -316,7 +320,7 @@
                     {{ end }}</span
                   >
 
-                  <span class="text-xs text-base-content/50 pt-0.5">Auth</span>
+                  <span class="text-xs text-base-content/70 pt-0.5">Auth</span>
                   <span class="pt-1"
                     ><span class="badge badge-ghost badge-xs"
                       >{{ if .Data.App.auth }}
@@ -327,7 +331,7 @@
                     ></span
                   >
 
-                  <span class="text-xs text-base-content/50 pt-0.5"
+                  <span class="text-xs text-base-content/70 pt-0.5"
                     >Version</span
                   >
                   <span class="font-mono text-xs pt-1"
@@ -335,7 +339,7 @@
                   >
 
                   {{ if .Data.App.update_time }}
-                    <span class="text-xs text-base-content/50 pt-0.5"
+                    <span class="text-xs text-base-content/70 pt-0.5"
                       >Updated</span
                     >
                     <span class="text-xs pt-1"
@@ -344,7 +348,7 @@
                   {{ end }}
 
                   {{ if .Data.Containers }}
-                    <span class="text-xs text-base-content/50 pt-0.5"
+                    <span class="text-xs text-base-content/70 pt-0.5"
                       >Containers</span
                     >
                     <span class="pt-1 flex items-center gap-3 flex-wrap">
@@ -361,14 +365,14 @@
                           <span class="font-mono"
                             >{{ .env }} · {{ .state }}</span
                           >
-                          <span class="text-base-content/50">→</span>
+                          <span class="text-base-content/70">→</span>
                         </a>
                       {{ end }}
                     </span>
                   {{ end }}
 
-                  <span class="text-xs text-base-content/50 pt-0.5">Id</span>
-                  <span class="font-mono text-xs text-base-content/60 pt-1"
+                  <span class="text-xs text-base-content/70 pt-0.5">Id</span>
+                  <span class="font-mono text-xs text-base-content/70 pt-1"
                     >{{ .Data.App.id }}</span
                   >
                 </div>
@@ -379,7 +383,7 @@
             {{ if .Data.ParamsText }}
               <div class="card bg-base-100 border border-base-300">
                 <div class="card-body p-5 gap-2">
-                  <h2 class="text-sm font-medium text-base-content/60">
+                  <h2 class="text-sm font-medium text-base-content/70">
                     Parameters
                   </h2>
                   <pre
@@ -392,10 +396,10 @@
             {{ if .Data.AuditError }}
               <div class="card bg-base-100 border border-base-300">
                 <div class="card-body p-5 gap-2">
-                  <h2 class="text-sm font-medium text-base-content/60">
+                  <h2 class="text-sm font-medium text-base-content/70">
                     Requested permissions
                   </h2>
-                  <p class="text-sm text-base-content/50 break-all">
+                  <p class="text-sm text-base-content/70 break-all">
                     Audit failed: {{ .Data.AuditError }}
                   </p>
                 </div>
@@ -405,7 +409,7 @@
                 <div
                   role="alert"
                   class="alert alert-warning alert-soft py-2 text-sm flex-wrap">
-                  <span>⚠</span>
+                  <span aria-hidden="true">⚠</span>
                   <span
                     >The app requests permissions which are not approved yet —
                     it cannot serve requests until they are approved</span
@@ -433,7 +437,7 @@
             <!-- Versions -->
             {{ if .Data.App.is_dev }}
               <div class="card bg-base-100 border border-base-300 py-6">
-                <p class="text-sm text-base-content/50 text-center">
+                <p class="text-sm text-base-content/70 text-center">
                   Dev apps serve directly from disk — versions are not tracked
                 </p>
               </div>
@@ -442,8 +446,8 @@
                 <div class="card bg-base-100 border border-base-300">
                   <div
                     class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2">
-                    <span class="text-sm font-medium">Staging versions</span>
-                    <span class="text-xs text-base-content/50"
+                    <h2 class="text-sm font-medium">Staging versions</h2>
+                    <span class="text-xs text-base-content/70"
                       >{{ len .Data.StageVersions }} versions</span
                     >
                   </div>
@@ -452,8 +456,8 @@
                 <div class="card bg-base-100 border border-base-300">
                   <div
                     class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2">
-                    <span class="text-sm font-medium">Production versions</span>
-                    <span class="text-xs text-base-content/50"
+                    <h2 class="text-sm font-medium">Production versions</h2>
+                    <span class="text-xs text-base-content/70"
                       >{{ len .Data.ProdVersions }} versions</span
                     >
                   </div>

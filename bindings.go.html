@@ -8,7 +8,7 @@
   {{ if .service_type }}
     <span class="badge badge-ghost badge-xs">{{ .service_type }}</span>
   {{ else if not .service_name }}
-    <span class="text-xs text-base-content/40" title="{{ .source }}"
+    <span class="text-xs text-base-content/70" title="{{ .source }}"
       >config only</span
     >
   {{ end }}
@@ -18,12 +18,12 @@
 {{ define "binding_config" }}
   {{ if .config_keys }}
     <span
-      class="text-xs text-base-content/60 font-mono"
+      class="text-xs text-base-content/70 font-mono"
       title="{{ range .config_keys }}{{ . }} {{ end }}"
       >{{ len .config_keys }} keys</span
     >
   {{ else }}
-    <span class="text-xs text-base-content/40">—</span>
+    <span class="text-xs text-base-content/70">—</span>
   {{ end }}
 {{ end }}
 
@@ -50,13 +50,15 @@
      Perms (the user's management permissions) */}}
 {{ define "binding_actions" }}
   <div
-    class="inline-flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity duration-150">
+    class="inline-flex items-center gap-0.5">
     {{ if .Editable }}
       <a
         href="{{ .AppPath }}/bindings/update?path={{ .Path }}"
         class="btn btn-xs btn-ghost btn-square {{ if not (index .Perms "binding:update") }}btn-disabled{{ end }}"
+        {{ if not (index .Perms "binding:update") }}aria-disabled="true" tabindex="-1"{{ end }}
+        aria-label="Edit grants of {{ .Path }}"
         title="{{ if index .Perms "binding:update" }}Edit grants{{ else }}requires binding:update{{ end }}">
-        <svg
+        <svg aria-hidden="true" focusable="false"
           class="w-3.5 h-3.5"
           viewBox="0 0 24 24"
           fill="none"
@@ -70,6 +72,7 @@
     {{ end }}
     <button
       class="btn btn-xs btn-ghost btn-square text-error"
+      aria-label="Delete binding {{ .Path }}"
       {{ if index .Perms "binding:delete" }}
         title="Delete binding"
         hx-post="{{ .AppPath }}/bindings/delete"
@@ -83,7 +86,7 @@
       {{ else }}
         disabled title="requires binding:delete"
       {{ end }}>
-      <svg
+      <svg aria-hidden="true" focusable="false"
         class="w-3.5 h-3.5"
         viewBox="0 0 24 24"
         fill="none"
@@ -106,7 +109,7 @@
 
   <body class="min-h-screen bg-base-200">
     <div class="drawer lg:drawer-open">
-      <input id="nav-drawer" type="checkbox" class="drawer-toggle" />
+      <input id="nav-drawer" type="checkbox" class="drawer-toggle" tabindex="-1" aria-hidden="true" />
 
       <div class="drawer-content">
         <main class="p-4 lg:p-6 space-y-4 max-w-6xl">
@@ -117,7 +120,7 @@
               <h1 class="text-2xl md:text-3xl font-extrabold italic tracking-tight">
                 OpenRun Bindings
               </h1>
-              <p class="text-sm text-base-content/60">
+              <p class="text-sm text-base-content/70">
                 {{ .Data.Total }} bindings — connect apps to services and
                 shared config
               </p>
@@ -125,11 +128,12 @@
             <div class="ml-auto flex items-center gap-2">
               <label
                 class="input input-sm w-48 focus-within:w-60 transition-[width] duration-300 hidden sm:flex">
-                <kbd class="kbd kbd-xs">⌘K</kbd>
+                <kbd class="kbd kbd-xs" aria-hidden="true">⌘K</kbd>
                 <input
                   id="page-search"
                   type="search"
                   name="query"
+                  aria-label="Filter bindings"
                   value="{{ .Data.Query }}"
                   placeholder="Filter bindings…"
                   hx-get="{{ .AppPath }}/bindings"
@@ -143,7 +147,7 @@
                 href="{{ .AppPath }}/bindings/services/create"
                 class="btn btn-sm btn-outline transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "service:create") }}btn-disabled{{ end }}"
                 {{ if not (index .Data.Perms "service:create") }}
-                  title="requires service:create" aria-disabled="true"
+                  title="requires service:create" aria-disabled="true" tabindex="-1"
                 {{ end }}>
                 + New service
               </a>
@@ -151,7 +155,7 @@
                 href="{{ .AppPath }}/bindings/create"
                 class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "binding:create") }}btn-disabled{{ end }}"
                 {{ if not (index .Data.Perms "binding:create") }}
-                  title="requires binding:create" aria-disabled="true"
+                  title="requires binding:create" aria-disabled="true" tabindex="-1"
                 {{ end }}>
                 + New binding
               </a>
@@ -175,7 +179,7 @@
                 <div
                   role="alert"
                   class="alert alert-success alert-soft py-2 text-sm">
-                  <span>✓</span>
+                  <span aria-hidden="true">✓</span>
                   <span>{{ .Data.Flash }}</span>
                 </div>
               {{ end }}
@@ -183,7 +187,7 @@
                 <div
                   role="alert"
                   class="alert alert-error alert-soft py-2 text-sm">
-                  <span>✕</span>
+                  <span aria-hidden="true">✕</span>
                   <span class="break-all">{{ .Data.FlashError }}</span>
                 </div>
               {{ end }}
@@ -192,14 +196,14 @@
               <div class="card bg-base-100 border border-base-300">
                 <div
                   class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
-                  <span class="text-sm font-medium">Services</span>
-                  <span class="text-xs text-base-content/50"
+                  <h2 class="text-sm font-medium">Services</h2>
+                  <span class="text-xs text-base-content/70"
                     >{{ len .Data.Services }} services — bindings connect apps
                     to these</span
                   >
                 </div>
                 {{ if .Data.ServicesError }}
-                  <p class="text-sm text-base-content/50 px-4 py-4 break-all">
+                  <p class="text-sm text-base-content/70 px-4 py-4 break-all">
                     {{ .Data.ServicesError }}
                   </p>
                 {{ else if .Data.Services }}
@@ -207,12 +211,12 @@
                     <table class="table table-sm">
                       <thead>
                         <tr>
-                          <th>Service</th>
-                          <th class="hidden sm:table-cell">Type</th>
-                          <th class="hidden md:table-cell">Config</th>
-                          <th class="hidden lg:table-cell">Staging</th>
-                          <th class="hidden xl:table-cell">Updated</th>
-                          <th class="text-right">Actions</th>
+                          <th scope="col">Service</th>
+                          <th scope="col" class="hidden sm:table-cell">Type</th>
+                          <th scope="col" class="hidden md:table-cell">Config</th>
+                          <th scope="col" class="hidden lg:table-cell">Staging</th>
+                          <th scope="col" class="hidden xl:table-cell">Updated</th>
+                          <th scope="col" class="text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -240,13 +244,13 @@
                                   >{{ . }}</span
                                 >
                               {{ else }}
-                                <span class="text-base-content/40 text-xs"
+                                <span class="text-base-content/70 text-xs"
                                   >—</span
                                 >
                               {{ end }}
                             </td>
                             <td
-                              class="font-mono text-xs text-base-content/60 hidden lg:table-cell">
+                              class="font-mono text-xs text-base-content/70 hidden lg:table-cell">
                               {{ if .staging }}
                                 {{ .staging }}
                               {{ else }}
@@ -254,14 +258,14 @@
                               {{ end }}
                             </td>
                             <td
-                              class="text-xs text-base-content/60 whitespace-nowrap hidden xl:table-cell">
+                              class="text-xs text-base-content/70 whitespace-nowrap hidden xl:table-cell">
                               {{ if .update_time }}
                                 {{ template "time_ago" .update_time }}
                               {{ end }}
                             </td>
                             <td class="text-right whitespace-nowrap">
                               <div
-                                class="inline-flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity duration-150">
+                                class="inline-flex items-center gap-0.5">
                                 <button
                                   class="btn btn-xs btn-ghost text-error"
                                   {{ if index $.Data.Perms "service:delete" }}
@@ -288,7 +292,7 @@
                   </div>
                 {{ else }}
                   <div
-                    class="px-4 py-4 text-sm text-base-content/60 flex items-center gap-3 flex-wrap">
+                    class="px-4 py-4 text-sm text-base-content/70 flex items-center gap-3 flex-wrap">
                     <span>No services configured yet</span>
                     <a
                       href="{{ .AppPath }}/bindings/services/create"
@@ -306,8 +310,8 @@
                 <div class="card bg-base-100 border border-base-300">
                   <div
                     class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
-                    <span class="text-sm font-medium">Base bindings</span>
-                    <span class="text-xs text-base-content/50"
+                    <h2 class="text-sm font-medium">Base bindings</h2>
+                    <span class="text-xs text-base-content/70"
                       >bind directly to a service</span
                     >
                   </div>
@@ -315,12 +319,12 @@
                     <table class="table table-sm">
                       <thead>
                         <tr>
-                          <th>Binding</th>
-                          <th>Service</th>
-                          <th class="hidden lg:table-cell">Config</th>
-                          <th class="hidden lg:table-cell">By</th>
-                          <th class="hidden xl:table-cell">Updated</th>
-                          <th class="text-right">Actions</th>
+                          <th scope="col">Binding</th>
+                          <th scope="col">Service</th>
+                          <th scope="col" class="hidden lg:table-cell">Config</th>
+                          <th scope="col" class="hidden lg:table-cell">By</th>
+                          <th scope="col" class="hidden xl:table-cell">Updated</th>
+                          <th scope="col" class="text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -337,7 +341,7 @@
                               {{ template "binding_config" . }}
                             </td>
                             <td
-                              class="text-xs text-base-content/60 whitespace-nowrap hidden lg:table-cell max-w-32 truncate"
+                              class="text-xs text-base-content/70 whitespace-nowrap hidden lg:table-cell max-w-32 truncate"
                               title="{{ .created_by }}">
                               {{ if .created_by }}
                                 {{ .created_by }}
@@ -346,7 +350,7 @@
                               {{ end }}
                             </td>
                             <td
-                              class="text-xs text-base-content/60 whitespace-nowrap hidden xl:table-cell">
+                              class="text-xs text-base-content/70 whitespace-nowrap hidden xl:table-cell">
                               {{ template "binding_updated" . }}
                             </td>
                             <td class="text-right whitespace-nowrap">
@@ -364,8 +368,8 @@
                 <div class="card bg-base-100 border border-base-300">
                   <div
                     class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
-                    <span class="text-sm font-medium">Derived bindings</span>
-                    <span class="text-xs text-base-content/50"
+                    <h2 class="text-sm font-medium">Derived bindings</h2>
+                    <span class="text-xs text-base-content/70"
                       >extend a base binding with grants and config
                       overrides</span
                     >
@@ -374,14 +378,14 @@
                     <table class="table table-sm">
                       <thead>
                         <tr>
-                          <th>Binding</th>
-                          <th>Base binding</th>
-                          <th class="hidden md:table-cell">Service</th>
-                          <th>Grants</th>
-                          <th class="hidden lg:table-cell">Config</th>
-                          <th class="hidden lg:table-cell">By</th>
-                          <th class="hidden xl:table-cell">Updated</th>
-                          <th class="text-right">Actions</th>
+                          <th scope="col">Binding</th>
+                          <th scope="col">Base binding</th>
+                          <th scope="col" class="hidden md:table-cell">Service</th>
+                          <th scope="col">Grants</th>
+                          <th scope="col" class="hidden lg:table-cell">Config</th>
+                          <th scope="col" class="hidden lg:table-cell">By</th>
+                          <th scope="col" class="hidden xl:table-cell">Updated</th>
+                          <th scope="col" class="text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -410,7 +414,7 @@
                                   >{{ . }}</span
                                 >
                               {{ else }}
-                                <span class="text-xs text-base-content/40"
+                                <span class="text-xs text-base-content/70"
                                   >no grants</span
                                 >
                               {{ end }}
@@ -419,7 +423,7 @@
                               {{ template "binding_config" . }}
                             </td>
                             <td
-                              class="text-xs text-base-content/60 whitespace-nowrap hidden lg:table-cell max-w-32 truncate"
+                              class="text-xs text-base-content/70 whitespace-nowrap hidden lg:table-cell max-w-32 truncate"
                               title="{{ .created_by }}">
                               {{ if .created_by }}
                                 {{ .created_by }}
@@ -428,7 +432,7 @@
                               {{ end }}
                             </td>
                             <td
-                              class="text-xs text-base-content/60 whitespace-nowrap hidden xl:table-cell">
+                              class="text-xs text-base-content/70 whitespace-nowrap hidden xl:table-cell">
                               {{ template "binding_updated" . }}
                             </td>
                             <td class="text-right whitespace-nowrap">
@@ -447,8 +451,8 @@
                   <div
                     class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
                     <span class="badge badge-outline badge-xs">auto</span>
-                    <span class="text-sm font-medium">Auto bindings</span>
-                    <span class="text-xs text-base-content/50"
+                    <h2 class="text-sm font-medium">Auto bindings</h2>
+                    <span class="text-xs text-base-content/70"
                       >created automatically when an app references a service
                       directly</span
                     >
@@ -457,10 +461,10 @@
                     <table class="table table-sm">
                       <thead>
                         <tr>
-                          <th>App</th>
-                          <th>Service</th>
-                          <th class="hidden lg:table-cell">Config</th>
-                          <th class="hidden xl:table-cell">Updated</th>
+                          <th scope="col">App</th>
+                          <th scope="col">Service</th>
+                          <th scope="col" class="hidden lg:table-cell">Config</th>
+                          <th scope="col" class="hidden xl:table-cell">Updated</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -479,7 +483,7 @@
                               {{ template "binding_config" . }}
                             </td>
                             <td
-                              class="text-xs text-base-content/60 whitespace-nowrap hidden xl:table-cell">
+                              class="text-xs text-base-content/70 whitespace-nowrap hidden xl:table-cell">
                               {{ template "binding_updated" . }}
                             </td>
                           </tr>
@@ -493,9 +497,9 @@
               {{ if and (not .Data.Base) (not .Data.Derived) (not .Data.Auto) }}
                 <div class="card bg-base-100 border border-base-300 py-10">
                   <div
-                    class="flex flex-col items-center gap-2 text-center text-sm text-base-content/60">
+                    class="flex flex-col items-center gap-2 text-center text-sm text-base-content/70">
                     {{ if .Data.Query }}
-                      <span class="text-xl">🔍</span>
+                      <span class="text-xl" aria-hidden="true">🔍</span>
                       <p>No bindings match "{{ .Data.Query }}"</p>
                       <button
                         class="btn btn-xs btn-outline transition-transform duration-150 active:scale-95"
@@ -503,7 +507,7 @@
                         Clear search
                       </button>
                     {{ else }}
-                      <span class="text-xl">🔗</span>
+                      <span class="text-xl" aria-hidden="true">🔗</span>
                       <p>No bindings configured yet</p>
                       <a
                         href="{{ .AppPath }}/bindings/create"

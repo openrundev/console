@@ -8,7 +8,7 @@
 
   <body class="min-h-screen bg-base-200">
     <div class="drawer lg:drawer-open">
-      <input id="nav-drawer" type="checkbox" class="drawer-toggle" />
+      <input id="nav-drawer" type="checkbox" class="drawer-toggle" tabindex="-1" aria-hidden="true" />
 
       <div class="drawer-content">
         <main class="p-4 lg:p-6 max-w-6xl">
@@ -22,7 +22,7 @@
                   class="text-2xl md:text-3xl font-extrabold italic tracking-tight">
                   OpenRun Configuration
                 </h1>
-                <p class="text-sm text-base-content/60">
+                <p class="text-sm text-base-content/70">
                   Server configuration — changes are staged and go live on
                   publish
                 </p>
@@ -35,7 +35,7 @@
 
             {{ if .Data.Error }}
               <div role="alert" class="alert alert-error alert-soft py-2 text-sm">
-                <span>✕</span>
+                <span aria-hidden="true">✕</span>
                 <span class="break-all">{{ .Data.Error }}</span>
               </div>
             {{ else }}
@@ -43,7 +43,7 @@
                 <div
                   role="alert"
                   class="alert alert-success alert-soft py-2 text-sm">
-                  <span>✓</span>
+                  <span aria-hidden="true">✓</span>
                   <span>{{ .Data.Flash }}</span>
                 </div>
               {{ end }}
@@ -51,7 +51,7 @@
                 <div
                   role="alert"
                   class="alert alert-error alert-soft py-2 text-sm">
-                  <span>✕</span>
+                  <span aria-hidden="true">✕</span>
                   <span class="break-all">{{ .Data.FlashError }}</span>
                 </div>
               {{ end }}
@@ -61,7 +61,7 @@
                 <div
                   role="alert"
                   class="alert alert-info alert-soft py-2 text-sm flex-wrap">
-                  <span>⧗</span>
+                  <span aria-hidden="true">⧗</span>
                   <span>
                     Staged changes by
                     <b>{{ .Data.Draft.created_by }}</b>
@@ -141,7 +141,7 @@
               <div class="card bg-base-100 border border-base-300">
                 <div
                   class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
-                  <span class="text-sm font-medium">RBAC</span>
+                  <h2 class="text-sm font-medium">RBAC</h2>
                   {{ if .Data.Live.enabled }}
                     <span class="badge badge-success badge-sm badge-soft"
                       >enabled</span
@@ -156,7 +156,7 @@
                       >staged changes</span
                     >
                   {{ end }}
-                  <span class="text-xs text-base-content/50">
+                  <span class="text-xs text-base-content/70">
                     role based access control for the management APIs
                   </span>
                   <button
@@ -185,8 +185,8 @@
                   <!-- Groups -->
                   <div>
                     <div class="flex items-center gap-2 mb-2">
-                      <h2 class="text-sm font-medium">Groups</h2>
-                      <span class="text-xs text-base-content/50"
+                      <h3 class="text-sm font-medium">Groups</h3>
+                      <span class="text-xs text-base-content/70"
                         >{{ len $view.groups }} groups — user id lists,
                         usable in grants</span
                       >
@@ -194,7 +194,7 @@
                         href="{{ .AppPath }}/config/rbac/group"
                         class="btn btn-xs btn-outline ml-auto {{ if not $canEdit }}btn-disabled{{ end }}"
                         {{ if not $canEdit }}
-                          title="requires config:update"
+                          title="requires config:update" aria-disabled="true" tabindex="-1"
                         {{ end }}
                         >+ Add group</a
                       >
@@ -218,16 +218,19 @@
                               </td>
                               <td class="text-right whitespace-nowrap w-32">
                                 <div
-                                  class="inline-flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity duration-150">
+                                  class="inline-flex items-center gap-0.5">
                                   <a
                                     href="{{ $.AppPath }}/config/rbac/group?name={{ .name }}"
                                     class="btn btn-xs btn-ghost {{ if not $canEdit }}btn-disabled{{ end }}"
+                                    {{ if not $canEdit }}aria-disabled="true" tabindex="-1"{{ end }}
+                                    aria-label="Edit group {{ .name }}"
                                     >edit</a
                                   >
                                   <button
                                     class="btn btn-xs btn-ghost text-error"
                                     {{ if $canEdit }}
                                       hx-post="{{ $.AppPath }}/config/action"
+                                      aria-label="Delete group {{ .name }}"
                                       hx-vals='{"action": "delete_group", "name": "{{ .name }}", "draft_version": "{{ $.Data.DraftVersion }}"}'
                                       hx-confirm="Delete group {{ .name }} from the staged config?"
                                       hx-target="#config-content"
@@ -246,7 +249,7 @@
                         </tbody>
                       </table>
                     {{ else }}
-                      <p class="text-xs text-base-content/50">
+                      <p class="text-xs text-base-content/70">
                         No groups defined
                       </p>
                     {{ end }}
@@ -255,8 +258,8 @@
                   <!-- Roles -->
                   <div>
                     <div class="flex items-center gap-2 mb-2">
-                      <h2 class="text-sm font-medium">Roles</h2>
-                      <span class="text-xs text-base-content/50"
+                      <h3 class="text-sm font-medium">Roles</h3>
+                      <span class="text-xs text-base-content/70"
                         >{{ len $view.roles }} roles — permission sets;
                         the built-in <span class="font-mono">admin</span> role
                         always exists</span
@@ -265,7 +268,7 @@
                         href="{{ .AppPath }}/config/rbac/role"
                         class="btn btn-xs btn-outline ml-auto {{ if not $canEdit }}btn-disabled{{ end }}"
                         {{ if not $canEdit }}
-                          title="requires config:update"
+                          title="requires config:update" aria-disabled="true" tabindex="-1"
                         {{ end }}
                         >+ Add role</a
                       >
@@ -289,16 +292,19 @@
                               </td>
                               <td class="text-right whitespace-nowrap w-32">
                                 <div
-                                  class="inline-flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity duration-150">
+                                  class="inline-flex items-center gap-0.5">
                                   <a
                                     href="{{ $.AppPath }}/config/rbac/role?name={{ .name }}"
                                     class="btn btn-xs btn-ghost {{ if not $canEdit }}btn-disabled{{ end }}"
+                                    {{ if not $canEdit }}aria-disabled="true" tabindex="-1"{{ end }}
+                                    aria-label="Edit role {{ .name }}"
                                     >edit</a
                                   >
                                   <button
                                     class="btn btn-xs btn-ghost text-error"
                                     {{ if $canEdit }}
                                       hx-post="{{ $.AppPath }}/config/action"
+                                      aria-label="Delete role {{ .name }}"
                                       hx-vals='{"action": "delete_role", "name": "{{ .name }}", "draft_version": "{{ $.Data.DraftVersion }}"}'
                                       hx-confirm="Delete role {{ .name }} from the staged config? Publish fails while grants still reference it."
                                       hx-target="#config-content"
@@ -317,7 +323,7 @@
                         </tbody>
                       </table>
                     {{ else }}
-                      <p class="text-xs text-base-content/50">
+                      <p class="text-xs text-base-content/70">
                         No roles defined
                       </p>
                     {{ end }}
@@ -326,8 +332,8 @@
                   <!-- Grants -->
                   <div>
                     <div class="flex items-center gap-2 mb-2">
-                      <h2 class="text-sm font-medium">Grants</h2>
-                      <span class="text-xs text-base-content/50"
+                      <h3 class="text-sm font-medium">Grants</h3>
+                      <span class="text-xs text-base-content/70"
                         >{{ len $view.grants }} grants — who gets which roles
                         on which apps</span
                       >
@@ -335,7 +341,7 @@
                         href="{{ .AppPath }}/config/rbac/grant"
                         class="btn btn-xs btn-outline ml-auto {{ if not $canEdit }}btn-disabled{{ end }}"
                         {{ if not $canEdit }}
-                          title="requires config:update"
+                          title="requires config:update" aria-disabled="true" tabindex="-1"
                         {{ end }}
                         >+ Add grant</a
                       >
@@ -344,11 +350,11 @@
                       <table class="table table-sm">
                         <thead>
                           <tr>
-                            <th>Description</th>
-                            <th>Users / groups</th>
-                            <th>Roles</th>
-                            <th>Targets</th>
-                            <th class="text-right">Actions</th>
+                            <th scope="col">Description</th>
+                            <th scope="col">Users / groups</th>
+                            <th scope="col">Roles</th>
+                            <th scope="col">Targets</th>
+                            <th scope="col" class="text-right">Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -378,16 +384,19 @@
                               </td>
                               <td class="text-right whitespace-nowrap w-32">
                                 <div
-                                  class="inline-flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity duration-150">
+                                  class="inline-flex items-center gap-0.5">
                                   <a
                                     href="{{ $.AppPath }}/config/rbac/grant?index={{ .index }}"
                                     class="btn btn-xs btn-ghost {{ if not $canEdit }}btn-disabled{{ end }}"
+                                    {{ if not $canEdit }}aria-disabled="true" tabindex="-1"{{ end }}
+                                    aria-label="Edit grant {{ .description }}"
                                     >edit</a
                                   >
                                   <button
                                     class="btn btn-xs btn-ghost text-error"
                                     {{ if $canEdit }}
                                       hx-post="{{ $.AppPath }}/config/action"
+                                      aria-label="Delete grant {{ .description }}"
                                       hx-vals='{"action": "delete_grant", "index": "{{ .index }}", "draft_version": "{{ $.Data.DraftVersion }}"}'
                                       hx-confirm="Delete this grant from the staged config?"
                                       hx-target="#config-content"
@@ -406,7 +415,7 @@
                         </tbody>
                       </table>
                     {{ else }}
-                      <p class="text-xs text-base-content/50">
+                      <p class="text-xs text-base-content/70">
                         No grants defined — with RBAC enabled, only admins can
                         use the management APIs
                       </p>
@@ -417,24 +426,24 @@
 
               <!-- Coming soon config areas -->
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="card bg-base-100 border border-base-300 opacity-50">
+                <div class="card bg-base-100 border border-dashed border-base-300">
                   <div class="card-body p-4">
                     <span class="text-sm font-medium"
                       >OAuth accounts
                       <span class="badge badge-ghost badge-xs">coming soon</span>
                     </span>
-                    <p class="text-xs text-base-content/50">
+                    <p class="text-xs text-base-content/70">
                       Manage OAuth client configurations
                     </p>
                   </div>
                 </div>
-                <div class="card bg-base-100 border border-base-300 opacity-50">
+                <div class="card bg-base-100 border border-dashed border-base-300">
                   <div class="card-body p-4">
                     <span class="text-sm font-medium"
                       >SAML policies
                       <span class="badge badge-ghost badge-xs">coming soon</span>
                     </span>
-                    <p class="text-xs text-base-content/50">
+                    <p class="text-xs text-base-content/70">
                       Manage SAML identity provider settings
                     </p>
                   </div>
@@ -445,8 +454,8 @@
               <div class="card bg-base-100 border border-base-300">
                 <div
                   class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2">
-                  <span class="text-sm font-medium">History</span>
-                  <span class="text-xs text-base-content/50"
+                  <h2 class="text-sm font-medium">History</h2>
+                  <span class="text-xs text-base-content/70"
                     >{{ len .Data.History }} config versions — restoring
                     creates a new version</span
                   >
@@ -456,10 +465,10 @@
                     <table class="table table-sm">
                       <thead>
                         <tr>
-                          <th>Version</th>
-                          <th>By</th>
-                          <th>When</th>
-                          <th class="text-right">Actions</th>
+                          <th scope="col">Version</th>
+                          <th scope="col">By</th>
+                          <th scope="col">When</th>
+                          <th scope="col" class="text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -475,26 +484,26 @@
                                 >
                               {{ end }}
                             </td>
-                            <td class="text-xs text-base-content/60">
+                            <td class="text-xs text-base-content/70">
                               {{ if $h.user_id }}
                                 {{ $h.user_id }}
                               {{ else }}
                                 —
                               {{ end }}
                             </td>
-                            <td class="text-xs text-base-content/60">
+                            <td class="text-xs text-base-content/70">
                               {{ template "time_ago" $h.update_time }}
                             </td>
                             <td class="text-right whitespace-nowrap">
                               <a
                                 href="{{ $.AppPath }}/config/history?version={{ $h.version_id }}"
-                                class="btn btn-xs btn-ghost opacity-60 group-hover:opacity-100 transition-opacity duration-150"
+                                class="btn btn-xs btn-ghost"
                                 title="View this config snapshot as JSON">
                                 view
                               </a>
                               {{ if ne $h.version_id $.Data.VersionId }}
                                 <button
-                                  class="btn btn-xs btn-ghost text-primary opacity-60 group-hover:opacity-100 transition-opacity duration-150"
+                                  class="btn btn-xs btn-ghost text-primary"
                                   {{ if index $.Data.Perms "config:update" }}
                                     hx-post="{{ $.AppPath }}/config/action"
                                     hx-vals='{"action": "restore", "restore_version": "{{ $h.version_id }}"}'
@@ -516,7 +525,7 @@
                     </table>
                   </div>
                 {{ else }}
-                  <p class="text-sm text-base-content/50 px-4 py-4">
+                  <p class="text-sm text-base-content/70 px-4 py-4">
                     No configuration changes recorded yet
                   </p>
                 {{ end }}

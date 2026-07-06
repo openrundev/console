@@ -6,7 +6,7 @@
 
   <body class="min-h-screen bg-base-200">
     <div class="drawer lg:drawer-open">
-      <input id="nav-drawer" type="checkbox" class="drawer-toggle" />
+      <input id="nav-drawer" type="checkbox" class="drawer-toggle" tabindex="-1" aria-hidden="true" />
 
       <div class="drawer-content">
         <main class="p-4 lg:p-6 max-w-6xl">
@@ -22,16 +22,15 @@
             <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
               {{ template "hamburger" }}
               <div>
-                <div class="breadcrumbs text-xs text-base-content/60 p-0">
+                <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0">
                   <ul>
                     <li><a href="{{ .AppPath }}/syncs">Syncs</a></li>
                     <li class="font-mono">{{ .Data.Id }}</li>
-                  </ul>
-                </div>
+                  </ul></nav>
                 <h1 class="text-xl font-semibold font-mono break-all">
                   {{ if .Data.Sync }}{{ .Data.Sync.repo }}{{ else }}{{ .Data.Id }}{{ end }}
                 </h1>
-                <p class="text-sm text-base-content/60">
+                <p class="text-sm text-base-content/70">
                   {{ if .Data.Sync }}
                     {{ if eq .Data.Sync.state "Failing" }}
                       <span class="status status-error"></span>
@@ -94,19 +93,19 @@
 
             {{ if .Data.Error }}
               <div role="alert" class="alert alert-error alert-soft py-2 text-sm">
-                <span>✕</span>
+                <span aria-hidden="true">✕</span>
                 <span class="break-all">{{ .Data.Error }}</span>
               </div>
             {{ end }}
             {{ if .Data.Flash }}
               <div role="alert" class="alert alert-success alert-soft py-2 text-sm">
-                <span>✓</span>
+                <span aria-hidden="true">✓</span>
                 <span>{{ .Data.Flash }}</span>
               </div>
             {{ end }}
             {{ if .Data.FlashError }}
               <div role="alert" class="alert alert-error alert-soft py-2 text-sm">
-                <span>✕</span>
+                <span aria-hidden="true">✕</span>
                 <span class="break-all">{{ .Data.FlashError }}</span>
               </div>
             {{ end }}
@@ -116,12 +115,12 @@
               <!-- Overview -->
               <div class="card bg-base-100 border border-base-300">
                 <div class="card-body p-5 gap-1">
-                  <h2 class="text-sm font-medium text-base-content/60 mb-2">
+                  <h2 class="text-sm font-medium text-base-content/70 mb-2">
                     Overview
                   </h2>
                   <div
                     class="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1.5 text-sm">
-                    <span class="text-xs text-base-content/50 pt-0.5"
+                    <span class="text-xs text-base-content/70 pt-0.5"
                       >Source</span
                     >
                     <span class="font-mono text-xs break-all pt-1"
@@ -129,14 +128,14 @@
                     >
 
                     {{ if $s.branch }}
-                      <span class="text-xs text-base-content/50 pt-0.5"
+                      <span class="text-xs text-base-content/70 pt-0.5"
                         >Branch</span
                       >
                       <span class="font-mono text-xs pt-1">{{ $s.branch }}</span>
                     {{ end }}
 
                     {{ if $s.git_auth }}
-                      <span class="text-xs text-base-content/50 pt-0.5"
+                      <span class="text-xs text-base-content/70 pt-0.5"
                         >Git auth</span
                       >
                       <span class="font-mono text-xs pt-1"
@@ -144,7 +143,7 @@
                       >
                     {{ end }}
 
-                    <span class="text-xs text-base-content/50 pt-0.5"
+                    <span class="text-xs text-base-content/70 pt-0.5"
                       >Trigger</span
                     >
                     <span class="text-xs pt-1">
@@ -160,7 +159,7 @@
                       {{ end }}
                     </span>
 
-                    <span class="text-xs text-base-content/50 pt-0.5"
+                    <span class="text-xs text-base-content/70 pt-0.5"
                       >Flags</span
                     >
                     <span class="pt-1 flex items-center gap-1 flex-wrap">
@@ -175,21 +174,21 @@
                           >
                         {{ end }}
                       {{ else }}
-                        <span class="text-xs text-base-content/40"
+                        <span class="text-xs text-base-content/70"
                           >staging only — no promote</span
                         >
                       {{ end }}
                     </span>
 
                     {{ if $s.reload }}
-                      <span class="text-xs text-base-content/50 pt-0.5"
+                      <span class="text-xs text-base-content/70 pt-0.5"
                         >Reload</span
                       >
                       <span class="font-mono text-xs pt-1">{{ $s.reload }}</span>
                     {{ end }}
 
                     {{ if $s.user }}
-                      <span class="text-xs text-base-content/50 pt-0.5"
+                      <span class="text-xs text-base-content/70 pt-0.5"
                         >Created by</span
                       >
                       <span class="text-xs pt-1">
@@ -200,9 +199,9 @@
                       </span>
                     {{ end }}
 
-                    <span class="text-xs text-base-content/50 pt-0.5">Id</span>
+                    <span class="text-xs text-base-content/70 pt-0.5">Id</span>
                     <span
-                      class="font-mono text-xs text-base-content/60 break-all pt-1"
+                      class="font-mono text-xs text-base-content/70 break-all pt-1"
                       >{{ $s.id }}</span
                     >
                   </div>
@@ -213,14 +212,14 @@
               <div class="card bg-base-100 border border-base-300">
                 <div
                   class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
-                  <span class="text-sm font-medium">Last invocation</span>
+                  <h2 class="text-sm font-medium">Last invocation</h2>
                   {{ if $s.last_exec }}
-                    <span class="text-xs text-base-content/50"
+                    <span class="text-xs text-base-content/70"
                       >{{ template "time_ago" $s.last_exec }}</span
                     >
                     {{ if $s.commit_short }}
                       <span
-                        class="font-mono text-xs text-base-content/60"
+                        class="font-mono text-xs text-base-content/70"
                         title="{{ $s.commit }}"
                         >{{ $s.commit_short }}</span
                       >
@@ -234,7 +233,7 @@
                 </div>
                 <div class="card-body p-4 gap-3">
                   {{ if not $s.last_exec }}
-                    <p class="text-sm text-base-content/50">
+                    <p class="text-sm text-base-content/70">
                       This sync has not run yet
                     </p>
                   {{ else }}
@@ -242,13 +241,13 @@
                       <div
                         role="alert"
                         class="alert alert-error alert-soft py-2 text-sm">
-                        <span>✕</span>
+                        <span aria-hidden="true">✕</span>
                         <span class="break-all">{{ $s.error }}</span>
                       </div>
                     {{ end }}
                     {{ if .Data.LastResult }}
                       {{ $r := .Data.LastResult }}
-                      <div class="text-xs text-base-content/50">
+                      <div class="text-xs text-base-content/70">
                         {{ if $r.skipped_apply }}
                           No new commit was found, the apply was skipped
                         {{ else if not $r.changed }}
@@ -274,6 +273,33 @@
                     {{ end }}
                   {{ end }}
                 </div>
+              </div>
+
+              <!-- Apps applied by this sync, same view as the apps page -->
+              <div class="card bg-base-100 border border-base-300">
+                <div
+                  class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2">
+                  <h2 class="text-sm font-medium">Apps</h2>
+                  <span class="text-xs text-base-content/70"
+                    >{{ len .Data.Apps }} apps managed by this sync</span
+                  >
+                  <a
+                    href="{{ .AppPath }}/apps"
+                    class="link link-hover text-xs text-primary ml-auto"
+                    >all apps <span aria-hidden="true">→</span></a
+                  >
+                </div>
+                {{ if .Data.AppsError }}
+                  <p class="text-sm text-base-content/70 px-4 py-4 break-all">
+                    {{ .Data.AppsError }}
+                  </p>
+                {{ else if .Data.Apps }}
+                  {{ template "app_table" (dict "Apps" .Data.Apps "AppPath" .AppPath "Perms" .Data.Perms "ShowActions" false) }}
+                {{ else }}
+                  <p class="text-sm text-base-content/70 px-4 py-4">
+                    No apps have been applied by this sync yet
+                  </p>
+                {{ end }}
               </div>
             {{ end }}
           {{ end }}

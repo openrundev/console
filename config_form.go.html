@@ -6,7 +6,7 @@
 
   <body class="min-h-screen bg-base-200">
     <div class="drawer lg:drawer-open">
-      <input id="nav-drawer" type="checkbox" class="drawer-toggle" />
+      <input id="nav-drawer" type="checkbox" class="drawer-toggle" tabindex="-1" aria-hidden="true" />
 
       <div class="drawer-content">
         <main class="p-4 lg:p-6 space-y-4 max-w-2xl">
@@ -14,7 +14,7 @@
           <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" }}
             <div>
-              <div class="breadcrumbs text-xs text-base-content/60 p-0">
+              <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0">
                 <ul>
                   <li>
                     <a href="{{ .AppPath }}/config">Configuration</a>
@@ -23,8 +23,7 @@
                     {{ if .Data.Values.is_edit }}edit{{ else }}new{{ end }}
                     {{ .Data.Kind }}
                   </li>
-                </ul>
-              </div>
+                </ul></nav>
               <h1 class="text-xl font-semibold">
                 {{ if .Data.Values.is_edit }}
                   Edit
@@ -33,7 +32,7 @@
                 {{ end }}
                 {{ .Data.Kind }}
               </h1>
-              <p class="text-sm text-base-content/60">
+              <p class="text-sm text-base-content/70">
                 Changes are staged — publish from the Configuration page to
                 make them live
               </p>
@@ -42,7 +41,7 @@
 
           {{ if .Data.Error }}
             <div role="alert" class="alert alert-error alert-soft py-2 text-sm">
-              <span>✕</span>
+              <span aria-hidden="true">✕</span>
               <span class="break-all">{{ .Data.Error }}</span>
             </div>
           {{ end }}
@@ -76,7 +75,7 @@
                     {{ if .Data.Values.is_edit }}readonly{{ end }}
                     placeholder="developers"
                     class="input w-full font-mono text-sm {{ if .Data.Values.is_edit }}bg-base-200{{ end }}" />
-                  <p class="text-xs text-base-content/50 mt-1">
+                  <p class="text-xs text-base-content/70 mt-1">
                     Reference the group in grants as
                     <span class="font-mono">group:name</span>
                   </p>
@@ -91,7 +90,7 @@
                     rows="6"
                     placeholder="user1@example.com&#10;user2@example.com"
                     class="textarea w-full font-mono text-sm leading-relaxed">{{ .Data.Values.users_text }}</textarea>
-                  <p class="text-xs text-base-content/50 mt-1">
+                  <p class="text-xs text-base-content/70 mt-1">
                     One user id per line. These are merged with any groups
                     coming from SAML
                   </p>
@@ -111,18 +110,18 @@
                     placeholder="developer"
                     class="input w-full font-mono text-sm {{ if .Data.Values.is_edit }}bg-base-200{{ end }}" />
                 </div>
-                <div>
-                  <span class="block text-sm font-medium mb-2">Permissions</span>
+                <fieldset>
+                  <legend class="block text-sm font-medium mb-2">Permissions</legend>
                   <div class="space-y-3">
                     {{ $selected := .Data.Values.selected }}
                     {{ range .Data.PermGroups }}
-                      <div>
-                        <span
-                          class="text-xs text-base-content/50 uppercase tracking-wide"
-                          >{{ .resource }}</span
+                      <fieldset>
+                        <legend
+                          class="text-xs text-base-content/70 uppercase tracking-wide"
+                          >{{ .resource }}</legend
                         >
                         <div
-                          class="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1 mt-1">
+                          class="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 mt-1">
                           {{ range .permissions }}
                             <label
                               class="flex items-center gap-2 cursor-pointer text-xs font-mono">
@@ -136,10 +135,10 @@
                             </label>
                           {{ end }}
                         </div>
-                      </div>
+                      </fieldset>
                     {{ end }}
                   </div>
-                </div>
+                </fieldset>
                 <div>
                   <label
                     class="block text-sm font-medium mb-1"
@@ -152,7 +151,7 @@
                     rows="2"
                     placeholder="app:*&#10;role:other_role"
                     class="textarea w-full font-mono text-sm leading-relaxed">{{ .Data.Values.custom_text }}</textarea>
-                  <p class="text-xs text-base-content/50 mt-1">
+                  <p class="text-xs text-base-content/70 mt-1">
                     One entry per line: permission globs like
                     <span class="font-mono">app:*</span> or role references
                     like <span class="font-mono">role:other</span>
@@ -181,7 +180,7 @@
                     rows="4"
                     placeholder="user1@example.com&#10;group:developers"
                     class="textarea w-full font-mono text-sm leading-relaxed">{{ .Data.Values.users_text }}</textarea>
-                  <p class="text-xs text-base-content/50 mt-1">
+                  <p class="text-xs text-base-content/70 mt-1">
                     One per line: user ids or
                     <span class="font-mono">group:name</span> references
                     {{ if .Data.GroupNames }}
@@ -192,10 +191,10 @@
                     {{ end }}
                   </p>
                 </div>
-                <div>
-                  <span class="block text-sm font-medium mb-2">Roles</span>
+                <fieldset>
+                  <legend class="block text-sm font-medium mb-2">Roles</legend>
                   {{ if .Data.RoleNames }}
-                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1">
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2">
                       {{ $granted := .Data.Values.roles }}
                       {{ range .Data.RoleNames }}
                         <label
@@ -211,12 +210,12 @@
                       {{ end }}
                     </div>
                   {{ else }}
-                    <p class="text-xs text-base-content/50">
+                    <p class="text-xs text-base-content/70">
                       No roles defined yet — add a role first, or save the
                       grant and add roles before publishing
                     </p>
                   {{ end }}
-                </div>
+                </fieldset>
                 <div>
                   <label
                     class="block text-sm font-medium mb-1"
@@ -229,7 +228,7 @@
                     rows="3"
                     placeholder="/myteam/*&#10;example.com:/**"
                     class="textarea w-full font-mono text-sm leading-relaxed">{{ .Data.Values.targets_text }}</textarea>
-                  <p class="text-xs text-base-content/50 mt-1">
+                  <p class="text-xs text-base-content/70 mt-1">
                     One app path glob per line. Empty means the grant applies
                     to global (non app) permissions only
                   </p>

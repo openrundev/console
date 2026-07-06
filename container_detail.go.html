@@ -8,7 +8,7 @@
 
   <body class="min-h-screen bg-base-200">
     <div class="drawer lg:drawer-open">
-      <input id="nav-drawer" type="checkbox" class="drawer-toggle" />
+      <input id="nav-drawer" type="checkbox" class="drawer-toggle" tabindex="-1" aria-hidden="true" />
 
       <div class="drawer-content">
         <main class="p-4 lg:p-6 max-w-6xl">
@@ -18,7 +18,7 @@
             <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
               {{ template "hamburger" }}
               <div>
-                <div class="breadcrumbs text-xs text-base-content/60 p-0"><ul><li><a href="{{ .AppPath }}/containers">Containers</a></li><li class="font-mono">{{ if .Data.Container }}{{ trunc 24 .Data.Container.name }}…{{ else }}detail{{ end }}</li></ul></div>
+                <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0"><ul><li><a href="{{ .AppPath }}/containers">Containers</a></li><li class="font-mono">{{ if .Data.Container }}{{ trunc 24 .Data.Container.name }}…{{ else }}detail{{ end }}</li></ul></nav>
                 <h1 class="text-xl font-semibold font-mono break-all">
                   {{ if .Data.Container }}
                     {{ .Data.Container.name }}
@@ -26,7 +26,7 @@
                     {{ .Data.Id }}
                   {{ end }}
                 </h1>
-                <p class="text-sm text-base-content/60">
+                <p class="text-sm text-base-content/70">
                   {{ if .Data.Container }}
                     {{ template "container_state" .Data.Container }}
                     {{ if .Data.Container.health }}
@@ -82,19 +82,19 @@
 
             {{ if .Data.Error }}
               <div role="alert" class="alert alert-error alert-soft py-2 text-sm">
-                <span>✕</span>
+                <span aria-hidden="true">✕</span>
                 <span class="break-all">{{ .Data.Error }}</span>
               </div>
             {{ end }}
             {{ if .Data.Flash }}
               <div role="alert" class="alert alert-success alert-soft py-2 text-sm">
-                <span>✓</span>
+                <span aria-hidden="true">✓</span>
                 <span>{{ .Data.Flash }}</span>
               </div>
             {{ end }}
             {{ if .Data.FlashError }}
               <div role="alert" class="alert alert-error alert-soft py-2 text-sm">
-                <span>✕</span>
+                <span aria-hidden="true">✕</span>
                 <span class="break-all">{{ .Data.FlashError }}</span>
               </div>
             {{ end }}
@@ -108,20 +108,23 @@
                 hx-swap="innerHTML">
                 {{ block "container_stats" . }}
                   {{ if .Data.StatsError }}
-                    <p class="text-xs text-base-content/50 break-all">
+                    <p class="text-xs text-base-content/70 break-all">
                       stats unavailable: {{ .Data.StatsError }}
                     </p>
                   {{ else if .Data.StatsLoaded }}
                     {{ $c := .Data.Container }}
                     {{ if $c.stats }}
                 <div
+                  role="group"
+                  aria-label="Container statistics"
+                  tabindex="0"
                   class="stats stats-vertical sm:stats-horizontal shadow-sm border border-base-300 bg-base-100 w-full">
                   <div class="stat py-3">
                     <div class="stat-figure text-primary">
                       <div
                         class="radial-progress"
                         style="--value:{{ $c.stats.cpu_num }}; --size:2.6rem; --thickness:4px"
-                        role="progressbar"></div>
+                        aria-hidden="true"></div>
                     </div>
                     <div class="stat-title text-xs">CPU</div>
                     <div class="stat-value text-lg font-mono">
@@ -134,7 +137,7 @@
                       <div
                         class="radial-progress"
                         style="--value:{{ $c.stats.mem_num }}; --size:2.6rem; --thickness:4px"
-                        role="progressbar"></div>
+                        aria-hidden="true"></div>
                     </div>
                     <div class="stat-title text-xs">Memory</div>
                     <div class="stat-value text-lg font-mono">
@@ -146,7 +149,7 @@
                   </div>
                   <div class="stat py-3">
                     <div class="stat-figure text-accent">
-                      <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7" /><path d="M7 7h10v10" /><path d="M17 17H7V7" opacity="0" /><path d="m7 7-4 4 4 4" opacity="0" /></svg>
+                      <svg aria-hidden="true" focusable="false" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7" /><path d="M7 7h10v10" /><path d="M17 17H7V7" opacity="0" /><path d="m7 7-4 4 4 4" opacity="0" /></svg>
                     </div>
                     <div class="stat-title text-xs">Network I/O</div>
                     <div class="stat-value text-lg font-mono">
@@ -156,7 +159,7 @@
                   </div>
                   <div class="stat py-3">
                     <div class="stat-figure text-warning">
-                      <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M3 5v14a9 3 0 0 0 18 0V5" /><path d="M3 12a9 3 0 0 0 18 0" /></svg>
+                      <svg aria-hidden="true" focusable="false" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M3 5v14a9 3 0 0 0 18 0V5" /><path d="M3 12a9 3 0 0 0 18 0" /></svg>
                     </div>
                     <div class="stat-title text-xs">Disk I/O</div>
                     <div class="stat-value text-lg font-mono">
@@ -173,7 +176,7 @@
                   </div>
                   <div class="stat py-3">
                     <div class="stat-figure text-info">
-                      <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12H3" /><path d="M5 12V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6" /><path d="M5 12v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" /><circle cx="17" cy="16" r=".5" /></svg>
+                      <svg aria-hidden="true" focusable="false" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12H3" /><path d="M5 12V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6" /><path d="M5 12v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" /><circle cx="17" cy="16" r=".5" /></svg>
                     </div>
                     <div class="stat-title text-xs">Disk usage</div>
                     <div class="stat-value text-lg font-mono">
@@ -185,7 +188,7 @@
                   </div>
                 </div>
                     {{ else }}
-                      <div class="text-xs text-base-content/50">
+                      <div class="text-xs text-base-content/70">
                         No live stats — the container is not running.
                         {{ if $c.size_rw_human }}
                           Disk usage {{ $c.size_rw_human }}
@@ -212,19 +215,19 @@
               <!-- Overview -->
               <div class="card bg-base-100 border border-base-300">
                 <div class="card-body p-5 gap-1">
-                  <h2 class="text-sm font-medium text-base-content/60 mb-2">
+                  <h2 class="text-sm font-medium text-base-content/70 mb-2">
                     Overview
                   </h2>
                   <div
                     class="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1.5 text-sm">
-                    <span class="text-xs text-base-content/50 pt-0.5"
+                    <span class="text-xs text-base-content/70 pt-0.5"
                       >Name</span
                     >
                     <span class="font-mono text-xs break-all pt-1"
                       >{{ $c.name }}</span
                     >
 
-                    <span class="text-xs text-base-content/50 pt-0.5">App</span>
+                    <span class="text-xs text-base-content/70 pt-0.5">App</span>
                     <span class="pt-1">
                       {{ if $c.app_path }}
                         <a
@@ -243,11 +246,11 @@
                           >
                         {{ end }}
                       {{ else }}
-                        <span class="text-base-content/40">—</span>
+                        <span class="text-base-content/70">—</span>
                       {{ end }}
                     </span>
 
-                    <span class="text-xs text-base-content/50 pt-0.5"
+                    <span class="text-xs text-base-content/70 pt-0.5"
                       >Image</span
                     >
                     <span class="font-mono text-xs break-all pt-1"
@@ -255,7 +258,7 @@
                     >
 
                     {{ if $c.command }}
-                      <span class="text-xs text-base-content/50 pt-0.5"
+                      <span class="text-xs text-base-content/70 pt-0.5"
                         >Command</span
                       >
                       <span class="font-mono text-xs break-all pt-1"
@@ -264,7 +267,7 @@
                     {{ end }}
 
                     {{ if $c.port_bindings }}
-                      <span class="text-xs text-base-content/50 pt-0.5"
+                      <span class="text-xs text-base-content/70 pt-0.5"
                         >Ports</span
                       >
                       <span class="pt-1 flex flex-col gap-0.5">
@@ -273,7 +276,7 @@
                         {{ end }}
                       </span>
                     {{ else if $c.ports }}
-                      <span class="text-xs text-base-content/50 pt-0.5"
+                      <span class="text-xs text-base-content/70 pt-0.5"
                         >{{ if eq $c.runtime "kubernetes" }}
                           Pod IP
                         {{ else }}
@@ -284,7 +287,7 @@
                     {{ end }}
 
                     {{ if $c.started_at }}
-                      <span class="text-xs text-base-content/50 pt-0.5"
+                      <span class="text-xs text-base-content/70 pt-0.5"
                         >Started</span
                       >
                       <span class="text-xs pt-1"
@@ -292,7 +295,7 @@
                       >
                     {{ end }}
 
-                    <span class="text-xs text-base-content/50 pt-0.5"
+                    <span class="text-xs text-base-content/70 pt-0.5"
                       >Restarts</span
                     >
                     <span class="font-mono text-xs pt-1"
@@ -300,7 +303,7 @@
                     >
 
                     {{ if eq $c.state "exited" }}
-                      <span class="text-xs text-base-content/50 pt-0.5"
+                      <span class="text-xs text-base-content/70 pt-0.5"
                         >Exit code</span
                       >
                       <span class="font-mono text-xs pt-1 {{ if $c.exit_code }}text-error{{ end }}"
@@ -308,13 +311,13 @@
                       >
                     {{ end }}
 
-                    <span class="text-xs text-base-content/50 pt-0.5">Id</span>
+                    <span class="text-xs text-base-content/70 pt-0.5">Id</span>
                     <span
-                      class="font-mono text-xs text-base-content/60 break-all pt-1"
+                      class="font-mono text-xs text-base-content/70 break-all pt-1"
                       >{{ $c.id }}</span
                     >
 
-                    <span class="text-xs text-base-content/50 pt-0.5"
+                    <span class="text-xs text-base-content/70 pt-0.5"
                       >Runtime</span
                     >
                     <span class="pt-1"
@@ -331,8 +334,8 @@
                 <div class="card bg-base-100 border border-base-300">
                   <div
                     class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2">
-                    <span class="text-sm font-medium">Mounts</span>
-                    <span class="text-xs text-base-content/50"
+                    <h2 class="text-sm font-medium">Mounts</h2>
+                    <span class="text-xs text-base-content/70"
                       >{{ len $c.mounts }} mounts</span
                     >
                   </div>
@@ -340,10 +343,10 @@
                     <table class="table table-sm">
                       <thead>
                         <tr>
-                          <th>Type</th>
-                          <th>Source</th>
-                          <th>Destination</th>
-                          <th class="text-right">Mode</th>
+                          <th scope="col">Type</th>
+                          <th scope="col">Source</th>
+                          <th scope="col">Destination</th>
+                          <th scope="col" class="text-right">Mode</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -379,49 +382,42 @@
                 </div>
               {{ end }}
 
-              <!-- Logs -->
+              <!-- Logs: <log-tail> streams /containers/logs_stream (last 500
+                   lines; the Follow toggle re-streams with follow=1) -->
               <div class="card bg-base-100 border border-base-300">
                 <div
                   class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2">
-                  <span class="text-sm font-medium">Logs</span>
-                  <span class="text-xs text-base-content/50"
-                    >last 100 lines · refreshes every 15s</span
+                  <h2 class="text-sm font-medium">Logs</h2>
+                  <span class="text-xs text-base-content/70"
+                    >last 500 lines</span
                   >
-                </div>
-                <div
-                  hx-get="{{ .AppPath }}/containers/detail/logs?id={{ .Data.Id }}"
-                  hx-trigger="load, every 15s"
-                  hx-swap="innerHTML">
-                  {{ block "container_logs" . }}
-                    {{ if .Data.LogsLoaded }}
-                {{ if .Data.LogsError }}
-                  <p class="text-sm text-base-content/50 px-4 py-4 break-all">
-                    {{ .Data.LogsError }}
-                  </p>
-                {{ else if .Data.Logs }}
-                  <div class="p-3">
-                    <div
-                      class="mockup-code w-full max-h-160 overflow-y-auto before:sticky before:top-3">
-                      <pre
-                        class="px-5 text-xs leading-relaxed whitespace-pre-wrap"><code>{{ .Data.Logs }}</code></pre>
-                    </div>
-                  </div>
-                {{ else }}
-                  <p class="text-sm text-base-content/50 px-4 py-4">
-                    No log output
-                  </p>
-                {{ end }}
-
-                    {{ else }}
-                      <!-- Placeholder while the logs load -->
-                      <div class="p-4 space-y-2">
-                        <div class="skeleton h-3 w-2/3"></div>
-                        <div class="skeleton h-3 w-1/2"></div>
-                        <div class="skeleton h-3 w-3/5"></div>
-                      </div>
+                  <div class="ml-auto flex items-center gap-1">
+                    <button
+                      class="btn btn-xs btn-ghost"
+                      title="Reload the last 500 lines"
+                      onclick="logTailRefresh()">
+                      refresh
+                    </button>
+                    {{ if eq $c.state "running" }}
+                      <button
+                        id="log-follow-btn"
+                        class="btn btn-xs btn-outline transition-transform duration-150 active:scale-95"
+                        title="Stream new log output live"
+                        aria-pressed="false"
+                        onclick="logTailFollow(this)">
+                        Follow
+                      </button>
                     {{ end }}
-                  {{ end }}
-                  <!-- End of "container_logs" block -->
+                  </div>
+                </div>
+                <div class="p-3">
+                  <log-tail
+                    id="container-log-tail"
+                    label="Container logs"
+                    data-base="{{ .AppPath }}/containers/logs_stream?id={{ .Data.Id }}&tail=500"
+                    src="{{ .AppPath }}/containers/logs_stream?id={{ .Data.Id }}&tail=500"
+                    max-lines="5000"
+                    height="40rem"></log-tail>
                 </div>
               </div>
             {{ end }}
@@ -433,5 +429,45 @@
 
       {{ template "sidebar" . }}
     </div>
+
+    <script src="{{ static "logtail.js" }}"></script>
+    <script>
+      // Follow toggle / refresh for the logs <log-tail>. Lives outside the
+      // container_content block so it is not re-run on HTMX swaps; the
+      // element itself is recreated by swaps, which resets it to tail view.
+      function logTailEl() {
+        return document.getElementById("container-log-tail");
+      }
+
+      function logTailRefresh() {
+        const el = logTailEl();
+        if (!el) return;
+        el.removeAttribute("follow");
+        const btn = document.getElementById("log-follow-btn");
+        btn?.classList.remove("btn-primary");
+        btn?.setAttribute("aria-pressed", "false");
+        el.reload(el.dataset.base);
+      }
+
+      function logTailFollow(btn) {
+        const el = logTailEl();
+        if (!el) return;
+        if (el.hasAttribute("follow")) {
+          logTailRefresh();
+          return;
+        }
+        el.setAttribute("follow", "");
+        btn.classList.add("btn-primary");
+        btn.setAttribute("aria-pressed", "true");
+        el.reload(el.dataset.base + "&follow=1");
+      }
+
+      // When a followed stream ends (container stopped), reset the toggle
+      document.addEventListener("logtail-end", () => {
+        const btn = document.getElementById("log-follow-btn");
+        btn?.classList.remove("btn-primary");
+        btn?.setAttribute("aria-pressed", "false");
+      });
+    </script>
   </body>
 </html>

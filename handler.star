@@ -16,6 +16,62 @@ load("utils.star", "query_param", "get_perms", "parse_params_text", "params_to_t
 # ---------- Apps ----------
 
 
+def build_app_rows(all_apps):
+    # Folds staging entries into their main app's row and returns the row
+    # dicts rendered by the shared app_table template. all_apps must come
+    # from list_apps with include_internal=True
+    staging_by_main = {}
+    for entry in all_apps:
+        if entry["is_stage"]:
+            staging_by_main[entry["main_app"]] = entry
+
+    rows = []
+    for entry in all_apps:
+        if entry["main_app"]:
+            continue
+
+        stage = staging_by_main.get(entry["id"])
+        # The staging app carries the most recent sync state (prod picks it
+        # up on promote); fall back to the prod app's value. get() keeps this
+        # working against servers older than the applied_sync_id field
+        sync_id = (stage.get("applied_sync_id", "") if stage else "") or entry.get("applied_sync_id", "")
+
+        staging = None
+        if stage:
+            staging = {
+                "version": stage["version"],
+                "git_sha": short_sha(stage["git_sha"]),
+                "git_message": stage["git_message"],
+                # staging has a version prod does not have yet
+                "ahead": stage["version_mismatch"],
+            }
+
+        rows.append({
+            "name": entry["name"],
+            "path": entry["path"],
+            "url": entry["url"],
+            "auth": entry["auth"],
+            "is_git": bool(entry["git_branch"]),
+            # Declarative means a sync source last applied the app. Git
+            # presence is not the signal: image/proxy spec apps have no git
+            "sync_id": sync_id,
+            "is_declarative": bool(sync_id),
+            # "-" is the placeholder for apps with no source (image/proxy specs)
+            "source": entry["source"] if entry["source"] != "-" else "",
+            "source_url": entry["source_url"],
+            "git_branch": entry["git_branch"],
+            "version": entry["version"],
+            "git_sha": short_sha(entry["git_sha"]),
+            "git_message": entry["git_message"],
+            "staging": staging,
+            "created_by": entry.get("created_by") or "",
+            "update_age": short_age(entry["update_age"]),
+            "update_time": entry.get("update_time") or "",
+            "update_user": entry.get("update_user") or "",
+        })
+    return rows
+
+
 def apps_data(req):
     # Apps list page: apps grouped by their managing sync, plus unmanaged
     query = query_param(req, "query")
@@ -24,11 +80,6 @@ def apps_data(req):
     # include_internal picks up staging/preview apps; staging entries are
     # folded into their main app's row instead of being listed separately
     all_apps = openrun.list_apps(query=query, include_internal=True).value
-
-    staging_by_main = {}
-    for entry in all_apps:
-        if entry["is_stage"]:
-            staging_by_main[entry["main_app"]] = entry
 
     # Sync entries the user can read. Apps whose sync entry is not visible
     # (no sync:read) are shown in the unmanaged section instead
@@ -47,57 +98,16 @@ def apps_data(req):
     unmanaged = []  # created/last updated imperatively
     total = 0
     declarative_count = 0
-    for entry in all_apps:
-        if entry["main_app"]:
-            continue
+    for app in build_app_rows(all_apps):
         total += 1
-
-        stage = staging_by_main.get(entry["id"])
-        # The staging app carries the most recent sync state (prod picks it
-        # up on promote); fall back to the prod app's value. get() keeps this
-        # working against servers older than the applied_sync_id field
-        sync_id = (stage.get("applied_sync_id", "") if stage else "") or entry.get("applied_sync_id", "")
-
-        # Declarative means a sync source last applied the app. Git presence
-        # is not the signal: image and proxy spec apps have no git source
-        is_declarative = bool(sync_id)
-        if is_declarative:
+        if app["is_declarative"]:
             declarative_count += 1
-        if (filter == "declarative" and not is_declarative) or \
-           (filter == "imperative" and is_declarative):
+        if (filter == "declarative" and not app["is_declarative"]) or \
+           (filter == "imperative" and app["is_declarative"]):
             continue
 
-        staging = None
-        if stage:
-            staging = {
-                "version": stage["version"],
-                "git_sha": short_sha(stage["git_sha"]),
-                "git_message": stage["git_message"],
-                # staging has a version prod does not have yet
-                "ahead": stage["version_mismatch"],
-            }
-
-        app = {
-            "name": entry["name"],
-            "path": entry["path"],
-            "url": entry["url"],
-            "auth": entry["auth"],
-            "is_git": bool(entry["git_branch"]),
-            "is_declarative": is_declarative,
-            # "-" is the placeholder for apps with no source (image/proxy specs)
-            "source": entry["source"] if entry["source"] != "-" else "",
-            "source_url": entry["source_url"],
-            "git_branch": entry["git_branch"],
-            "version": entry["version"],
-            "git_sha": short_sha(entry["git_sha"]),
-            "git_message": entry["git_message"],
-            "staging": staging,
-            "created_by": entry.get("created_by") or "",
-            "update_age": short_age(entry["update_age"]),
-        }
-
-        if sync_id and sync_id in syncs:
-            grouped.setdefault(sync_id, []).append(app)
+        if app["sync_id"] and app["sync_id"] in syncs:
+            grouped.setdefault(app["sync_id"], []).append(app)
         else:
             unmanaged.append(app)
 
@@ -986,16 +996,22 @@ def containers_detail_stats_handler(req):
     return data
 
 
-def containers_detail_logs_handler(req):
-    # Slow fragment: recent container logs
+def containers_logs_stream_handler(req):
+    # Streaming TEXT route: the last tail lines of the container logs,
+    # optionally following new output (follow=1) until the client
+    # disconnects. Rendered by the <log-tail> element on the detail page
     id = query_param(req, "id")
-    data = {"Id": id, "Logs": "", "LogsError": "", "LogsLoaded": True}
-    logs = openrun.container_logs(id, tail=100)
-    if logs.error:
-        data["LogsError"] = logs.error
-    else:
-        data["Logs"] = logs.value
-    return data
+    tail = query_param(req, "tail")
+    tail_int = int(tail) if tail.isdigit() else 500
+    if tail_int > 10000:
+        tail_int = 10000
+    follow = query_param(req, "follow") == "1"
+
+    ret = openrun.container_logs_stream(id, tail=tail_int, follow=follow)
+    if ret.error:
+        return "error: %s" % ret.error
+    # Return the stream response object itself; the framework streams it
+    return ret
 
 
 # ---------- Audit logs ----------
@@ -1544,6 +1560,14 @@ def syncs_detail_data(req):
     if last_exec:
         # Details of what the last invocation applied
         data["LastResult"] = sync_result_summary(status)
+
+    # Apps last applied by this sync, filtered server side by sync_id
+    apps_ret = openrun.list_apps(sync_id=id, include_internal=True)
+    if apps_ret.error:
+        data["AppsError"] = apps_ret.error
+        data["Apps"] = []
+    else:
+        data["Apps"] = sorted(build_app_rows(apps_ret.value), key=lambda app: app["path"])
     return data
 
 

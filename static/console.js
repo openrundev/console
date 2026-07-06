@@ -1,5 +1,23 @@
 // Shared console page behaviors: theme toggle persistence, app filter chips,
-// and the Cmd/Ctrl-K search shortcut.
+// the nav drawer toggle and the Cmd/Ctrl-K search shortcut.
+
+// Open/close the nav drawer from the hamburger button. The daisyui drawer is
+// driven by the hidden #nav-drawer checkbox; the button keeps aria-expanded
+// in sync (also when the overlay click closes the drawer)
+function toggleNavDrawer(btn) {
+	const drawer = document.getElementById('nav-drawer');
+	if (!drawer) {
+		return;
+	}
+	drawer.checked = !drawer.checked;
+	btn.setAttribute('aria-expanded', drawer.checked ? 'true' : 'false');
+	if (drawer.checked) {
+		const nav = document.getElementById('main-nav');
+		if (nav) {
+			nav.focus();
+		}
+	}
+}
 
 // Set the app list filter chip and trigger the HTMX refresh via the hidden input
 function setAppFilter(btn, value) {
@@ -9,9 +27,11 @@ function setAppFilter(btn, value) {
 	}
 	input.value = value;
 	// The buttons live outside the htmx swap target, update the highlight
-	// here. Join chips use btn-primary, stat blocks use a primary tint
+	// (and the toggle state for assistive tech) here. Join chips use
+	// btn-primary, stat blocks use a primary tint
 	for (const sibling of btn.parentElement.children) {
 		const active = sibling === btn;
+		sibling.setAttribute('aria-pressed', active ? 'true' : 'false');
 		if (sibling.classList.contains('join-item')) {
 			sibling.classList.toggle('btn-primary', active);
 		} else {
@@ -57,7 +77,7 @@ function showApiError(message) {
 		toast.id = 'api-error-toast';
 		toast.className = 'toast toast-top toast-center z-50';
 		toast.innerHTML =
-			'<div class="alert alert-error text-sm shadow-lg">' +
+			'<div role="alert" class="alert alert-error text-sm shadow-lg">' +
 			'<span>✕</span><span id="api-error-text" class="break-all"></span>' +
 			'<button class="btn btn-xs btn-ghost" ' +
 			'onclick="this.closest(\'#api-error-toast\').remove()">Dismiss</button>' +
@@ -77,9 +97,11 @@ function showConfirmDialog(question, onConfirm) {
 		dialog = document.createElement('dialog');
 		dialog.id = 'confirm-dialog';
 		dialog.className = 'modal';
+		dialog.setAttribute('aria-labelledby', 'confirm-dialog-title');
+		dialog.setAttribute('aria-describedby', 'confirm-dialog-text');
 		dialog.innerHTML =
 			'<div class="modal-box max-w-md">' +
-			'<h3 class="text-base font-semibold mb-2">Please confirm</h3>' +
+			'<h3 id="confirm-dialog-title" class="text-base font-semibold mb-2">Please confirm</h3>' +
 			'<p id="confirm-dialog-text" class="text-sm text-base-content/70 break-words"></p>' +
 			'<div class="modal-action mt-5">' +
 			'<button id="confirm-dialog-cancel" class="btn btn-ghost btn-sm">Cancel</button>' +
@@ -187,8 +209,32 @@ document.addEventListener('DOMContentLoaded', () => {
 		});
 	}
 
-	// Cmd/Ctrl-K focuses the search box; Escape clears it
+	// Keep the hamburger's aria-expanded in sync when the drawer is closed
+	// by the overlay click instead of the button
+	const drawer = document.getElementById('nav-drawer');
+	if (drawer) {
+		drawer.addEventListener('change', () => {
+			for (const btn of document.querySelectorAll('[aria-controls="main-nav"]')) {
+				btn.setAttribute('aria-expanded', drawer.checked ? 'true' : 'false');
+			}
+		});
+	}
+
+	// Cmd/Ctrl-K focuses the search box; Escape clears it (or closes the
+	// nav drawer when it is open)
 	document.addEventListener('keydown', (event) => {
+		if (event.key == 'Escape') {
+			const drawer = document.getElementById('nav-drawer');
+			if (drawer && drawer.checked) {
+				drawer.checked = false;
+				drawer.dispatchEvent(new Event('change'));
+				const btn = document.querySelector('[aria-controls="main-nav"]');
+				if (btn) {
+					btn.focus();
+				}
+				return;
+			}
+		}
 		const search = document.getElementById('page-search');
 		if (!search) {
 			return;

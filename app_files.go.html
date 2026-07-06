@@ -6,7 +6,7 @@
 
   <body class="min-h-screen bg-base-200">
     <div class="drawer lg:drawer-open">
-      <input id="nav-drawer" type="checkbox" class="drawer-toggle" />
+      <input id="nav-drawer" type="checkbox" class="drawer-toggle" tabindex="-1" aria-hidden="true" />
 
       <div class="drawer-content">
         <main class="p-4 lg:p-6 space-y-4 max-w-4xl">
@@ -14,7 +14,7 @@
           <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" }}
             <div>
-              <div class="breadcrumbs text-xs text-base-content/60 p-0"><ul><li><a href="{{ .AppPath }}/apps">Apps</a></li><li class="font-mono"><a href="{{ .AppPath }}/apps/detail?path={{ .Data.Path }}">{{ .Data.Path }}</a></li><li>files</li></ul></div>
+              <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0"><ul><li><a href="{{ .AppPath }}/apps">Apps</a></li><li class="font-mono"><a href="{{ .AppPath }}/apps/detail?path={{ .Data.Path }}">{{ .Data.Path }}</a></li><li>files</li></ul></nav>
               <h1 class="text-xl font-semibold">
                 Files
                 <span class="font-mono text-base"
@@ -29,7 +29,7 @@
                   >{{ .Data.Env }}</span
                 >
               </h1>
-              <p class="text-sm text-base-content/60">
+              <p class="text-sm text-base-content/70">
                 {{ len .Data.Files }} files · {{ .Data.TotalSize }}
               </p>
             </div>
@@ -39,7 +39,7 @@
 
           {{ if .Data.Error }}
             <div role="alert" class="alert alert-error alert-soft py-2 text-sm">
-              <span>✕</span>
+              <span aria-hidden="true">✕</span>
               <span class="break-all">{{ .Data.Error }}</span>
             </div>
           {{ else }}
@@ -48,9 +48,9 @@
                 <table class="table table-sm">
                   <thead>
                     <tr>
-                      <th>File</th>
-                      <th class="text-right">Size</th>
-                      <th class="hidden md:table-cell">Etag</th>
+                      <th scope="col">File</th>
+                      <th scope="col" class="text-right">Size</th>
+                      <th scope="col" class="hidden md:table-cell">Etag</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -64,7 +64,7 @@
                           {{ .size }}
                         </td>
                         <td
-                          class="font-mono text-xs text-base-content/50 hidden md:table-cell">
+                          class="font-mono text-xs text-base-content/70 hidden md:table-cell">
                           {{ .etag }}
                         </td>
                       </tr>
@@ -72,7 +72,7 @@
                       <tr>
                         <td
                           colspan="3"
-                          class="text-center text-sm text-base-content/50 py-6">
+                          class="text-center text-sm text-base-content/70 py-6">
                           No files in this version
                         </td>
                       </tr>

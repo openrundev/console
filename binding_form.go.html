@@ -6,7 +6,7 @@
 
   <body class="min-h-screen bg-base-200">
     <div class="drawer lg:drawer-open">
-      <input id="nav-drawer" type="checkbox" class="drawer-toggle" />
+      <input id="nav-drawer" type="checkbox" class="drawer-toggle" tabindex="-1" aria-hidden="true" />
 
       <div class="drawer-content">
         <main class="p-4 lg:p-6 space-y-4 max-w-2xl">
@@ -14,7 +14,7 @@
           <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" }}
             <div>
-              <div class="breadcrumbs text-xs text-base-content/60 p-0"><ul><li><a href="{{ .AppPath }}/bindings">Bindings</a></li><li>{{ if eq .Data.Mode "create" }}new{{ else }}edit{{ end }}</li></ul></div>
+              <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0"><ul><li><a href="{{ .AppPath }}/bindings">Bindings</a></li><li>{{ if eq .Data.Mode "create" }}new{{ else }}edit{{ end }}</li></ul></nav>
               <h1 class="text-xl font-semibold">
                 {{ if eq .Data.Mode "create" }}
                   New binding
@@ -23,7 +23,7 @@
                   <span class="font-mono">{{ .Data.Values.path }}</span>
                 {{ end }}
               </h1>
-              <p class="text-sm text-base-content/60">
+              <p class="text-sm text-base-content/70">
                 {{ if eq .Data.Mode "create" }}
                   Bind apps to a service or a base binding
                 {{ else }}
@@ -37,14 +37,14 @@
 
           {{ if .Data.Error }}
             <div role="alert" class="alert alert-error alert-soft py-2 text-sm">
-              <span>✕</span>
+              <span aria-hidden="true">✕</span>
               <span class="break-all">{{ .Data.Error }}</span>
             </div>
           {{ end }}
 
           {{ if .Data.Validated }}
             <div role="alert" class="alert alert-success alert-soft py-2 text-sm">
-              <span>✓</span>
+              <span aria-hidden="true">✓</span>
               <span
                 >Validation succeeded —
                 <span class="font-mono">{{ .Data.Values.path }}</span> is ready
@@ -56,8 +56,8 @@
           {{ if and (eq .Data.Mode "update") (not .Data.Binding) }}
             <div class="card bg-base-100 border border-base-300 py-10">
               <div
-                class="flex flex-col items-center gap-2 text-center text-sm text-base-content/60">
-                <span class="text-xl">🔍</span>
+                class="flex flex-col items-center gap-2 text-center text-sm text-base-content/70">
+                <span class="text-xl" aria-hidden="true">🔍</span>
                 <p>The binding could not be loaded</p>
                 <a class="btn btn-xs btn-outline" href="{{ .AppPath }}/bindings"
                   >Back to bindings</a
@@ -71,7 +71,7 @@
                 <div
                   class="px-4 py-3 grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1 text-sm">
                   <div>
-                    <div class="text-xs text-base-content/50">Source</div>
+                    <div class="text-xs text-base-content/70">Source</div>
                     <div
                       class="font-mono text-xs truncate"
                       title="{{ .Data.Binding.source }}">
@@ -79,7 +79,7 @@
                     </div>
                   </div>
                   <div>
-                    <div class="text-xs text-base-content/50">Base binding</div>
+                    <div class="text-xs text-base-content/70">Base binding</div>
                     <div class="font-mono text-xs">
                       {{ if .Data.Binding.derived_from }}
                         {{ .Data.Binding.derived_from }}
@@ -89,7 +89,7 @@
                     </div>
                   </div>
                   <div>
-                    <div class="text-xs text-base-content/50">Service</div>
+                    <div class="text-xs text-base-content/70">Service</div>
                     <div class="font-mono text-xs">
                       {{ .Data.Binding.service_type }}{{ if .Data.Binding.service_name }}/{{ .Data.Binding.service_name }}{{ end }}
                     </div>
@@ -120,7 +120,7 @@
                         value="{{ .Data.Values.path }}"
                         placeholder="/db/main"
                         class="input w-full font-mono text-sm" />
-                      <p class="text-xs text-base-content/50 mt-1">
+                      <p class="text-xs text-base-content/70 mt-1">
                         Unique path apps use to reference this binding
                       </p>
                     </div>
@@ -139,7 +139,7 @@
                         value="{{ .Data.Values.source }}"
                         placeholder="postgres/main or /base/binding"
                         class="input w-full font-mono text-sm" />
-                      <p class="text-xs text-base-content/50 mt-1">
+                      <p class="text-xs text-base-content/70 mt-1">
                         A service id (type/name) for a base binding, or an
                         existing binding path to derive from
                       </p>
@@ -169,7 +169,7 @@
                       spellcheck="false"
                       placeholder="read:*&#10;full:/tools/**"
                       class="textarea w-full font-mono text-sm leading-relaxed">{{ .Data.Values.grants_text }}</textarea>
-                    <p class="text-xs text-base-content/50 mt-1">
+                    <p class="text-xs text-base-content/70 mt-1">
                       One type:target grant per line, for derived bindings
                       only.
                       {{ if eq .Data.Mode "update" }}
@@ -192,7 +192,7 @@
                         spellcheck="false"
                         placeholder="timeout=30&#10;pool_size=5"
                         class="textarea w-full font-mono text-sm leading-relaxed">{{ .Data.Values.config_text }}</textarea>
-                      <p class="text-xs text-base-content/50 mt-1">
+                      <p class="text-xs text-base-content/70 mt-1">
                         One KEY=value config entry per line
                       </p>
                     </div>

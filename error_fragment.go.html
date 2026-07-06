@@ -2,6 +2,6 @@
      partial (HTMX) request fails unexpectedly. ace.response can only
      reference file templates, so this lives in its own file */}}
 <div role="alert" class="alert alert-error py-2 text-sm shadow-lg">
-  <span>✕</span>
+  <span aria-hidden="true">✕</span>
   <span class="break-all">{{ .Data.Error }}</span>
 </div>

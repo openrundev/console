@@ -43,32 +43,234 @@
     <script src="{{ static "console.js" }}"></script>
 
     {{ template "openrun_gen_import" . }}
+    <!-- Accessibility overrides, loaded after the generated + design styles -->
+    <link rel="stylesheet" href="{{ static "css/accessibility.css" }}" />
   </head>
 {{ end }}
 
-{{/* hamburger opens the nav drawer on small screens */}}
+{{/* hamburger renders the skip-to-navigation link (the main content comes
+     before the nav in DOM order) and the button opening the nav drawer on
+     small screens. Rendered at the top of every page header */}}
 {{ define "hamburger" }}
-  <label
-    for="nav-drawer"
+  <a href="#main-nav" class="skip-link">Skip to navigation</a>
+  <button
+    type="button"
     class="btn btn-ghost btn-square btn-xl lg:hidden"
-    aria-label="Open navigation"
-    >☰</label
-  >
+    aria-label="Open navigation menu"
+    aria-controls="main-nav"
+    aria-expanded="false"
+    onclick="toggleNavDrawer(this)">
+    <span aria-hidden="true">☰</span>
+  </button>
 {{ end }}
 
-{{/* time_ago renders an RFC3339 timestamp as a compact "4m ago" style age */}}
+{{/* time_ago renders an RFC3339 timestamp as a compact "4m ago" style age,
+     with the exact UTC time as a tooltip */}}
 {{ define "time_ago" }}
-  {{- $d := ago (toDate "2006-01-02T15:04:05Z07:00" .) -}}
+  {{- $t := toDate "2006-01-02T15:04:05Z07:00" . -}}
+  {{- $d := ago $t -}}
   {{- $d = regexReplaceAll "([hm])[0-9]+(\\.[0-9]+)?s$" $d "${1}" -}}
   {{- $d = regexReplaceAll "(h)[0-9]+m$" $d "${1}" -}}
-  {{- $d }} ago
+  <span title="{{ dateInZone "2006-01-02 15:04:05" $t "UTC" }} UTC">{{ $d }} ago</span>
 {{- end }}
+
+{{/* app_table renders a list of app rows; shared by the apps page groups
+     and the sync detail page. Context: dict with Apps (row list), AppPath
+     (console root path), Perms (the user's management permissions) and
+     ShowActions (row action buttons; the apps page passes true — the
+     actions re-render the apps page partial, so view-only pages omit them) */}}
+{{ define "app_table" }}
+  {{ $root := .AppPath }}
+  {{ $perms := .Perms }}
+  {{ $actions := .ShowActions }}
+  <div class="overflow-x-auto">
+    <table class="table table-sm">
+      <thead>
+        <tr>
+          <th scope="col">App</th>
+          <th scope="col" class="hidden md:table-cell">Source</th>
+          <th scope="col">Prod</th>
+          <th scope="col" class="hidden lg:table-cell">Auth</th>
+          <th scope="col" class="hidden sm:table-cell">Updated</th>
+          {{ if $actions }}
+            <th scope="col" class="text-right">Actions</th>
+          {{ end }}
+        </tr>
+      </thead>
+      <tbody>
+        {{ range .Apps }}
+          <tr class="group hover:bg-base-200/60">
+            <td>
+              <a
+                href="{{ $root }}/apps/detail?path={{ .path }}"
+                class="link link-hover font-mono font-medium"
+                title="{{ .name }} — view details"
+                >{{ .path }}</a
+              ><a
+                href="{{ .url }}"
+                target="_blank"
+                rel="noopener"
+                title="Open app in a new tab"
+                aria-label="Open {{ .path }} in a new tab"
+                class="inline-block text-primary text-xs opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-200 ml-0.5"
+                ><span aria-hidden="true">↗</span></a
+              >
+            </td>
+            <td class="hidden md:table-cell">
+              {{ if .is_git }}
+                {{ if .source_url }}
+                  <a
+                    href="{{ .source_url }}"
+                    target="_blank"
+                    class="link link-hover font-mono text-xs"
+                    >{{ .source }}</a
+                  >
+                {{ else }}
+                  <span class="font-mono text-xs">{{ .source }}</span>
+                {{ end }}
+                <span class="badge badge-ghost badge-xs">{{ .git_branch }}</span>
+              {{ else if .source }}
+                <span
+                  class="font-mono text-xs inline-block max-w-60 truncate align-bottom"
+                  >{{ .source }}</span
+                >
+              {{ end }}
+            </td>
+            <td class="whitespace-nowrap">
+              <span
+                class="font-mono text-xs tabular-nums"
+                title="{{ .git_message }}"
+                >v{{ .version }}{{ if .git_sha }}
+                  ·
+                  {{ .git_sha }}
+                {{ end }}</span
+              >
+              {{ if .staging }}
+                {{ if .staging.ahead }}
+                  <span
+                    class="badge badge-warning badge-xs badge-soft"
+                    title="staging v{{ .staging.version }} is not promoted to prod yet"
+                    >needs promotion</span
+                  >
+                {{ else }}
+                  <span
+                    class="badge badge-success badge-xs badge-soft"
+                    title="prod matches staging"
+                    >in sync</span
+                  >
+                {{ end }}
+              {{ end }}
+            </td>
+            <td class="hidden lg:table-cell">
+              <span class="badge badge-ghost badge-xs">{{ .auth }}</span>
+            </td>
+            <td
+              class="text-xs text-base-content/70 whitespace-nowrap hidden sm:table-cell">
+              {{ if .update_time }}
+                <span
+                  title="{{ dateInZone "2006-01-02 15:04:05" (toDate "2006-01-02T15:04:05Z07:00" .update_time) "UTC" }} UTC · by {{ if .update_user }}{{ .update_user }}{{ else }}unknown{{ end }}"
+                  >{{ .update_age }}</span
+                >
+              {{ else }}
+                {{ .update_age }}
+              {{ end }}
+            </td>
+            {{ if $actions }}
+              <td class="text-right whitespace-nowrap">
+                <div
+                  class="inline-flex items-center gap-0.5">
+                  <a
+                    href="{{ $root }}/apps/update?path={{ .path }}"
+                    class="btn btn-xs btn-ghost btn-square {{ if not (index $perms "app:update") }}btn-disabled{{ end }}"
+                    {{ if not (index $perms "app:update") }}aria-disabled="true" tabindex="-1"{{ end }}
+                    aria-label="Edit {{ .path }}"
+                    title="{{ if index $perms "app:update" }}Edit auth and parameters{{ else }}requires app:update{{ end }}">
+                    <svg aria-hidden="true" focusable="false"
+                      class="w-3.5 h-3.5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round">
+                      <path
+                        d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                    </svg>
+                  </a>
+                  <button
+                    class="btn btn-xs btn-ghost btn-square"
+                    aria-label="Reload {{ .path }}"
+                    {{ if index $perms "app:reload" }}
+                      title="{{ if .is_git }}Reload from git{{ else }}Reload from source{{ end }}"
+                      hx-post="{{ $root }}/apps/reload"
+                      hx-disabled-elt="this"
+                      hx-vals='{"path": "{{ .path }}"}'
+                      hx-confirm="Reload {{ .path }} from its source and promote?"
+                      hx-target="#app-groups"
+                      hx-swap="innerHTML transition:true"
+                      hx-include="#page-search, #app-filter-value"
+                      hx-indicator="#page-progress"
+                    {{ else }}
+                      disabled title="requires app:reload"
+                    {{ end }}>
+                    <svg aria-hidden="true" focusable="false"
+                      class="w-3.5 h-3.5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round">
+                      <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                      <path d="M21 3v6h-6" />
+                    </svg>
+                  </button>
+                  <button
+                    class="btn btn-xs btn-ghost btn-square text-error"
+                    aria-label="Delete {{ .path }}"
+                    {{ if index $perms "app:delete" }}
+                      title="Delete app"
+                      hx-post="{{ $root }}/apps/delete"
+                      hx-disabled-elt="this"
+                      hx-vals='{"path": "{{ .path }}"}'
+                      hx-confirm="Delete {{ .path }}? This deletes the prod, staging and preview apps."
+                      hx-target="#app-groups"
+                      hx-swap="innerHTML transition:true"
+                      hx-include="#page-search, #app-filter-value"
+                      hx-indicator="#page-progress"
+                    {{ else }}
+                      disabled title="requires app:delete"
+                    {{ end }}>
+                    <svg aria-hidden="true" focusable="false"
+                      class="w-3.5 h-3.5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round">
+                      <path d="M3 6h18" />
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                      <path d="M10 11v6" />
+                      <path d="M14 11v6" />
+                    </svg>
+                  </button>
+                </div>
+              </td>
+            {{ end }}
+          </tr>
+        {{ end }}
+      </tbody>
+    </table>
+  </div>
+{{ end }}
 
 {{/* sync_result_row renders one category line of a sync result */}}
 {{ define "sync_result_row" }}
   {{ if .Items }}
     <div class="flex items-baseline gap-2 min-w-0">
-      <span class="text-xs text-base-content/50 w-24 flex-none text-right"
+      <span class="text-xs text-base-content/70 w-24 flex-none text-right"
         >{{ .Label }}</span
       >
       <span class="font-mono text-xs break-all"
@@ -85,14 +287,14 @@
   <div class="card bg-base-100 border border-success/40">
     <div class="card-body p-4 gap-2">
       <div class="flex items-center gap-2 text-sm flex-wrap">
-        <span class="text-success">✓</span>
+        <span class="text-success" aria-hidden="true">✓</span>
         <span class="font-medium">Sync completed</span>
         {{ if .commit }}
-          <span class="font-mono text-xs text-base-content/60"
+          <span class="font-mono text-xs text-base-content/70"
             >{{ .commit }}</span
           >
         {{ end }}
-        <span class="text-xs text-base-content/50">
+        <span class="text-xs text-base-content/70">
           {{ if .skipped_apply }}
             — no new commit, apply was skipped
           {{ else if not .changed }}
@@ -124,13 +326,13 @@
 {{ define "perms_card" }}
   <div class="card bg-base-100 border border-base-300">
     <div class="card-body p-5 gap-3">
-      <h2 class="text-sm font-medium text-base-content/60">
+      <h2 class="text-sm font-medium text-base-content/70">
         Requested permissions
       </h2>
       {{ if or .Review.loads .Review.permissions }}
         {{ if .Review.loads }}
           <div class="flex items-center gap-1.5 flex-wrap">
-            <span class="text-xs text-base-content/50">Plugins</span>
+            <span class="text-xs text-base-content/70">Plugins</span>
             {{ range .Review.loads }}
               <span class="badge badge-sm badge-soft badge-primary font-mono"
                 >{{ . }}</span
@@ -149,7 +351,7 @@
                 >
                 {{ if .arguments }}
                   <span
-                    class="font-mono text-xs text-base-content/50 truncate"
+                    class="font-mono text-xs text-base-content/70 truncate"
                     title="{{ .arguments }}"
                     >{{ .arguments }}</span
                   >
@@ -167,9 +369,9 @@
             {{ end }}
           </div>
         {{ end }}
-        <p class="text-xs text-base-content/50">{{ .Note }}</p>
+        <p class="text-xs text-base-content/70">{{ .Note }}</p>
       {{ else }}
-        <p class="text-sm text-base-content/60">
+        <p class="text-sm text-base-content/70">
           This app requests no plugin permissions
         </p>
       {{ end }}
@@ -177,34 +379,41 @@
   </div>
 {{ end }}
 
-{{/* container_state renders the state dot and label for a container */}}
+{{/* container_state renders the state dot and label for a container. The
+     dot is decorative — the state is always conveyed by the text label */}}
 {{ define "container_state" }}
   {{ if eq .state "running" }}
-    <span class="status status-success"></span>
+    <span class="status status-success" aria-hidden="true"></span>
     <span class="text-xs">running</span>
   {{ else if eq .state "exited" }}
-    <span class="status status-error"></span>
+    <span class="status status-error" aria-hidden="true"></span>
     <span class="text-xs text-error">exited</span>
   {{ else if eq .state "failed" }}
-    <span class="status status-error"></span>
+    <span class="status status-error" aria-hidden="true"></span>
     <span class="text-xs text-error">failed</span>
   {{ else if eq .state "pending" }}
-    <span class="status status-warning"></span>
+    <span class="status status-warning" aria-hidden="true"></span>
     <span class="text-xs">pending</span>
   {{ else }}
-    <span class="status status-warning"></span>
+    <span class="status status-warning" aria-hidden="true"></span>
     <span class="text-xs">{{ .state }}</span>
   {{ end }}
 {{ end }}
 
-{{/* theme_toggle is the sun/moon switch, persisted via localStorage */}}
+{{/* theme_toggle is the sun/moon switch, persisted via localStorage. The
+     checkbox stays focusable (daisyui swap hides it visually, style.css
+     stretches it over the label) so the toggle works from the keyboard */}}
 {{ define "theme_toggle" }}
   <label
     class="swap swap-rotate btn btn-sm btn-ghost btn-circle"
     title="Switch between dark and light themes">
-    <input id="theme-toggle" class="hidden" type="checkbox" />
-    <span class="swap-on">☀️</span>
-    <span class="swap-off">🌙</span>
+    <input
+      id="theme-toggle"
+      type="checkbox"
+      role="switch"
+      aria-label="Light theme" />
+    <span class="swap-on" aria-hidden="true">☀️</span>
+    <span class="swap-off" aria-hidden="true">🌙</span>
   </label>
   <script>
     // Set the toggle to the active theme before first paint; doing this
@@ -231,7 +440,7 @@
   <div class="drawer-side z-20">
     <label
       for="nav-drawer"
-      aria-label="Close navigation"
+      aria-hidden="true"
       class="drawer-overlay"></label>
     <aside
       class="w-60 min-h-full bg-base-100 border-r border-base-300 flex flex-col">
@@ -242,53 +451,61 @@
             alt="OpenRun"
             width="600"
             height="325"
-            class="h-10 md:h-20 w-auto" />
+            class="h-8 md:h-14 w-auto" />
         </a>
       </div>
-      <ul class="menu w-full grow px-2 pt-3 gap-1 text-[0.95rem]">
+      <nav id="main-nav" aria-label="Main navigation" tabindex="-1" class="grow w-full">
+      <ul class="menu w-full px-2 pt-3 gap-1 text-[0.95rem]">
         <li>
           <a
             href="{{ .AppPath }}/apps"
+            {{ if eq .Data.Nav "apps" }}aria-current="page"{{ end }}
             class="{{ if eq .Data.Nav "apps" }}menu-active{{ end }}"
-            >Apps</a
+            ><svg aria-hidden="true" focusable="false" class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1" /><rect width="7" height="7" x="14" y="3" rx="1" /><rect width="7" height="7" x="14" y="14" rx="1" /><rect width="7" height="7" x="3" y="14" rx="1" /></svg>Apps</a
           >
         </li>
         <li>
           <a
             href="{{ .AppPath }}/syncs"
+            {{ if eq .Data.Nav "syncs" }}aria-current="page"{{ end }}
             class="{{ if eq .Data.Nav "syncs" }}menu-active{{ end }}"
-            >Syncs</a
+            ><svg aria-hidden="true" focusable="false" class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><path d="M8 16H3v5" /></svg>Syncs</a
           >
         </li>
         <li>
           <a
             href="{{ .AppPath }}/bindings"
+            {{ if eq .Data.Nav "bindings" }}aria-current="page"{{ end }}
             class="{{ if eq .Data.Nav "bindings" }}menu-active{{ end }}"
-            >Bindings</a
+            ><svg aria-hidden="true" focusable="false" class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>Bindings</a
           >
         </li>
         <li>
           <a
             href="{{ .AppPath }}/containers"
+            {{ if eq .Data.Nav "containers" }}aria-current="page"{{ end }}
             class="{{ if eq .Data.Nav "containers" }}menu-active{{ end }}"
-            >Containers</a
+            ><svg aria-hidden="true" focusable="false" class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" /><path d="m3.3 7 8.7 5 8.7-5" /><path d="M12 22V12" /></svg>Containers</a
           >
         </li>
         <li>
           <a
             href="{{ .AppPath }}/audit"
+            {{ if eq .Data.Nav "audit" }}aria-current="page"{{ end }}
             class="{{ if eq .Data.Nav "audit" }}menu-active{{ end }}"
-            >Audit Logs</a
+            ><svg aria-hidden="true" focusable="false" class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" /><path d="M14 2v4a2 2 0 0 0 2 2h4" /><path d="M10 9H8" /><path d="M16 13H8" /><path d="M16 17H8" /></svg>Audit Logs</a
           >
         </li>
         <li>
           <a
             href="{{ .AppPath }}/config"
+            {{ if eq .Data.Nav "config" }}aria-current="page"{{ end }}
             class="{{ if eq .Data.Nav "config" }}menu-active{{ end }}"
-            >Configuration</a
+            ><svg aria-hidden="true" focusable="false" class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></svg>Configuration</a
           >
         </li>
       </ul>
+      </nav>
       <div
         class="px-4 py-3 border-t border-base-300 flex items-center gap-2 text-sm">
         {{ if .UserId }}
