@@ -1,0 +1,101 @@
+/* Accessibility overrides layered on top of the generated styles and
+   style.css (loaded after both in the head define). Manual-edit file:
+   the dev server only regenerates static/gen/. */
+
+/* Skip link: visually hidden until it receives keyboard focus. Main content
+   comes first in DOM order, so the link jumps forward to the navigation. */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0.5rem;
+  z-index: 200;
+}
+.skip-link:focus-visible {
+  left: 0.5rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: var(--radius-field);
+  background: var(--color-primary);
+  color: var(--color-primary-content);
+  font-size: 0.85rem;
+}
+
+/* The theme toggle checkbox stays in the tab order. daisyui's swap hides
+   the input (visibility: hidden), which also removes it from keyboard
+   focus; keep it visible but transparent, stretched over the button so its
+   focus ring wraps the control */
+.swap input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  visibility: visible;
+  cursor: pointer;
+}
+
+/* Muted text contrast (WCAG 1.4.3, the light theme is the strict case):
+   daisyui stat-title/stat-desc and the style.css table headers use 55-60%
+   content color, which lands below the 4.5:1 AA ratio on light */
+.table thead th {
+  color: color-mix(in oklab, var(--color-base-content) 75%, transparent);
+}
+.stat-title,
+.stat-desc {
+  color: color-mix(in oklab, var(--color-base-content) 75%, transparent) !important;
+}
+
+/* Row actions and hover-revealed links are dimmed/hidden until the row is
+   hovered; keep them fully visible for keyboard focus too */
+[class*="group-hover:opacity-100"]:focus-within,
+a[class*="group-hover:opacity-100"]:focus-visible,
+tr:focus-within [class*="group-hover:opacity-100"] {
+  opacity: 1;
+}
+
+/* ---- Optical alignment --------------------------------------------------
+   Mixed font sizes in a vertically centered flex row: centering the boxes
+   leaves the smaller text's glyphs sitting visibly high (its cap band ends
+   up top-aligned with the heading's). Line-height changes cannot fix this —
+   under box centering the baseline position depends only on the font size —
+   so the small caption next to a heading is nudged down to optically center
+   its glyph band within the heading's. */
+:is(h1, h2, h3) ~ span.text-xs {
+  position: relative;
+  top: 0.11em;
+}
+
+/* The ⌘K hint: glyphs without descenders look high in the centered kbd
+   pill; bias the content box down to optically center them */
+.kbd {
+  padding-top: 2px;
+}
+
+/* ---- Layout stability during page load ----------------------------------
+   The sidebar (drawer-side) is the last element in the DOM, keeping the
+   main content first for keyboard and reader order. On large pages the
+   browser paints the streamed content before the sidebar arrives; daisyui
+   sizes the sidebar grid column by content (grid-auto-columns:
+   max-content), so the column is 0 wide until the sidebar parses in and
+   the whole page then shifts right — visible as a flicker on refresh and
+   when navigating to content-heavy pages. Reserve the docked sidebar
+   column up front and pre-paint its surface and border. */
+@media (min-width: 64rem) {
+  .drawer.lg\:drawer-open {
+    grid-template-columns: 15rem auto;
+    background: linear-gradient(
+      to right,
+      var(--color-base-100) calc(15rem - 1px),
+      var(--color-base-300) calc(15rem - 1px),
+      var(--color-base-300) 15rem,
+      transparent 15rem
+    );
+  }
+}
+
+/* Sidebar nav icons: primary-colored at rest; on the active item they
+   inherit the pill's content color (primary green sits too dark on the
+   active background) */
+.menu li > a.menu-active svg {
+  color: inherit;
+}
