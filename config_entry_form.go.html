@@ -1,0 +1,199 @@
+{{/* Generic config entry form (/config/entry?section=X[&name=Y]): renders
+     the fields from the CONFIG_SECTIONS descriptor in handler.star, so new
+     sections need no template or backend change. Saving is live immediately
+     (no staging). Secret fields are write-only: blank on edit keeps the
+     stored value via the redaction placeholder */}}
+<!DOCTYPE html>
+<html lang="en">
+  {{ template "head" . }}
+
+  <body class="min-h-screen bg-base-200">
+    <div class="drawer lg:drawer-open">
+      <input id="nav-drawer" type="checkbox" class="drawer-toggle" tabindex="-1" aria-hidden="true" />
+
+      <div class="drawer-content">
+        <main class="p-4 lg:p-6 space-y-4 max-w-2xl">
+          <!-- Header -->
+          <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+            {{ template "hamburger" }}
+            <div>
+              <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0">
+                <ul>
+                  <li>
+                    <a href="{{ .AppPath }}/config">Configuration</a>
+                  </li>
+                  <li>
+                    <a href="{{ .AppPath }}{{ .Data.ReturnPath }}">{{ .Data.Meta.title }}</a>
+                  </li>
+                  <li>
+                    {{ if .Data.IsEdit }}
+                      edit
+                    {{ else if eq .Data.Source "static" }}
+                      override
+                    {{ else }}
+                      new
+                    {{ end }}
+                    {{ .Data.Meta.title }}
+                  </li>
+                </ul></nav>
+              <h1 class="text-xl font-semibold">
+                {{ if .Data.IsEdit }}
+                  Edit
+                {{ else if eq .Data.Source "static" }}
+                  Override
+                {{ else }}
+                  New
+                {{ end }}
+                {{ .Data.Meta.title }} entry
+              </h1>
+              <p class="text-sm text-base-content/70">
+                {{ if eq .Data.Source "static" }}
+                  Saving creates a dynamic entry which overrides the static
+                  <span class="font-mono">openrun.toml</span> entry —
+                {{ end }}
+                Changes are validated and take effect immediately on save
+              </p>
+            </div>
+          </div>
+
+          {{ template "error_alert" .Data.Error }}
+
+
+          <form
+            method="post"
+            action="{{ .AppPath }}/config/entry"
+            class="card bg-base-100 border border-base-300">
+            <div class="card-body p-5 gap-5">
+              <input type="hidden" name="section" value="{{ .Data.Meta.section }}" />
+              <input type="hidden" name="version_id" value="{{ .Data.VersionId }}" />
+              <input type="hidden" name="source" value="{{ .Data.Source }}" />
+              <input
+                type="hidden"
+                name="is_edit"
+                value="{{ if .Data.IsEdit }}true{{ else }}false{{ end }}" />
+
+              <div>
+                <label class="block text-sm font-medium mb-1" for="entry-name"
+                  >Name</label
+                >
+                <input
+                  id="entry-name"
+                  name="name"
+                  type="text"
+                  required
+                  value="{{ .Data.Name }}"
+                  {{ if .Data.Name }}readonly{{ end }}
+                  class="input w-full font-mono text-sm {{ if .Data.Name }}bg-base-200{{ end }}" />
+                {{ if .Data.Meta.name_help }}
+                  <p class="text-xs text-base-content/70 mt-1">
+                    {{ .Data.Meta.name_help }}
+                  </p>
+                {{ end }}
+              </div>
+
+              {{ if .Data.Meta.kv }}
+                <!-- Free-form entry: properties edited as PROPERTY=value lines -->
+                <div>
+                  <label class="block text-sm font-medium mb-1" for="entry-properties"
+                    >{{ or .Data.Meta.kv_label "Properties" }}</label
+                  >
+                  <textarea
+                    id="entry-properties"
+                    name="properties_text"
+                    rows="6"
+                    placeholder="property=value"
+                    class="textarea w-full font-mono text-sm leading-relaxed">{{ index .Data.Values "properties_text" }}</textarea>
+                  {{ if .Data.Meta.kv_help }}
+                    <p class="text-xs text-base-content/70 mt-1">
+                      {{ .Data.Meta.kv_help }}
+                    </p>
+                  {{ end }}
+                  {{ if .Data.IsEdit }}
+                    <p class="text-xs text-base-content/70 mt-1">
+                      Secret values show as
+                      <span class="font-mono">&lt;redacted&gt;</span> — leave
+                      them unchanged to keep the stored value
+                    </p>
+                  {{ end }}
+                </div>
+              {{ end }}
+
+              {{ range .Data.Meta.fields }}
+                {{ $value := index $.Data.Values .name }}
+                {{ $kind := or .kind "text" }}
+                <div>
+                  {{ if eq $kind "bool" }}
+                    <label class="flex items-center gap-2 cursor-pointer text-sm font-medium">
+                      <input
+                        type="checkbox"
+                        name="{{ .name }}"
+                        class="checkbox checkbox-xs checkbox-primary"
+                        {{ if $value }}checked{{ end }} />
+                      {{ .label }}
+                    </label>
+                  {{ else if eq $kind "list" }}
+                    <label class="block text-sm font-medium mb-1" for="entry-{{ .name }}"
+                      >{{ .label }}</label
+                    >
+                    <textarea
+                      id="entry-{{ .name }}"
+                      name="{{ .name }}"
+                      rows="3"
+                      class="textarea w-full font-mono text-sm leading-relaxed">{{ if $value }}{{ range $i, $item := $value }}{{ if $i }}&#10;{{ end }}{{ $item }}{{ end }}{{ end }}</textarea>
+                  {{ else if eq $kind "secret" }}
+                    <label class="block text-sm font-medium mb-1" for="entry-{{ .name }}"
+                      >{{ .label }}</label
+                    >
+                    <input
+                      id="entry-{{ .name }}"
+                      name="{{ .name }}"
+                      type="password"
+                      autocomplete="off"
+                      {{ if and $.Data.IsEdit $value }}
+                        placeholder="unchanged — leave blank to keep the stored value"
+                      {{ end }}
+                      class="input w-full font-mono text-sm" />
+                    {{ if and $.Data.IsEdit $value }}
+                      <input type="hidden" name="{{ .name }}__keep" value="true" />
+                    {{ end }}
+                  {{ else }}
+                    <label class="block text-sm font-medium mb-1" for="entry-{{ .name }}"
+                      >{{ .label }}</label
+                    >
+                    <input
+                      id="entry-{{ .name }}"
+                      name="{{ .name }}"
+                      type="text"
+                      value="{{ if $value }}{{ $value }}{{ end }}"
+                      class="input w-full font-mono text-sm" />
+                  {{ end }}
+                  {{ if .help }}
+                    <p class="text-xs text-base-content/70 mt-1">
+                      {{ .help }}
+                    </p>
+                  {{ end }}
+                </div>
+              {{ end }}
+
+              <div class="card-actions justify-end pt-2">
+                <a href="{{ .AppPath }}{{ .Data.ReturnPath }}" class="btn btn-ghost btn-sm"
+                  >Cancel</a
+                >
+                <button
+                  type="submit"
+                  {{ if not (index .Data.Perms "config:update") }}
+                    disabled title="requires config:update"
+                  {{ end }}
+                  class="btn btn-primary btn-sm transition-transform duration-150 active:scale-95">
+                  Save — takes effect immediately
+                </button>
+              </div>
+            </div>
+          </form>
+        </main>
+      </div>
+
+      {{ template "sidebar" . }}
+    </div>
+  </body>
+</html>

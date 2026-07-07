@@ -76,28 +76,10 @@
               </div>
             </div>
 
-            <div class="relative">
-              <div id="page-progress" class="progress-line htmx-indicator"></div>
-            </div>
+            {{ template "page_progress" }}
 
-            {{ if .Data.Error }}
-              <div role="alert" class="alert alert-error alert-soft py-2 text-sm">
-                <span aria-hidden="true">✕</span>
-                <span class="break-all">{{ .Data.Error }}</span>
-              </div>
-            {{ end }}
-            {{ if .Data.Flash }}
-              <div role="alert" class="alert alert-success alert-soft py-2 text-sm">
-                <span aria-hidden="true">✓</span>
-                <span>{{ .Data.Flash }}</span>
-              </div>
-            {{ end }}
-            {{ if .Data.FlashError }}
-              <div role="alert" class="alert alert-error alert-soft py-2 text-sm">
-                <span aria-hidden="true">✕</span>
-                <span class="break-all">{{ .Data.FlashError }}</span>
-              </div>
-            {{ end }}
+            {{ template "error_alert" .Data.Error }}
+            {{ template "flash_alerts" .Data }}
 
             {{ if .Data.Container }}
               {{ $c := .Data.Container }}
@@ -212,6 +194,148 @@
                 <!-- End of "container_stats" block -->
               </div>
 
+              {{ if eq .Data.Container.runtime "kubernetes" }}
+                <!-- Kubernetes pod status, loaded async (conditions,
+                     container states and events are extra API calls) -->
+                <div
+                  id="k8s-status"
+                  hx-get="{{ .AppPath }}/containers/detail/k8s?id={{ .Data.Id }}"
+                  hx-trigger="load, every 30s"
+                  hx-swap="innerHTML">
+                  {{ block "container_k8s" . }}
+                    <div class="card bg-base-100 border border-base-300">
+                      <div class="card-body p-5 gap-3">
+                        <h2 class="text-sm font-medium text-base-content/70">
+                          Kubernetes status
+                        </h2>
+                        {{ if .Data.K8sError }}
+                          <div
+                            role="alert"
+                            class="alert alert-error alert-soft py-2 text-sm">
+                            <span aria-hidden="true">✕</span>
+                            <span class="break-all">{{ .Data.K8sError }}</span>
+                          </div>
+                        {{ else if .Data.K8s }}
+                          <div class="flex items-center gap-2 text-xs flex-wrap">
+                            <span
+                              class="badge badge-sm badge-soft {{ if eq .Data.K8s.phase "Running" }}badge-success{{ else if eq .Data.K8s.phase "Pending" }}badge-warning{{ else if eq .Data.K8s.phase "Failed" }}badge-error{{ else }}badge-ghost{{ end }}"
+                              >{{ .Data.K8s.phase }}</span
+                            >
+                            {{ if .Data.K8s.reason }}
+                              <span class="font-mono">{{ .Data.K8s.reason }}</span>
+                            {{ end }}
+                            {{ if .Data.K8s.node }}
+                              <span class="text-base-content/70"
+                                >node
+                                <span class="font-mono">{{ .Data.K8s.node }}</span></span
+                              >
+                            {{ end }}
+                            {{ range .Data.K8s.conditions }}
+                              <span
+                                class="badge badge-xs {{ if eq .status "True" }}badge-soft badge-success{{ else }}badge-soft badge-warning{{ end }}"
+                                title="{{ .reason }} {{ .message }}"
+                                >{{ .type }}</span
+                              >
+                            {{ end }}
+                          </div>
+                          {{ if .Data.K8s.message }}
+                            <p class="text-xs text-base-content/70 break-all">
+                              {{ .Data.K8s.message }}
+                            </p>
+                          {{ end }}
+
+                          {{ if .Data.K8s.containers }}
+                            <table class="table table-sm">
+                              <thead>
+                                <tr>
+                                  <th scope="col">Container</th>
+                                  <th scope="col">State</th>
+                                  <th scope="col">Restarts</th>
+                                  <th scope="col">Detail</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {{ range .Data.K8s.containers }}
+                                  <tr>
+                                    <td class="font-mono text-xs break-all">
+                                      {{ .name }}
+                                    </td>
+                                    <td class="whitespace-nowrap">
+                                      <span
+                                        class="badge badge-xs badge-soft {{ if and (eq .state "running") .ready }}badge-success{{ else if eq .state "running" }}badge-warning{{ else if eq .state "waiting" }}badge-warning{{ else }}badge-error{{ end }}"
+                                        >{{ .state }}{{ if and (eq .state "running") (not .ready) }}
+                                          (not ready)
+                                        {{ end }}</span
+                                      >
+                                    </td>
+                                    <td class="text-xs tabular-nums">
+                                      {{ .restarts }}
+                                    </td>
+                                    <td class="text-xs text-base-content/70 break-all">
+                                      {{ .reason }}
+                                      {{ .message }}
+                                    </td>
+                                  </tr>
+                                {{ end }}
+                              </tbody>
+                            </table>
+                          {{ end }}
+
+                          <div>
+                            <h3 class="text-xs font-medium text-base-content/70 mb-1">
+                              Events
+                            </h3>
+                            {{ if .Data.K8s.events_error }}
+                              <p class="text-xs text-base-content/70 break-all">
+                                events unavailable: {{ .Data.K8s.events_error }}
+                              </p>
+                            {{ else if .Data.K8s.events }}
+                              <table class="table table-sm">
+                                <tbody>
+                                  {{ range .Data.K8s.events }}
+                                    <tr>
+                                      <td class="whitespace-nowrap align-top">
+                                        <span
+                                          class="badge badge-xs badge-soft {{ if eq .type "Warning" }}badge-warning{{ else }}badge-ghost{{ end }}"
+                                          >{{ .reason }}</span
+                                        >
+                                      </td>
+                                      <td class="text-xs text-base-content/70 break-all">
+                                        {{ .message }}
+                                        {{ if gt .count 1 }}
+                                          <span class="text-base-content/50"
+                                            >×{{ .count }}</span
+                                          >
+                                        {{ end }}
+                                      </td>
+                                      <td
+                                        class="text-xs text-base-content/70 whitespace-nowrap align-top">
+                                        {{ if .last_seen }}
+                                          {{ template "time_ago" .last_seen }}
+                                        {{ end }}
+                                      </td>
+                                    </tr>
+                                  {{ end }}
+                                </tbody>
+                              </table>
+                            {{ else }}
+                              <p class="text-xs text-base-content/70">
+                                No recent events
+                              </p>
+                            {{ end }}
+                          </div>
+                        {{ else }}
+                          <!-- Initial skeleton until the async load fills in -->
+                          <div class="skeleton h-4 w-48"></div>
+                          <div class="skeleton h-4 w-72"></div>
+                        {{ end }}
+                      </div>
+                    </div>
+                  {{ end }}
+                  <!-- End of "container_k8s" block -->
+                </div>
+              {{ end }}
+
               <!-- Overview -->
               <div class="card bg-base-100 border border-base-300">
                 <div class="card-body p-5 gap-1">
@@ -232,7 +356,7 @@
                       {{ if $c.app_path }}
                         <a
                           href="{{ .AppPath }}/apps/detail?path={{ $c.app_path }}"
-                          class="link link-hover font-mono text-xs"
+                          class="link link-hover font-mono text-xs break-all"
                           >{{ $c.app_path }}</a
                         >
                         {{ if $c.app_version }}

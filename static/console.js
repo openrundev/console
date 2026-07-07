@@ -173,7 +173,14 @@ document.addEventListener('DOMContentLoaded', () => {
 		}
 		showNavProgress();
 	});
-	document.body.addEventListener('submit', () => {
+	document.body.addEventListener('submit', (event) => {
+		// HTMX-managed forms swap in place without navigating, so the
+		// navigation progress bar would never clear for them; they have
+		// their own hx-indicator
+		const form = event.target;
+		if (form && form.matches && form.matches('[hx-post], [hx-get], [hx-put], [hx-patch], [hx-delete]')) {
+			return;
+		}
 		showNavProgress();
 	});
 

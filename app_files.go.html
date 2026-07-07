@@ -14,7 +14,7 @@
           <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" }}
             <div>
-              <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0"><ul><li><a href="{{ .AppPath }}/apps">Apps</a></li><li class="font-mono"><a href="{{ .AppPath }}/apps/detail?path={{ .Data.Path }}">{{ .Data.Path }}</a></li><li>files</li></ul></nav>
+              <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0"><ul class="flex-wrap whitespace-normal"><li><a href="{{ .AppPath }}/apps">Apps</a></li><li class="font-mono break-all"><a href="{{ .AppPath }}/apps/detail?path={{ .Data.Path }}">{{ .Data.Path }}</a></li><li>files</li></ul></nav>
               <h1 class="text-xl font-semibold">
                 Files
                 <span class="font-mono text-base"
@@ -38,10 +38,7 @@
           </div>
 
           {{ if .Data.Error }}
-            <div role="alert" class="alert alert-error alert-soft py-2 text-sm">
-              <span aria-hidden="true">✕</span>
-              <span class="break-all">{{ .Data.Error }}</span>
-            </div>
+            {{ template "error_alert" .Data.Error }}
           {{ else }}
             <div class="card bg-base-100 border border-base-300">
               <div class="overflow-x-auto">

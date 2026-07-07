@@ -1,7 +1,8 @@
 load("openrun.in", "openrun")
 load("openrun_admin.in", "openrun_admin")
 load("utils.star", "query_param", "get_perms", "parse_params_text", "params_to_text",
-     "parse_lines", "short_sha", "short_age", "human_size", "pct_num", "nonzero_time",
+     "parse_lines", "short_sha", "short_age", "human_size", "pct_num", "nonzero_time", "sort_recent",
+     "flash_result",
      "path_domain_str", "sync_flags", "sync_result_summary", "review_from_dryrun",
      "needs_approval")
 
@@ -51,6 +52,7 @@ def build_app_rows(all_apps):
             "path": entry["path"],
             "url": entry["url"],
             "auth": entry["auth"],
+            "is_dev": entry.get("is_dev") or False,
             "is_git": bool(entry["git_branch"]),
             # Declarative means a sync source last applied the app. Git
             # presence is not the signal: image/proxy spec apps have no git
@@ -60,6 +62,7 @@ def build_app_rows(all_apps):
             "source": entry["source"] if entry["source"] != "-" else "",
             "source_url": entry["source_url"],
             "git_branch": entry["git_branch"],
+            "spec": entry.get("spec") or "",
             "version": entry["version"],
             "git_sha": short_sha(entry["git_sha"]),
             "git_message": entry["git_message"],
@@ -111,11 +114,16 @@ def apps_data(req):
         else:
             unmanaged.append(app)
 
+    # Most recently updated apps first, groups ordered by their most
+    # recently updated app
     groups = []
     for sync_id in grouped:
+        apps = sort_recent(grouped[sync_id], "update_time", "path")
         groups.append({
             "sync": syncs[sync_id],
-            "apps": sorted(grouped[sync_id], key=lambda app: app["path"]),
+            "apps": apps,
+            "newest": apps[0]["update_time"] if apps else "",
+            "repo": syncs[sync_id]["repo"],
         })
 
     return {
@@ -123,8 +131,8 @@ def apps_data(req):
         "Nav": "apps",
         "Query": query,
         "Filter": filter,
-        "Groups": sorted(groups, key=lambda group: group["sync"]["repo"]),
-        "Unmanaged": sorted(unmanaged, key=lambda app: app["path"]),
+        "Groups": sort_recent(groups, "newest", "repo"),
+        "Unmanaged": sort_recent(unmanaged, "update_time", "path"),
         "Total": total,
         "DeclarativeCount": declarative_count,
         "ImperativeCount": total - declarative_count,
@@ -245,13 +253,9 @@ def apps_switch_handler(req):
     version = query_param(req, "version")
 
     ret = openrun_admin.switch_version(resolve_env_path(path, env), version)
-    error = ret.error  # read before apps_detail_data, an unread plugin error fails the next call
-    data = apps_detail_data(req)
-    if error:
-        data["FlashError"] = "Version switch failed: %s" % error
-    else:
-        data["Flash"] = "Switched %s to v%s" % (env, version)
-    return data
+    error = ret.error
+    return flash_result(apps_detail_data(req), error,
+                        "Switched %s to v%s" % (env, version), "Version switch failed")
 
 
 def apps_promote_handler(req):
@@ -361,12 +365,7 @@ def apps_delete_handler(req):
     path = query_param(req, "path")
     ret = openrun_admin.delete_apps(path)
     error = ret.error
-    data = apps_data(req)
-    if error:
-        data["FlashError"] = "Delete failed: %s" % error
-    else:
-        data["Flash"] = "Deleted %s" % path
-    return data
+    return flash_result(apps_data(req), error, "Deleted %s" % path, "Delete failed")
 
 
 def apps_reload_handler(req):
@@ -676,7 +675,6 @@ def bindings_data(req):
             "update_time": nonzero_time(entry["update_time"]),
         })
 
-    by_path = lambda binding: binding["path"]
     return {
         "Title": "Bindings",
         "Nav": "bindings",
@@ -686,9 +684,10 @@ def bindings_data(req):
         "FlashError": list_error,
         "Services": sorted(services, key=lambda svc: svc["id"]),
         "ServicesError": services_error,
-        "Base": sorted(base, key=by_path),
-        "Derived": sorted(derived, key=by_path),
-        "Auto": sorted(auto, key=by_path),
+        # Most recently updated bindings first
+        "Base": sort_recent(base, "update_time", "path"),
+        "Derived": sort_recent(derived, "update_time", "path"),
+        "Auto": sort_recent(auto, "update_time", "path"),
     }
 
 
@@ -812,12 +811,7 @@ def bindings_delete_handler(req):
     path = query_param(req, "path")
     ret = openrun_admin.delete_binding(path)
     error = ret.error
-    data = bindings_data(req)
-    if error:
-        data["FlashError"] = "Delete failed: %s" % error
-    else:
-        data["Flash"] = "Deleted binding %s" % path
-    return data
+    return flash_result(bindings_data(req), error, "Deleted binding %s" % path, "Delete failed")
 
 
 def service_form_data(req, values, error):
@@ -871,12 +865,7 @@ def services_delete_handler(req):
     id = query_param(req, "id")
     ret = openrun_admin.delete_service(id)
     error = ret.error
-    data = bindings_data(req)
-    if error:
-        data["FlashError"] = "Service delete failed: %s" % error
-    else:
-        data["Flash"] = "Deleted service %s" % id
-    return data
+    return flash_result(bindings_data(req), error, "Deleted service %s" % id, "Service delete failed")
 
 
 # ---------- Containers ----------
@@ -919,7 +908,11 @@ def containers_data(req):
             continue
         containers.append(entry)
 
-    data["Containers"] = sorted(containers, key=lambda c: c["app_path"] + " " + c["name"])
+    # Most recently created containers first (containers are recreated on
+    # app updates, so creation time is the update time). Stable two-pass
+    # sort: app path/name ascending as the tie break
+    containers = sorted(containers, key=lambda c: c["app_path"] + " " + c["name"])
+    data["Containers"] = sorted(containers, key=lambda c: c.get("created_at") or "", reverse=True)
     return data
 
 
@@ -932,12 +925,8 @@ def container_lifecycle_action(req, data_fn):
     else:
         ret = openrun_admin.stop_container(id)
     error = ret.error
-    data = data_fn(req)
-    if error:
-        data["FlashError"] = "Container %s failed: %s" % (action, error)
-    else:
-        data["Flash"] = "Container %s requested" % action
-    return data
+    return flash_result(data_fn(req), error, "Container %s requested" % action,
+                        "Container %s failed" % action)
 
 
 def containers_lifecycle_handler(req):
@@ -993,6 +982,28 @@ def containers_detail_stats_handler(req):
         stats["mem_num"] = pct_num(stats.get("mem_percent"))
         c["stats"] = stats
     data["Container"] = c
+    return data
+
+
+def containers_k8s_stats_handler(req):
+    # Async fragment on the container list: pod stats of the kubernetes
+    # namespaces (system and apps). Renders nothing for the other runtimes
+    ret = openrun.kubernetes_stats()
+    if ret.error:
+        return {"K8s": None, "K8sError": ret.error}
+    return {"K8s": ret.value if ret.value["enabled"] else None, "K8sError": ""}
+
+
+def containers_detail_k8s_handler(req):
+    # Async fragment on the container detail page: kubernetes specific pod
+    # status (conditions, container states, recent events)
+    id = query_param(req, "id")
+    data = {"Id": id, "K8s": None, "K8sError": ""}
+    ret = openrun.container_kubernetes_status(id)
+    if ret.error:
+        data["K8sError"] = ret.error
+        return data
+    data["K8s"] = ret.value
     return data
 
 
@@ -1088,7 +1099,192 @@ def audit_data(req):
     return data
 
 
-# ---------- Configuration (RBAC) ----------
+# ---------- Configuration ----------
+
+# Config entry sections shown on the sub pages. Each descriptor drives one
+# entry table and the generic entry form; the backend API is generic (any
+# named-entry section of openrun.toml), so adding a section here requires no
+# backend change. Field kinds: text (default), secret, bool, list (one value
+# per line). Sections with "kv": True have free-form properties instead of
+# fixed fields, edited as PROPERTY=value lines. Secret fields round-trip as
+# the "<redacted>" placeholder, which the backend swaps for the stored value
+REDACTED_VALUE = "<redacted>"
+
+CONFIG_SECTIONS = [
+    {
+        "section": "git_auth",
+        "title": "Git auth",
+        "desc": "SSH keys for private git repo access",
+        "name_help": "the name used as git_auth in app create and sync setup",
+        "fields": [
+            {"name": "user_id", "label": "User id", "help": "ssh user, defaults to git"},
+            {"name": "key_file_path", "label": "Key file path", "help": "path to the private key file on the server"},
+            {"name": "password", "label": "Key password", "kind": "secret", "help": "password for the private key file, if any"},
+        ],
+    },
+    {
+        "section": "auth",
+        "title": "OAuth / OIDC accounts",
+        "desc": "login providers, usable as app auth",
+        "name_help": "provider type, optionally with a _suffix: github, google_mycorp, oidc_okta, auth0, okta, gitlab, ...",
+        "fields": [
+            {"name": "key", "label": "Client id"},
+            {"name": "secret", "label": "Client secret", "kind": "secret"},
+            {"name": "org_url", "label": "Org URL", "help": "required for okta"},
+            {"name": "domain", "label": "Domain", "help": "required for auth0"},
+            {"name": "discovery_url", "label": "Discovery URL", "help": "required for oidc"},
+            {"name": "hosted_domain", "label": "Hosted domain", "help": "google workspace domain restriction"},
+            {"name": "scopes", "label": "Scopes", "kind": "list", "help": "one oauth scope per line"},
+        ],
+    },
+    {
+        "section": "saml",
+        "title": "SAML accounts",
+        "desc": "SAML identity providers, used as saml_<name> app auth",
+        "name_help": "used as saml_<name> in app auth settings",
+        "fields": [
+            {"name": "metadata_url", "label": "Metadata URL", "help": "the IdP metadata url"},
+            {"name": "groups_attr", "label": "Groups attribute", "help": "SAML attribute carrying the group list"},
+            {"name": "use_post", "label": "Use POST binding", "kind": "bool"},
+            {"name": "force_authn", "label": "Force authn", "kind": "bool"},
+            {"name": "sp_key_file", "label": "SP key file", "help": "path on the server"},
+            {"name": "sp_cert_file", "label": "SP cert file", "help": "path on the server"},
+        ],
+    },
+    {
+        "section": "secret",
+        "title": "Secrets managers",
+        "desc": "secret providers, used by {{secret ...}} templates in config and params",
+        "name_help": "provider type, optionally with a _suffix: asm, ssm, vault, env, prop, kubernetes (e.g. asm_prod)",
+        "kv": True,
+        "kv_label": "Properties",
+        "kv_help": "one PROPERTY=value per line, provider specific (e.g. region for asm). " +
+                   "Values are parsed as numbers/booleans when possible; use \"quotes\" to force a string",
+        "fields": [],
+    },
+]
+
+
+def config_section_meta(section):
+    for meta in CONFIG_SECTIONS:
+        if meta["section"] == section:
+            return meta
+    return None
+
+
+# Config sub pages under /config. Each page groups entry sections (tables of
+# named entries) and settings (individual fields of the struct sections,
+# set through set_config_value). Setting kinds: text (default), select, bool,
+# int. select options come from the named source resolved in
+# config_setting_options. All changes on these pages are live immediately
+CONFIG_PAGES = [
+    {
+        "page": "auth",
+        "title": "Authentication",
+        "desc": "login providers and the default app authentication",
+        "entry_sections": ["auth", "saml"],
+        "settings": [
+            {"section": "security", "key": "app_default_auth_type",
+             "label": "Default app auth", "kind": "select", "options": "auths",
+             "help": "auth used for apps set to 'default': none/system, or any oauth, saml or client cert auth (cert auths are configured in openrun.toml)"},
+        ],
+    },
+    {
+        "page": "git",
+        "title": "Git auth",
+        "desc": "git credentials for private repos and the default entry",
+        "entry_sections": ["git_auth"],
+        "settings": [
+            {"section": "security", "key": "default_git_auth",
+             "label": "Default git auth", "kind": "select", "options": "git_auths",
+             "help": "git auth entry used when an app or sync does not name one"},
+        ],
+    },
+    {
+        "page": "secrets",
+        "title": "Secrets",
+        "desc": "secret manager providers",
+        "entry_sections": ["secret"],
+        "settings": [],
+    },
+    {
+        "page": "system",
+        "title": "System",
+        "desc": "server level defaults, app config and node config overrides",
+        "entry_sections": [],
+        "settings": [
+            {"section": "system", "key": "default_domain", "label": "Default domain",
+             "help": "domain used for apps created without a domain"},
+            {"section": "system", "key": "stage_at", "label": "Stage at",
+             "help": "staging mode for new prod apps: domain, path, or a staging domain name"},
+            {"section": "system", "key": "list_apps_title", "label": "List apps title",
+             "help": "title of the app listing page"},
+            {"section": "system", "key": "show_hosted_with", "label": "Show \"Hosted with OpenRun\"",
+             "kind": "bool", "help": "footer on the app listing page"},
+        ],
+        "kv_sections": [
+            {"section": "app_config",
+             "title": "App config defaults",
+             "help": "defaults applied to all apps on their next reload — dotted keys like " +
+                     "cors.allow_origin or container.health_timeout_secs. Values are parsed as " +
+                     "numbers/booleans when possible; use \"quotes\" to force a string",
+             "placeholder": "cors.allow_origin"},
+            {"section": "node_config",
+             "title": "Node config",
+             "help": "values apps read with the config() builtin, applied on their next " +
+                     "reload — free form keys. Values are parsed as numbers/booleans when " +
+                     "possible; use \"quotes\" to force a string",
+             "placeholder": "key_name"},
+        ],
+    },
+]
+
+
+def config_page_meta(page):
+    for meta in CONFIG_PAGES:
+        if meta["page"] == page:
+            return meta
+    return None
+
+
+def config_page_for_section(section):
+    # The sub page owning an entry section, for redirects after entry edits
+    for meta in CONFIG_PAGES:
+        if section in meta["entry_sections"]:
+            return meta["page"]
+    return ""
+
+
+def config_setting_options(source):
+    # Resolve a select setting's option list by source name
+    if source == "auths":
+        ret = openrun.list_auths()
+        # "default" is what the setting resolves, exclude it from the choices
+        return [a for a in (ret.value if not ret.error else []) if a != "default"]
+    if source == "git_auths":
+        ret = openrun.list_git_auths()
+        return list(ret.value) if not ret.error else []
+    return []
+
+
+def parse_config_value(raw):
+    # Free-form config values: booleans and numbers are typed, "quotes" force
+    # a string, everything else stays a string
+    raw = raw.strip()
+    if len(raw) >= 2 and raw.startswith('"') and raw.endswith('"'):
+        return raw[1:-1]
+    if raw == "true":
+        return True
+    if raw == "false":
+        return False
+    if raw.lstrip("-").isdigit() and raw.lstrip("-"):
+        return int(raw)
+    intpart = raw.lstrip("-")
+    if intpart.count(".") == 1:
+        left, right = intpart.split(".")
+        if left.isdigit() and right.isdigit():
+            return float(raw)
+    return raw
 
 
 def rbac_permission_groups():
@@ -1145,13 +1341,328 @@ def rbac_diff(live, draft):
 
 
 def config_data(req):
-    # Configuration page: live/staged RBAC tables and config history
+    # Top-level configuration page: one card per config area (RBAC and the
+    # sub pages) and the config history
     data = {
         "Title": "Configuration",
         "Nav": "config",
         "Error": "",
         "Perms": get_perms(),
         "History": [],
+        "Pages": [],
+    }
+
+    ret = openrun.get_rbac_config()
+    if ret.error:
+        data["Error"] = ret.error
+        return data
+
+    cfg = ret.value
+    live = rbac_section(cfg["rbac"])
+    data["VersionId"] = cfg["version_id"]
+    data["RBAC"] = {
+        "enabled": live["enabled"],
+        "groups": len(live["groups"]),
+        "roles": len(live["roles"]),
+        "grants": len(live["grants"]),
+        "has_staged": cfg["has_staged"],
+        "staged_by": cfg["draft"]["updated_by"] if cfg["has_staged"] else "",
+    }
+
+    all_sections = []
+    for meta in CONFIG_PAGES:
+        all_sections.extend(meta["entry_sections"])
+    entries = openrun.get_config_entries(all_sections)
+    if entries.error:
+        data["Error"] = entries.error
+        return data
+    values = openrun.get_config_values()
+    if values.error:
+        data["Error"] = values.error
+        return data
+
+    for meta in CONFIG_PAGES:
+        entry_count = 0
+        for section in meta["entry_sections"]:
+            for entry in entries.value["sections"].get(section) or []:
+                if not (entry["source"] == "static" and entry["overridden"]):
+                    entry_count += 1
+        # One count per managed setting key that has a dynamic override, plus
+        # all keys of the page's free-form kv sections
+        dynamic_count = 0
+        for setting in meta["settings"]:
+            section_values = values.value["sections"].get(setting["section"]) or {}
+            if setting["key"] in (section_values.get("dynamic") or {}):
+                dynamic_count += 1
+        for kv in meta.get("kv_sections") or []:
+            kv_values = values.value["sections"].get(kv["section"]) or {}
+            dynamic_count += len(kv_values.get("dynamic") or {})
+        data["Pages"].append({
+            "page": meta["page"],
+            "title": meta["title"],
+            "desc": meta["desc"],
+            "entry_count": entry_count,
+            "has_entries": len(meta["entry_sections"]) > 0,
+            "dynamic_count": dynamic_count,
+        })
+
+    hist = openrun.list_config_history()
+    if not hist.error:
+        data["History"] = hist.value
+    return data
+
+
+def _has_static(entries, name):
+    for entry in entries:
+        if entry["name"] == name and entry["source"] == "static":
+            return True
+    return False
+
+
+def entry_summary(meta, values):
+    # Compact "field: value" display line for an entry card row, secrets and
+    # empty fields skipped. Free-form kv entries list all their properties
+    # (values arrive redacted from the server)
+    parts = []
+    if meta.get("kv"):
+        for key in sorted(values.keys()):
+            parts.append("%s: %s" % (key, values[key]))
+        return "  ·  ".join(parts)
+    for field in meta["fields"]:
+        kind = field.get("kind") or "text"
+        value = values.get(field["name"])
+        if kind == "secret" or value == None or value == "" or value == False or value == []:
+            continue
+        if kind == "list":
+            value = ", ".join([str(v) for v in value])
+        parts.append("%s: %s" % (field["name"], value))
+    return "  ·  ".join(parts)
+
+
+def config_action_handler(req):
+    # Top-level page action: history restore, live immediately
+    action = query_param(req, "action")
+    force = query_param(req, "force") == "true"
+
+    if action == "restore":
+        ret = openrun_admin.restore_config(query_param(req, "restore_version"), force=force)
+        ok = "Configuration restored"
+    else:
+        data = config_data(req)
+        data["FlashError"] = "unknown action %s" % action
+        return data
+
+    error = ret.error
+    return flash_result(config_data(req), error, ok)
+
+
+def config_page_data(req, page):
+    # A config sub page: the page's settings (with effective values and
+    # dynamic badges), entry section tables and the app_config key/value table
+    meta = config_page_meta(page)
+    data = {
+        "Title": meta["title"] + " configuration",
+        "Nav": "config",
+        "Error": "",
+        "Perms": get_perms(),
+        "Page": meta["page"],
+        "PageTitle": meta["title"],
+        "PageDesc": meta["desc"],
+        "Settings": [],
+        "Sections": [],
+        "KVs": [],
+    }
+
+    ret = openrun.get_rbac_config()
+    if ret.error:
+        data["Error"] = ret.error
+        return data
+    data["VersionId"] = ret.value["version_id"]
+
+    sections = [s["section"] for s in meta["settings"]]
+    for kv in meta.get("kv_sections") or []:
+        sections.append(kv["section"])
+    values = {"sections": {}}
+    if sections:
+        ret = openrun.get_config_values(sections)
+        if ret.error:
+            data["Error"] = ret.error
+            return data
+        values = ret.value
+
+    for setting in meta["settings"]:
+        section_values = values["sections"].get(setting["section"]) or {}
+        dynamic = section_values.get("dynamic") or {}
+        static = section_values.get("static") or {}
+        is_dynamic = setting["key"] in dynamic
+        value = dynamic[setting["key"]] if is_dynamic else static.get(setting["key"])
+        row = dict(setting)
+        row["kind"] = setting.get("kind") or "text"
+        row["value"] = value if value != None else ""
+        row["is_dynamic"] = is_dynamic
+        row["static_value"] = static.get(setting["key"])
+        if row["kind"] == "select":
+            row["option_list"] = config_setting_options(setting.get("options") or "")
+        data["Settings"].append(row)
+
+    for kv in meta.get("kv_sections") or []:
+        dynamic = (values["sections"].get(kv["section"]) or {}).get("dynamic") or {}
+        rows = []
+        for key in sorted(dynamic.keys()):
+            rows.append({"key": key, "value": dynamic[key]})
+        data["KVs"].append({
+            "section": kv["section"],
+            "title": kv.get("title") or kv["section"],
+            "help": kv.get("help") or "",
+            "placeholder": kv.get("placeholder") or "",
+            "rows": rows,
+        })
+
+    if meta["entry_sections"]:
+        entries = openrun.get_config_entries(meta["entry_sections"])
+        if entries.error:
+            data["Error"] = entries.error
+            return data
+        for section in meta["entry_sections"]:
+            section_meta = config_section_meta(section)
+            section_entries = []
+            for entry in entries.value["sections"].get(section) or []:
+                # A static entry shadowed by a dynamic one is not listed; the
+                # dynamic entry shows the "overrides static" badge
+                if entry["source"] == "static" and entry["overridden"]:
+                    continue
+                overrides = entry["source"] == "dynamic" and _has_static(entries.value["sections"][section], entry["name"])
+                section_entries.append({
+                    "name": entry["name"],
+                    "source": entry["source"],
+                    "overrides": overrides,
+                    "summary": entry_summary(section_meta, entry["values"]),
+                })
+            data["Sections"].append({
+                "section": section,
+                "title": section_meta["title"],
+                "desc": section_meta["desc"],
+                "entries": section_entries,
+            })
+    return data
+
+
+def _page_kv_section(meta, section):
+    # The kv section from the form must be one this page manages
+    for kv in meta.get("kv_sections") or []:
+        if kv["section"] == section:
+            return section
+    return ""
+
+
+def config_page_action_handler(req, page):
+    # Sub page actions: set/reset a settings field, delete a dynamic entry,
+    # set/delete an app_config key. All take effect immediately
+    meta = config_page_meta(page)
+    action = query_param(req, "action")
+    version_id = query_param(req, "version_id")
+    section = query_param(req, "section")
+    key = query_param(req, "key")
+
+    if action == "set_value":
+        kind = query_param(req, "kind")
+        raw = query_param(req, "value")
+        if kind == "bool":
+            ret = openrun_admin.set_config_value(section, key, raw == "on", version_id)
+            ok = "Set %s %s — change is live" % (section, key)
+        elif raw.strip() == "":
+            # Clearing the field resets to the static config value
+            if query_param(req, "is_dynamic") == "true":
+                ret = openrun_admin.delete_config_value(section, key, version_id)
+                ok = "Reset %s %s to the static config value" % (section, key)
+            else:
+                data = config_page_data(req, page)
+                data["FlashError"] = "no value provided for %s %s" % (section, key)
+                return data
+        elif kind == "int":
+            if not raw.strip().lstrip("-").isdigit():
+                data = config_page_data(req, page)
+                data["FlashError"] = "%s %s must be a number" % (section, key)
+                return data
+            ret = openrun_admin.set_config_value(section, key, int(raw.strip()), version_id)
+            ok = "Set %s %s — change is live" % (section, key)
+        else:
+            ret = openrun_admin.set_config_value(section, key, raw.strip(), version_id)
+            ok = "Set %s %s — change is live" % (section, key)
+    elif action == "delete_value":
+        ret = openrun_admin.delete_config_value(section, key, version_id)
+        ok = "Reset %s %s to the static config value" % (section, key)
+    elif action == "delete_entry":
+        name = query_param(req, "name")
+        ret = openrun_admin.delete_config_entry(section, name, version_id)
+        ok = "Deleted %s entry %s — change is live" % (section, name)
+    elif action == "kv_set":
+        kv_section = _page_kv_section(meta, query_param(req, "kv_section"))
+        kv_key = query_param(req, "key").strip()
+        if not kv_section or not kv_key:
+            data = config_page_data(req, page)
+            data["FlashError"] = "key cannot be empty" if kv_section else "unknown kv section"
+            return data
+        value = parse_config_value(query_param(req, "value"))
+        ret = openrun_admin.set_config_value(kv_section, kv_key, value, version_id)
+        ok = "Set %s %s — applies on the next app reload" % (kv_section, kv_key)
+    elif action == "kv_delete":
+        kv_section = _page_kv_section(meta, query_param(req, "kv_section"))
+        if not kv_section:
+            data = config_page_data(req, page)
+            data["FlashError"] = "unknown kv section"
+            return data
+        ret = openrun_admin.delete_config_value(kv_section, query_param(req, "key"), version_id)
+        ok = "Removed %s %s" % (kv_section, query_param(req, "key"))
+    else:
+        data = config_page_data(req, page)
+        data["FlashError"] = "unknown action %s" % action
+        return data
+
+    error = ret.error
+    return flash_result(config_page_data(req, page), error, ok)
+
+
+def config_auth_data(req):
+    return config_page_data(req, "auth")
+
+
+def config_auth_action_handler(req):
+    return config_page_action_handler(req, "auth")
+
+
+def config_git_data(req):
+    return config_page_data(req, "git")
+
+
+def config_git_action_handler(req):
+    return config_page_action_handler(req, "git")
+
+
+def config_secrets_data(req):
+    return config_page_data(req, "secrets")
+
+
+def config_secrets_action_handler(req):
+    return config_page_action_handler(req, "secrets")
+
+
+def config_system_data(req):
+    return config_page_data(req, "system")
+
+
+def config_system_action_handler(req):
+    return config_page_action_handler(req, "system")
+
+
+def config_rbac_data(req):
+    # RBAC sub page: live/staged groups/roles/grants tables with the staged
+    # draft publish workflow
+    data = {
+        "Title": "RBAC configuration",
+        "Nav": "config",
+        "Error": "",
+        "Perms": get_perms(),
     }
 
     ret = openrun.get_rbac_config()
@@ -1170,15 +1681,12 @@ def config_data(req):
         data["Diff"] = rbac_diff(cfg["rbac"], cfg["staged"])
         data["Draft"] = cfg["draft"]
         data["DraftVersion"] = cfg["draft"]["draft_version"]
-
-    hist = openrun.list_config_history()
-    if not hist.error:
-        data["History"] = hist.value
     return data
 
 
-def config_action_handler(req):
-    # Publish / discard / toggle-enabled / restore actions on the config page
+def config_rbac_action_handler(req):
+    # Publish / discard / toggle-enabled / delete actions on the RBAC page.
+    # All of these edit the staged draft except publish/discard
     action = query_param(req, "action")
     draft_version = query_param(req, "draft_version")
     force = query_param(req, "force") == "true"
@@ -1193,9 +1701,6 @@ def config_action_handler(req):
         enabled = query_param(req, "enabled") == "true"
         ret = openrun_admin.update_rbac_enabled(enabled, draft_version)
         ok = "RBAC %s in the staged config — publish to apply" % ("enabled" if enabled else "disabled")
-    elif action == "restore":
-        ret = openrun_admin.restore_config(query_param(req, "restore_version"), force=force)
-        ok = "Configuration restored"
     elif action == "delete_group":
         ret = openrun_admin.delete_rbac_group(query_param(req, "name"), draft_version)
         ok = "Deleted group %s from the staged config" % query_param(req, "name")
@@ -1206,17 +1711,111 @@ def config_action_handler(req):
         ret = openrun_admin.delete_rbac_grant(int(query_param(req, "index")), draft_version)
         ok = "Deleted grant from the staged config"
     else:
-        data = config_data(req)
+        data = config_rbac_data(req)
         data["FlashError"] = "unknown action %s" % action
         return data
 
     error = ret.error
-    data = config_data(req)
-    if error:
-        data["FlashError"] = error
-    else:
-        data["Flash"] = ok
-    return data
+    return flash_result(config_rbac_data(req), error, ok)
+
+
+def config_entry_form_data(req, meta, name, values, is_edit, source, error):
+    # Page context for the generic config entry form
+    ret = openrun.get_rbac_config()
+    version_id = ret.value["version_id"] if not ret.error else ""
+    return {
+        "Title": "Configuration",
+        "Nav": "config",
+        "Meta": meta,
+        "Name": name,
+        "Values": values,
+        "IsEdit": is_edit,
+        "Source": source,
+        "Error": error,
+        "VersionId": version_id,
+        "Perms": get_perms(),
+        "ReturnPath": "/config/" + config_page_for_section(meta["section"]),
+    }
+
+
+def config_entry_page_handler(req):
+    # Generic entry form page (any CONFIG_SECTIONS section). With a name, the
+    # form edits the dynamic entry, or overrides the static entry of that name
+    section = query_param(req, "section")
+    name = query_param(req, "name")
+    meta = config_section_meta(section)
+    if not meta:
+        return ace.redirect(req.AppPath + "/config")
+
+    values = {}
+    source = ""
+    if name:
+        ret = openrun.get_config_entries([section])
+        if ret.error:
+            return config_entry_form_data(req, meta, name, values, False, "", ret.error)
+        # Prefer the dynamic entry; fall back to the static one so an
+        # override form starts prefilled with the static values
+        for entry in ret.value["sections"].get(section) or []:
+            if entry["name"] == name and (entry["source"] == "dynamic" or not source):
+                values = entry["values"]
+                source = entry["source"]
+    if meta.get("kv"):
+        # Free-form entries edit as PROPERTY=value lines; secret-ish values
+        # arrive redacted and round-trip through the placeholder
+        lines = []
+        for key in sorted(values.keys()):
+            lines.append("%s=%s" % (key, values[key]))
+        values = {"properties_text": "\n".join(lines)}
+    return config_entry_form_data(req, meta, name, values, source == "dynamic", source, "")
+
+
+def config_entry_submit_handler(req):
+    # POST: save one dynamic config entry. The change is validated and takes
+    # effect immediately (config entries are not staged, unlike RBAC)
+    section = query_param(req, "section")
+    meta = config_section_meta(section)
+    if not meta:
+        return ace.redirect(req.AppPath + "/config")
+
+    name = query_param(req, "name").strip()
+    is_edit = query_param(req, "is_edit") == "true"
+    values = {}
+    if meta.get("kv"):
+        raw = query_param(req, "properties_text")
+        parsed, error = parse_params_text(raw)
+        if error:
+            return config_entry_form_data(req, meta, name, {"properties_text": raw},
+                                          is_edit, query_param(req, "source"), error)
+        for key in parsed:
+            values[key] = parse_config_value(parsed[key])
+        ret = openrun_admin.set_config_entry(section, name, values, query_param(req, "version_id"))
+        if ret.error:
+            return config_entry_form_data(req, meta, name, {"properties_text": raw},
+                                          is_edit, query_param(req, "source"), ret.error)
+        return ace.redirect(req.AppPath + "/config/" + config_page_for_section(section))
+    for field in meta["fields"]:
+        kind = field.get("kind") or "text"
+        raw = query_param(req, field["name"])
+        if kind == "bool":
+            if raw == "on":
+                values[field["name"]] = True
+        elif kind == "list":
+            lines = parse_lines(raw)
+            if lines:
+                values[field["name"]] = lines
+        elif kind == "secret":
+            if raw:
+                values[field["name"]] = raw
+            elif is_edit and query_param(req, field["name"] + "__keep") == "true":
+                # Blank on edit keeps the stored secret via the placeholder
+                values[field["name"]] = REDACTED_VALUE
+        elif raw.strip():
+            values[field["name"]] = raw.strip()
+
+    ret = openrun_admin.set_config_entry(section, name, values, query_param(req, "version_id"))
+    if ret.error:
+        return config_entry_form_data(req, meta, name, values, is_edit, query_param(req, "source"), ret.error)
+    return ace.redirect(req.AppPath + "/config/" + config_page_for_section(section))
 
 
 def load_rbac_config():
@@ -1271,7 +1870,7 @@ def config_group_submit_handler(req):
     ret = openrun_admin.set_rbac_group(values["name"], users, query_param(req, "draft_version"))
     if ret.error:
         return config_form_data(req, "group", values, ret.error)
-    return ace.redirect(req.AppPath + "/config")
+    return ace.redirect(req.AppPath + "/config/rbac")
 
 
 def config_role_page_handler(req):
@@ -1309,7 +1908,7 @@ def config_role_submit_handler(req):
     ret = openrun_admin.set_rbac_role(name, all_perms, query_param(req, "draft_version"))
     if ret.error:
         return config_form_data(req, "role", values, ret.error)
-    return ace.redirect(req.AppPath + "/config")
+    return ace.redirect(req.AppPath + "/config/rbac")
 
 
 def config_grant_page_handler(req):
@@ -1355,7 +1954,7 @@ def config_grant_submit_handler(req):
                                            targets, draft_version)
     if ret.error:
         return config_form_data(req, "grant", values, ret.error)
-    return ace.redirect(req.AppPath + "/config")
+    return ace.redirect(req.AppPath + "/config/rbac")
 
 
 def config_version_handler(req):
@@ -1495,12 +2094,7 @@ def syncs_delete_handler(req):
     sync_id = query_param(req, "sync_id")
     ret = openrun_admin.delete_sync(sync_id)
     error = ret.error
-    data = syncs_data(req)
-    if error:
-        data["FlashError"] = "Delete failed: %s" % error
-    else:
-        data["Flash"] = "Sync source removed"
-    return data
+    return flash_result(syncs_data(req), error, "Sync source removed", "Delete failed")
 
 
 def syncs_run_handler(req):

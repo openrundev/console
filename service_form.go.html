@@ -27,12 +27,7 @@
             </div>
           </div>
 
-          {{ if .Data.Error }}
-            <div role="alert" class="alert alert-error alert-soft py-2 text-sm">
-              <span aria-hidden="true">✕</span>
-              <span class="break-all">{{ .Data.Error }}</span>
-            </div>
-          {{ end }}
+          {{ template "error_alert" .Data.Error }}
           {{ if .Data.Validated }}
             <div
               role="alert"

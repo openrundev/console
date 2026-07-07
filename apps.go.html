@@ -16,7 +16,7 @@
           <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" }}
             <div>
-              <h1 class="text-2xl md:text-3xl font-extrabold italic tracking-tight">
+              <h1 class="page-title text-2xl md:text-3xl font-extrabold italic tracking-tight">
                 OpenRun Apps
               </h1>
               <p class="text-sm text-base-content/70">
@@ -111,9 +111,7 @@
             >
           </div>
 
-          <div class="relative">
-            <div id="page-progress" class="progress-line htmx-indicator"></div>
-          </div>
+          {{ template "page_progress" }}
 
           <!-- Apps grouped by the sync entry which last applied them -->
           <div
@@ -125,22 +123,7 @@
             hx-include="#page-search, #app-filter-value"
             hx-indicator="#page-progress">
             {{ block "app_groups" . }}
-              {{ if .Data.Flash }}
-                <div
-                  role="alert"
-                  class="alert alert-success alert-soft py-2 text-sm">
-                  <span aria-hidden="true">✓</span>
-                  <span>{{ .Data.Flash }}</span>
-                </div>
-              {{ end }}
-              {{ if .Data.FlashError }}
-                <div
-                  role="alert"
-                  class="alert alert-error alert-soft py-2 text-sm">
-                  <span aria-hidden="true">✕</span>
-                  <span class="break-all">{{ .Data.FlashError }}</span>
-                </div>
-              {{ end }}
+              {{ template "flash_alerts" .Data }}
               {{ if .Data.SyncResult }}
                 {{ template "sync_result" .Data.SyncResult }}
               {{ end }}
@@ -156,7 +139,7 @@
                     {{ else }}
                       <span class="status status-success"></span>
                     {{ end }}
-                    <h2 class="font-mono text-sm font-medium"
+                    <h2 class="font-mono text-sm font-medium break-all"
                       >{{ .sync.repo }}</h2
                     >
                     {{ if .sync.branch }}

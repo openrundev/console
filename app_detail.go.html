@@ -108,8 +108,8 @@
           <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" }}
             <div>
-              <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0"><ul><li><a href="{{ .AppPath }}/apps">Apps</a></li><li class="font-mono">{{ .Data.Path }}</li></ul></nav>
-              <h1 class="text-xl font-semibold font-mono">{{ .Data.Path }}</h1>
+              <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0"><ul class="flex-wrap whitespace-normal"><li><a href="{{ .AppPath }}/apps">Apps</a></li><li class="font-mono break-all">{{ .Data.Path }}</li></ul></nav>
+              <h1 class="text-xl font-semibold font-mono break-all">{{ .Data.Path }}</h1>
               <p class="text-sm text-base-content/70">
                 {{ if .Data.App }}
                   {{ .Data.App.name }}
@@ -120,9 +120,9 @@
                   {{ end }}
                   {{ if .Data.App.staged_changes }}
                     <span
-                      class="badge badge-info badge-xs badge-soft"
+                      class="badge badge-warning badge-xs badge-soft"
                       title="staging has changes not promoted to prod"
-                      >staged changes</span
+                      >pending</span
                     >
                   {{ end }}
                 {{ end }}
@@ -200,28 +200,10 @@
             </div>
           </div>
 
-          <div class="relative">
-            <div id="page-progress" class="progress-line htmx-indicator"></div>
-          </div>
+          {{ template "page_progress" }}
 
-          {{ if .Data.Error }}
-            <div role="alert" class="alert alert-error alert-soft py-2 text-sm">
-              <span aria-hidden="true">✕</span>
-              <span class="break-all">{{ .Data.Error }}</span>
-            </div>
-          {{ end }}
-          {{ if .Data.Flash }}
-            <div role="alert" class="alert alert-success alert-soft py-2 text-sm">
-              <span aria-hidden="true">✓</span>
-              <span>{{ .Data.Flash }}</span>
-            </div>
-          {{ end }}
-          {{ if .Data.FlashError }}
-            <div role="alert" class="alert alert-error alert-soft py-2 text-sm">
-              <span aria-hidden="true">✕</span>
-              <span class="break-all">{{ .Data.FlashError }}</span>
-            </div>
-          {{ end }}
+          {{ template "error_alert" .Data.Error }}
+          {{ template "flash_alerts" .Data }}
 
           {{ if and .Data.AskPromote .Data.App }}
             <!-- Staging was updated, ask about promotion -->

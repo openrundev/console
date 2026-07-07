@@ -56,6 +56,27 @@ def parse_lines(text):
     return lines
 
 
+def flash_result(data, error, ok, fail_prefix=""):
+    # Attach an action outcome to a rebuilt page context: FlashError on
+    # failure (optionally prefixed), Flash on success. Callers must read
+    # ret.error into a variable BEFORE rebuilding the page context, an unread
+    # plugin error fails the next plugin call
+    if error:
+        data["FlashError"] = "%s: %s" % (fail_prefix, error) if fail_prefix else error
+    else:
+        data["Flash"] = ok
+    return data
+
+
+def sort_recent(items, time_key, tie_key):
+    # Most recently updated entries first. The time values are date-first
+    # formatted strings, so lexicographic order is chronological; entries
+    # without a time sort last. The stable two-pass sort gives an ascending
+    # tie break on tie_key
+    items = sorted(items, key=lambda item: item[tie_key])
+    return sorted(items, key=lambda item: item.get(time_key) or "", reverse=True)
+
+
 def short_sha(sha):
     # Abbreviate a git sha for display
     return sha[:7] if sha else ""

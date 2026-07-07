@@ -14,13 +14,13 @@
           <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" }}
             <div>
-              <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0"><ul><li><a href="{{ .AppPath }}/apps">Apps</a></li>{{ if eq .Data.Mode "update" }}<li class="font-mono"><a href="{{ .AppPath }}/apps/detail?path={{ .Data.Values.path }}">{{ .Data.Values.path }}</a></li><li>edit</li>{{ else }}<li>new</li>{{ end }}</ul></nav>
+              <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0"><ul class="flex-wrap whitespace-normal"><li><a href="{{ .AppPath }}/apps">Apps</a></li>{{ if eq .Data.Mode "update" }}<li class="font-mono break-all"><a href="{{ .AppPath }}/apps/detail?path={{ .Data.Values.path }}">{{ .Data.Values.path }}</a></li><li>edit</li>{{ else }}<li>new</li>{{ end }}</ul></nav>
               <h1 class="text-xl font-semibold">
                 {{ if eq .Data.Mode "create" }}
                   New app
                 {{ else }}
                   Update
-                  <span class="font-mono">{{ .Data.Values.path }}</span>
+                  <span class="font-mono break-all">{{ .Data.Values.path }}</span>
                 {{ end }}
               </h1>
               <p class="text-sm text-base-content/70">
@@ -37,12 +37,7 @@
             </div>
           </div>
 
-          {{ if .Data.Error }}
-            <div role="alert" class="alert alert-error alert-soft py-2 text-sm">
-              <span aria-hidden="true">✕</span>
-              <span class="break-all">{{ .Data.Error }}</span>
-            </div>
-          {{ end }}
+          {{ template "error_alert" .Data.Error }}
 
           {{ if eq .Data.Step "approve" }}
             <!-- Approve step: the app was created, its permissions are pending -->
@@ -52,7 +47,7 @@
                 class="alert alert-success alert-soft py-2 text-sm">
                 <span aria-hidden="true">✓</span>
                 <span
-                  ><span class="font-mono">{{ .Data.Values.path }}</span> was
+                  ><span class="font-mono break-all">{{ .Data.Values.path }}</span> was
                   created — it needs the permissions below approved before it
                   can serve requests</span
                 >
@@ -102,7 +97,7 @@
                 <span aria-hidden="true">✓</span>
                 <span
                   >Validation succeeded —
-                  <span class="font-mono">{{ .Data.Values.path }}</span> is
+                  <span class="font-mono break-all">{{ .Data.Values.path }}</span> is
                   ready to be created</span
                 >
               </div>
@@ -117,7 +112,7 @@
                   <div>
                     <div class="text-xs text-base-content/70">Source</div>
                     <div
-                      class="font-mono text-xs truncate"
+                      class="font-mono text-xs break-all"
                       title="{{ .Data.App.source_url }}">
                       {{ .Data.App.source_url }}
                     </div>

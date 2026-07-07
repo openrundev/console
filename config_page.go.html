@@ -1,0 +1,349 @@
+{{/* Generic config sub page (/config/auth, /config/git, /config/system,
+     /config/telemetry, /config/logging): settings fields with effective
+     values, entry section tables (oauth/saml/git_auth) and the app_config
+     key/value table. Driven by the CONFIG_PAGES descriptors in handler.star;
+     all changes take effect immediately (no staging).
+     HTMX partial: block page_content */}}
+<!DOCTYPE html>
+<html lang="en">
+  {{ template "head" . }}
+
+  <body class="min-h-screen bg-base-200">
+    <div class="drawer lg:drawer-open">
+      <input id="nav-drawer" type="checkbox" class="drawer-toggle" tabindex="-1" aria-hidden="true" />
+
+      <div class="drawer-content">
+        <main class="p-4 lg:p-6 max-w-6xl">
+          <div id="page-content" class="space-y-4">
+          {{ block "page_content" . }}
+            {{ $actionPath := printf "%s/config/%s/action" .AppPath .Data.Page }}
+            {{ $canEdit := index .Data.Perms "config:update" }}
+            <!-- Header -->
+            <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+              {{ template "hamburger" }}
+              <div>
+                <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0">
+                  <ul>
+                    <li>
+                      <a href="{{ .AppPath }}/config">Configuration</a>
+                    </li>
+                    <li>{{ .Data.PageTitle }}</li>
+                  </ul></nav>
+                <h1
+                  class="page-title text-2xl md:text-3xl font-extrabold italic tracking-tight">
+                  {{ .Data.PageTitle }}
+                </h1>
+                <p class="text-sm text-base-content/70">
+                  {{ .Data.PageDesc }} — changes take effect immediately
+                </p>
+              </div>
+            </div>
+
+            {{ template "page_progress" }}
+
+            {{ if .Data.Error }}
+              {{ template "error_alert" .Data.Error }}
+            {{ else }}
+              {{ template "flash_alerts" .Data }}
+
+              {{ if .Data.Settings }}
+                <!-- Settings fields -->
+                <div class="card bg-base-100 border border-base-300">
+                  <div
+                    class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2">
+                    <h2 class="text-sm font-medium">Settings</h2>
+                    <span class="text-xs text-base-content/70"
+                      >dynamic values override the static
+                      <span class="font-mono">openrun.toml</span> value; clear
+                      a field and save to reset</span
+                    >
+                  </div>
+                  <div class="card-body p-4 gap-4">
+                    {{ range .Data.Settings }}
+                      <form
+                        hx-post="{{ $actionPath }}"
+                        hx-target="#page-content"
+                        hx-swap="innerHTML transition:true"
+                        hx-indicator="#page-progress"
+                        class="flex items-start gap-3 flex-wrap">
+                        <input type="hidden" name="action" value="set_value" />
+                        <input type="hidden" name="section" value="{{ .section }}" />
+                        <input type="hidden" name="key" value="{{ .key }}" />
+                        <input type="hidden" name="kind" value="{{ .kind }}" />
+                        <input type="hidden" name="version_id" value="{{ $.Data.VersionId }}" />
+                        <input type="hidden" name="is_dynamic" value="{{ if .is_dynamic }}true{{ else }}false{{ end }}" />
+                        <div class="w-56 pt-1.5">
+                          <label class="text-sm font-medium" for="setting-{{ .section }}-{{ .key }}"
+                            >{{ .label }}</label
+                          >
+                          <div class="text-[11px] text-base-content/50 font-mono">
+                            {{ .section }}.{{ .key }}
+                          </div>
+                        </div>
+                        <div class="flex-1 min-w-52">
+                          {{ if eq .kind "bool" }}
+                            <input
+                              id="setting-{{ .section }}-{{ .key }}"
+                              type="checkbox"
+                              name="value"
+                              class="toggle toggle-sm toggle-primary mt-1.5"
+                              {{ if .value }}checked{{ end }}
+                              {{ if not $canEdit }}disabled{{ end }} />
+                          {{ else if eq .kind "select" }}
+                            <select
+                              id="setting-{{ .section }}-{{ .key }}"
+                              name="value"
+                              class="select select-sm w-full font-mono text-xs"
+                              {{ if not $canEdit }}disabled{{ end }}>
+                              <option value="" {{ if not .value }}selected{{ end }}>
+                                (not set)
+                              </option>
+                              {{ $current := .value }}
+                              {{ range .option_list }}
+                                <option
+                                  value="{{ . }}"
+                                  {{ if eq . $current }}selected{{ end }}>
+                                  {{ . }}
+                                </option>
+                              {{ end }}
+                            </select>
+                          {{ else }}
+                            <input
+                              id="setting-{{ .section }}-{{ .key }}"
+                              name="value"
+                              type="text"
+                              value="{{ .value }}"
+                              class="input input-sm w-full font-mono text-xs"
+                              {{ if not $canEdit }}disabled{{ end }} />
+                          {{ end }}
+                          {{ if .help }}
+                            <p class="text-xs text-base-content/70 mt-1">
+                              {{ .help }}
+                            </p>
+                          {{ end }}
+                        </div>
+                        <div class="flex items-center gap-1 pt-0.5">
+                          {{ if .is_dynamic }}
+                            <span
+                              class="badge badge-soft badge-primary badge-xs"
+                              title="dynamic value, overrides openrun.toml{{ if .static_value }} ({{ .static_value }}){{ end }}"
+                              >dynamic</span
+                            >
+                          {{ end }}
+                          <button
+                            type="submit"
+                            class="btn btn-xs btn-outline"
+                            {{ if not $canEdit }}disabled title="requires config:update"{{ end }}>
+                            Save
+                          </button>
+                          {{ if .is_dynamic }}
+                            <button
+                              type="button"
+                              class="btn btn-xs btn-ghost"
+                              title="remove the dynamic value, revert to openrun.toml"
+                              {{ if $canEdit }}
+                                hx-post="{{ $actionPath }}"
+                                hx-vals='{"action": "delete_value", "section": "{{ .section }}", "key": "{{ .key }}", "version_id": "{{ $.Data.VersionId }}"}'
+                                hx-target="#page-content"
+                                hx-swap="innerHTML transition:true"
+                                hx-indicator="#page-progress"
+                              {{ else }}
+                                disabled
+                              {{ end }}>
+                              reset
+                            </button>
+                          {{ end }}
+                        </div>
+                      </form>
+                    {{ end }}
+                  </div>
+                </div>
+              {{ end }}
+
+              <!-- Entry sections (oauth, saml, git auth) -->
+              {{ range .Data.Sections }}
+                <div class="card bg-base-100 border border-base-300">
+                  <div
+                    class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
+                    <h2 class="text-sm font-medium">{{ .title }}</h2>
+                    <span class="text-xs text-base-content/70">{{ .desc }}</span>
+                    <a
+                      href="{{ $.AppPath }}/config/entry?section={{ .section }}"
+                      class="btn btn-xs btn-outline ml-auto {{ if not $canEdit }}btn-disabled{{ end }}"
+                      {{ if not $canEdit }}
+                        title="requires config:update" aria-disabled="true" tabindex="-1"
+                      {{ end }}
+                      >+ Add entry</a
+                    >
+                  </div>
+                  {{ $section := .section }}
+                  {{ if .entries }}
+                    <table class="table table-sm">
+                      <tbody>
+                        {{ range .entries }}
+                          <tr class="group hover:bg-base-200/60">
+                            <td
+                              class="font-mono text-xs font-medium w-48 align-top">
+                              {{ .name }}
+                            </td>
+                            <td class="w-40">
+                              {{ if eq .source "static" }}
+                                <span
+                                  class="badge badge-ghost badge-xs"
+                                  title="from openrun.toml, read only — override creates a dynamic entry with the same name"
+                                  >static</span
+                                >
+                              {{ else if .overrides }}
+                                <span
+                                  class="badge badge-soft badge-warning badge-xs"
+                                  title="dynamic entry shadowing the static openrun.toml entry"
+                                  >overrides static</span
+                                >
+                              {{ else }}
+                                <span class="badge badge-soft badge-primary badge-xs"
+                                  >dynamic</span
+                                >
+                              {{ end }}
+                            </td>
+                            <td class="text-xs text-base-content/70 break-all">
+                              {{ .summary }}
+                            </td>
+                            <td class="text-right whitespace-nowrap w-40">
+                              <div class="inline-flex items-center gap-0.5">
+                                <a
+                                  href="{{ $.AppPath }}/config/entry?section={{ $section }}&name={{ .name }}"
+                                  class="btn btn-xs btn-ghost {{ if not $canEdit }}btn-disabled{{ end }}"
+                                  {{ if not $canEdit }}aria-disabled="true" tabindex="-1"{{ end }}
+                                  aria-label="{{ if eq .source "static" }}Override{{ else }}Edit{{ end }} {{ $section }} entry {{ .name }}"
+                                  >{{ if eq .source "static" }}override{{ else }}edit{{ end }}</a
+                                >
+                                {{ if ne .source "static" }}
+                                  <button
+                                    class="btn btn-xs btn-ghost text-error"
+                                    {{ if $canEdit }}
+                                      hx-post="{{ $actionPath }}"
+                                      aria-label="Delete {{ $section }} entry {{ .name }}"
+                                      hx-vals='{"action": "delete_entry", "section": "{{ $section }}", "name": "{{ .name }}", "version_id": "{{ $.Data.VersionId }}"}'
+                                      hx-confirm="Delete the dynamic entry {{ .name }}? The change is live immediately{{ if .overrides }} and the static entry from openrun.toml becomes active again{{ end }}."
+                                      hx-target="#page-content"
+                                      hx-swap="innerHTML transition:true"
+                                      hx-disabled-elt="this"
+                                      hx-indicator="#page-progress"
+                                    {{ else }}
+                                      disabled title="requires config:update"
+                                    {{ end }}>
+                                    delete
+                                  </button>
+                                {{ end }}
+                              </div>
+                            </td>
+                          </tr>
+                        {{ end }}
+                      </tbody>
+                    </table>
+                  {{ else }}
+                    <p class="text-xs text-base-content/70 px-4 py-3">
+                      No entries configured
+                    </p>
+                  {{ end }}
+                </div>
+              {{ end }}
+
+              <!-- Free-form key/value overrides (app_config, node_config) -->
+              {{ range .Data.KVs }}
+                <div class="card bg-base-100 border border-base-300">
+                  <div
+                    class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2">
+                    <h2 class="text-sm font-medium">{{ .title }}</h2>
+                    <span class="text-xs text-base-content/70"
+                      >{{ .help }}</span
+                    >
+                  </div>
+                  <div class="card-body p-4 gap-3">
+                    {{ $kv := . }}
+                    {{ if .rows }}
+                      <table class="table table-sm">
+                        <thead>
+                          <tr>
+                            <th scope="col">Key</th>
+                            <th scope="col">Value</th>
+                            <th scope="col" class="text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {{ range .rows }}
+                            <tr class="group hover:bg-base-200/60">
+                              <td class="font-mono text-xs font-medium">
+                                {{ .key }}
+                              </td>
+                              <td class="font-mono text-xs">{{ .value }}</td>
+                              <td class="text-right whitespace-nowrap w-24">
+                                <button
+                                  class="btn btn-xs btn-ghost text-error"
+                                  {{ if $canEdit }}
+                                    hx-post="{{ $actionPath }}"
+                                    aria-label="Remove {{ $kv.section }} key {{ .key }}"
+                                    hx-vals='{"action": "kv_delete", "kv_section": "{{ $kv.section }}", "key": "{{ .key }}", "version_id": "{{ $.Data.VersionId }}"}'
+                                    hx-confirm="Remove the {{ $kv.section }} override {{ .key }}? Apps revert to the openrun.toml value on their next reload."
+                                    hx-target="#page-content"
+                                    hx-swap="innerHTML transition:true"
+                                    hx-disabled-elt="this"
+                                    hx-indicator="#page-progress"
+                                  {{ else }}
+                                    disabled title="requires config:update"
+                                  {{ end }}>
+                                  delete
+                                </button>
+                              </td>
+                            </tr>
+                          {{ end }}
+                        </tbody>
+                      </table>
+                    {{ else }}
+                      <p class="text-xs text-base-content/70">
+                        No overrides configured
+                      </p>
+                    {{ end }}
+                    <form
+                      hx-post="{{ $actionPath }}"
+                      hx-target="#page-content"
+                      hx-swap="innerHTML transition:true"
+                      hx-indicator="#page-progress"
+                      class="flex items-center gap-2 flex-wrap">
+                      <input type="hidden" name="action" value="kv_set" />
+                      <input type="hidden" name="kv_section" value="{{ .section }}" />
+                      <input type="hidden" name="version_id" value="{{ $.Data.VersionId }}" />
+                      <input
+                        name="key"
+                        type="text"
+                        required
+                        placeholder="{{ .placeholder }}"
+                        aria-label="{{ .section }} key"
+                        class="input input-sm w-64 font-mono text-xs" />
+                      <input
+                        name="value"
+                        type="text"
+                        placeholder="value"
+                        aria-label="{{ .section }} value"
+                        class="input input-sm flex-1 min-w-40 font-mono text-xs" />
+                      <button
+                        type="submit"
+                        class="btn btn-xs btn-outline"
+                        {{ if not $canEdit }}disabled title="requires config:update"{{ end }}>
+                        + Set key
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              {{ end }}
+            {{ end }}
+          {{ end }}
+          <!-- End of "page_content" block -->
+          </div>
+        </main>
+      </div>
+
+      {{ template "sidebar" . }}
+    </div>
+  </body>
+</html>

@@ -20,6 +20,9 @@
                     <a href="{{ .AppPath }}/config">Configuration</a>
                   </li>
                   <li>
+                    <a href="{{ .AppPath }}/config/rbac">RBAC</a>
+                  </li>
+                  <li>
                     {{ if .Data.Values.is_edit }}edit{{ else }}new{{ end }}
                     {{ .Data.Kind }}
                   </li>
@@ -33,18 +36,13 @@
                 {{ .Data.Kind }}
               </h1>
               <p class="text-sm text-base-content/70">
-                Changes are staged — publish from the Configuration page to
-                make them live
+                Changes are staged — publish from the RBAC page to make them
+                live
               </p>
             </div>
           </div>
 
-          {{ if .Data.Error }}
-            <div role="alert" class="alert alert-error alert-soft py-2 text-sm">
-              <span aria-hidden="true">✕</span>
-              <span class="break-all">{{ .Data.Error }}</span>
-            </div>
-          {{ end }}
+          {{ template "error_alert" .Data.Error }}
 
 
           <form
@@ -236,7 +234,7 @@
               {{ end }}
 
               <div class="card-actions justify-end pt-2">
-                <a href="{{ .AppPath }}/config" class="btn btn-ghost btn-sm"
+                <a href="{{ .AppPath }}/config/rbac" class="btn btn-ghost btn-sm"
                   >Cancel</a
                 >
                 <button

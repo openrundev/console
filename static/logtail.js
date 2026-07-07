@@ -382,7 +382,10 @@
 			const ctl = new AbortController();
 			this._abort = ctl;
 			this._pending = [];
-			this._scroll.textContent = '';
+			// Keep the current content visible until the new stream's first
+			// lines arrive; clearing here would flash an empty pane when the
+			// follow toggle re-streams the same log
+			this._clearPending = true;
 			this._stick = true;
 			this._parser = createParser();
 			const follow = this.hasAttribute('follow');
@@ -402,6 +405,12 @@
 				}
 				this._push(this._parser.end());
 				if (ctl === this._abort) {
+					if (this._clearPending && !this._pending.length) {
+						// The new stream had no output at all: the log really
+						// is empty now, drop the stale content
+						this._scroll.textContent = '';
+						this._clearPending = false;
+					}
 					this._setStatus(follow ? '— stream ended' : '');
 					this.dispatchEvent(new CustomEvent('logtail-end', { bubbles: true }));
 				}
@@ -433,8 +442,9 @@
 			if (!pending.length) return;
 			this._pending = [];
 			const scroll = this._scroll;
-			if (this._dropAll) {
+			if (this._clearPending || this._dropAll) {
 				scroll.textContent = '';
+				this._clearPending = false;
 				this._dropAll = false;
 			}
 			const frag = document.createDocumentFragment();

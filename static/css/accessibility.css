@@ -35,11 +35,9 @@
 }
 
 /* Muted text contrast (WCAG 1.4.3, the light theme is the strict case):
-   daisyui stat-title/stat-desc and the style.css table headers use 55-60%
-   content color, which lands below the 4.5:1 AA ratio on light */
-.table thead th {
-  color: color-mix(in oklab, var(--color-base-content) 75%, transparent);
-}
+   daisyui stat-title/stat-desc use 55-60% content color, which lands below
+   the 4.5:1 AA ratio on light. Table headers are exempt: they use the brand
+   secondary color, see the .table thead th rule in style.css */
 .stat-title,
 .stat-desc {
   color: color-mix(in oklab, var(--color-base-content) 75%, transparent) !important;

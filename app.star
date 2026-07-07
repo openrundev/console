@@ -9,12 +9,19 @@ load("handler.star",
      "syncs_create_submit_handler", "syncs_run_handler", "syncs_delete_handler",
      "audit_data",
      "config_data", "config_action_handler", "config_version_handler",
+     "config_rbac_data", "config_rbac_action_handler",
+     "config_entry_page_handler", "config_entry_submit_handler",
+     "config_auth_data", "config_auth_action_handler",
+     "config_git_data", "config_git_action_handler",
+     "config_secrets_data", "config_secrets_action_handler",
+     "config_system_data", "config_system_action_handler",
      "config_group_page_handler", "config_group_submit_handler",
      "config_role_page_handler", "config_role_submit_handler",
      "config_grant_page_handler", "config_grant_submit_handler",
      "containers_data", "containers_lifecycle_handler", "containers_detail_data",
      "containers_detail_stats_handler", "containers_logs_stream_handler",
-     "containers_detail_lifecycle_handler",
+     "containers_detail_lifecycle_handler", "containers_k8s_stats_handler",
+     "containers_detail_k8s_handler",
      "bindings_data", "bindings_create_page_handler", "bindings_create_submit_handler",
      "bindings_update_page_handler", "bindings_update_submit_handler",
      "bindings_delete_handler", "services_create_page_handler",
@@ -38,9 +45,9 @@ def error_handler(req, ret):
                             retarget="#error-toast", reswap="innerHTML")
     return ace.response(data, "error.go.html")
 
-# OpenRun brand themes. Brand greens: light #00C200, dark #007700. #00C200 is
-# too bright to carry white text, so the greens swap roles per mode: #007700 is
-# primary on light, #00C200 is primary on dark (with deep-green content text).
+# OpenRun brand themes. Brand greens: light #00C200, dark #007700. The roles
+# are the same in both modes: #00C200 is primary (with deep-green content
+# text, it is too bright to carry white text), #007700 is secondary.
 # Base surfaces are green-tinted.
 OPENRUN_THEMES = {
     "openrun-light": {
@@ -49,10 +56,10 @@ OPENRUN_THEMES = {
         "--color-base-200": "#f1f6f1",  # page background, green-tinted
         "--color-base-300": "#dce8dc",  # borders, dividers
         "--color-base-content": "#142319",
-        "--color-primary": "#007700",  # brand dark green, actions
-        "--color-primary-content": "#f3fff1",
-        "--color-secondary": "#00c200",  # brand light green, highlights
-        "--color-secondary-content": "#013301",
+        "--color-primary": "#00c200",  # brand light green, actions
+        "--color-primary-content": "#012d01",
+        "--color-secondary": "#007700",  # brand dark green, highlights
+        "--color-secondary-content": "#d9ffd6",
         "--color-accent": "#009a66",
         "--color-accent-content": "#f0fff8",
         "--color-neutral": "#1e2b22",
@@ -136,9 +143,25 @@ app = ace.app("OpenRun Console",
                   ace.html("/syncs/run", method="POST", full="syncs.go.html", partial="sync_rows", handler=syncs_run_handler),
                   ace.html("/syncs/delete", method="POST", full="syncs.go.html", partial="sync_rows", handler=syncs_delete_handler),
                   ace.html("/audit", full="audit.go.html", partial="audit_rows", handler=audit_data),
+                  # Config: top level lists the config areas and history; each
+                  # area is a sub page whose changes are live immediately.
+                  # RBAC is the exception, a sub page with the staged
+                  # draft/publish workflow
                   ace.html("/config", full="config.go.html", partial="config_content", handler=config_data),
                   ace.html("/config/action", method="POST", full="config.go.html", partial="config_content", handler=config_action_handler),
                   ace.html("/config/history", full="config_version.go.html", handler=config_version_handler),
+                  ace.html("/config/entry", full="config_entry_form.go.html", handler=config_entry_page_handler),
+                  ace.html("/config/entry", method="POST", full="config_entry_form.go.html", handler=config_entry_submit_handler),
+                  ace.html("/config/auth", full="config_page.go.html", partial="page_content", handler=config_auth_data),
+                  ace.html("/config/auth/action", method="POST", full="config_page.go.html", partial="page_content", handler=config_auth_action_handler),
+                  ace.html("/config/git", full="config_page.go.html", partial="page_content", handler=config_git_data),
+                  ace.html("/config/git/action", method="POST", full="config_page.go.html", partial="page_content", handler=config_git_action_handler),
+                  ace.html("/config/secrets", full="config_page.go.html", partial="page_content", handler=config_secrets_data),
+                  ace.html("/config/secrets/action", method="POST", full="config_page.go.html", partial="page_content", handler=config_secrets_action_handler),
+                  ace.html("/config/system", full="config_page.go.html", partial="page_content", handler=config_system_data),
+                  ace.html("/config/system/action", method="POST", full="config_page.go.html", partial="page_content", handler=config_system_action_handler),
+                  ace.html("/config/rbac", full="config_rbac.go.html", partial="rbac_content", handler=config_rbac_data),
+                  ace.html("/config/rbac/action", method="POST", full="config_rbac.go.html", partial="rbac_content", handler=config_rbac_action_handler),
                   ace.html("/config/rbac/group", full="config_form.go.html", handler=config_group_page_handler),
                   ace.html("/config/rbac/group", method="POST", full="config_form.go.html", handler=config_group_submit_handler),
                   ace.html("/config/rbac/role", full="config_form.go.html", handler=config_role_page_handler),
@@ -147,8 +170,10 @@ app = ace.app("OpenRun Console",
                   ace.html("/config/rbac/grant", method="POST", full="config_form.go.html", handler=config_grant_submit_handler),
                   ace.html("/containers", full="containers.go.html", partial="container_rows", handler=containers_data),
                   ace.html("/containers/lifecycle", method="POST", full="containers.go.html", partial="container_rows", handler=containers_lifecycle_handler),
+                  ace.html("/containers/k8s_stats", full="containers.go.html", partial="k8s_stats", handler=containers_k8s_stats_handler),
                   ace.html("/containers/detail", full="container_detail.go.html", partial="container_content", handler=containers_detail_data),
                   ace.html("/containers/detail/stats", full="container_detail.go.html", partial="container_stats", handler=containers_detail_stats_handler),
+                  ace.html("/containers/detail/k8s", full="container_detail.go.html", partial="container_k8s", handler=containers_detail_k8s_handler),
                   ace.api("/containers/logs_stream", handler=containers_logs_stream_handler, type="TEXT"),
                   ace.html("/containers/detail/lifecycle", method="POST", full="container_detail.go.html", partial="container_content", handler=containers_detail_lifecycle_handler),
                   ace.html("/bindings", full="bindings.go.html", partial="binding_groups", handler=bindings_data),
@@ -167,6 +192,8 @@ app = ace.app("OpenRun Console",
                   ace.permission("openrun.in", "list_operations"),
                   ace.permission("openrun.in", "list_audit_events"),
                   ace.permission("openrun.in", "get_rbac_config"),
+                  ace.permission("openrun.in", "get_config_entries"),
+                  ace.permission("openrun.in", "get_config_values"),
                   ace.permission("openrun.in", "list_config_history"),
                   ace.permission("openrun.in", "get_config_version"),
                   ace.permission("openrun.in", "list_sync"),
@@ -183,6 +210,8 @@ app = ace.app("OpenRun Console",
                   ace.permission("openrun.in", "list_services"),
                   ace.permission("openrun.in", "list_containers"),
                   ace.permission("openrun.in", "get_container"),
+                  ace.permission("openrun.in", "kubernetes_stats"),
+                  ace.permission("openrun.in", "container_kubernetes_status"),
                   ace.permission("openrun.in", "container_logs_stream"),
                   ace.permission("openrun_admin.in", "update_rbac_enabled"),
                   ace.permission("openrun_admin.in", "set_rbac_group"),
@@ -195,6 +224,10 @@ app = ace.app("OpenRun Console",
                   ace.permission("openrun_admin.in", "publish_rbac_config"),
                   ace.permission("openrun_admin.in", "discard_rbac_draft"),
                   ace.permission("openrun_admin.in", "restore_config"),
+                  ace.permission("openrun_admin.in", "set_config_entry"),
+                  ace.permission("openrun_admin.in", "delete_config_entry"),
+                  ace.permission("openrun_admin.in", "set_config_value"),
+                  ace.permission("openrun_admin.in", "delete_config_value"),
                   ace.permission("openrun_admin.in", "create_service"),
                   ace.permission("openrun_admin.in", "delete_service"),
                   ace.permission("openrun_admin.in", "start_container"),

@@ -74,6 +74,37 @@
   <span title="{{ dateInZone "2006-01-02 15:04:05" $t "UTC" }} UTC">{{ $d }} ago</span>
 {{- end }}
 
+{{/* page_progress renders the branded progress line shown while HTMX
+     requests are in flight (targeted with hx-indicator="#page-progress") */}}
+{{ define "page_progress" }}
+  <div class="relative">
+    <div id="page-progress" class="progress-line htmx-indicator"></div>
+  </div>
+{{ end }}
+
+{{/* error_alert renders the standard error alert when the message is not
+     empty. Context: the error message string */}}
+{{ define "error_alert" }}
+  {{ if . }}
+    <div role="alert" class="alert alert-error alert-soft py-2 text-sm">
+      <span aria-hidden="true">✕</span>
+      <span class="break-all">{{ . }}</span>
+    </div>
+  {{ end }}
+{{ end }}
+
+{{/* flash_alerts renders the action result alerts (Flash success and
+     FlashError). Context: the page's .Data */}}
+{{ define "flash_alerts" }}
+  {{ if .Flash }}
+    <div role="alert" class="alert alert-success alert-soft py-2 text-sm">
+      <span aria-hidden="true">✓</span>
+      <span>{{ .Flash }}</span>
+    </div>
+  {{ end }}
+  {{ template "error_alert" .FlashError }}
+{{ end }}
+
 {{/* app_table renders a list of app rows; shared by the apps page groups
      and the sync detail page. Context: dict with Apps (row list), AppPath
      (console root path), Perms (the user's management permissions) and
@@ -88,8 +119,8 @@
       <thead>
         <tr>
           <th scope="col">App</th>
-          <th scope="col" class="hidden md:table-cell">Source</th>
-          <th scope="col">Prod</th>
+          <th scope="col" class="hidden md:table-cell w-2/5">Source</th>
+          <th scope="col" class="w-28 text-center">Version</th>
           <th scope="col" class="hidden lg:table-cell">Auth</th>
           <th scope="col" class="hidden sm:table-cell">Updated</th>
           {{ if $actions }}
@@ -103,7 +134,7 @@
             <td>
               <a
                 href="{{ $root }}/apps/detail?path={{ .path }}"
-                class="link link-hover font-mono font-medium"
+                class="link link-hover font-mono font-medium break-all"
                 title="{{ .name }} — view details"
                 >{{ .path }}</a
               ><a
@@ -122,43 +153,65 @@
                   <a
                     href="{{ .source_url }}"
                     target="_blank"
-                    class="link link-hover font-mono text-xs"
+                    class="link link-hover font-mono text-xs break-all"
                     >{{ .source }}</a
                   >
                 {{ else }}
-                  <span class="font-mono text-xs">{{ .source }}</span>
+                  <span class="font-mono text-xs break-all">{{ .source }}</span>
                 {{ end }}
-                <span class="badge badge-ghost badge-xs">{{ .git_branch }}</span>
               {{ else if .source }}
-                <span
-                  class="font-mono text-xs inline-block max-w-60 truncate align-bottom"
-                  >{{ .source }}</span
-                >
+                <span class="font-mono text-xs break-all">{{ .source }}</span>
+              {{ end }}
+              {{ if or .git_branch .spec }}
+                <!-- Branch and spec on their own row, keeping sources aligned -->
+                <div class="mt-0.5 flex items-center gap-1 flex-wrap">
+                  {{ if .git_branch }}
+                    <span class="badge badge-ghost badge-xs" title="git branch"
+                      >{{ .git_branch }}</span
+                    >
+                  {{ end }}
+                  {{ if .spec }}
+                    <span
+                      class="badge badge-ghost badge-xs font-mono"
+                      title="app spec"
+                      >{{ .spec }}</span
+                    >
+                  {{ end }}
+                </div>
               {{ end }}
             </td>
-            <td class="whitespace-nowrap">
+            <td class="text-center">
               <span
-                class="font-mono text-xs tabular-nums"
+                class="font-mono text-xs tabular-nums whitespace-nowrap"
                 title="{{ .git_message }}"
                 >v{{ .version }}{{ if .git_sha }}
                   ·
                   {{ .git_sha }}
                 {{ end }}</span
               >
-              {{ if .staging }}
-                {{ if .staging.ahead }}
-                  <span
-                    class="badge badge-warning badge-xs badge-soft"
-                    title="staging v{{ .staging.version }} is not promoted to prod yet"
-                    >needs promotion</span
-                  >
-                {{ else }}
-                  <span
-                    class="badge badge-success badge-xs badge-soft"
-                    title="prod matches staging"
-                    >in sync</span
-                  >
-                {{ end }}
+              {{ if or .staging .is_dev }}
+                <!-- Always on its own row, keeping the version lines aligned -->
+                <div class="mt-0.5">
+                  {{ if .is_dev }}
+                    <span
+                      class="badge badge-success badge-xs badge-soft"
+                      title="development mode app, served from the local source directory"
+                      >dev</span
+                    >
+                  {{ else if .staging.ahead }}
+                    <span
+                      class="badge badge-warning badge-xs badge-soft"
+                      title="staging v{{ .staging.version }} is not promoted to prod yet"
+                      >pending</span
+                    >
+                  {{ else }}
+                    <span
+                      class="badge badge-success badge-xs badge-soft"
+                      title="prod matches staging"
+                      >in sync</span
+                    >
+                  {{ end }}
+                </div>
               {{ end }}
             </td>
             <td class="hidden lg:table-cell">

@@ -14,7 +14,7 @@
           <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" }}
             <div>
-              <h1 class="text-2xl md:text-3xl font-extrabold italic tracking-tight">
+              <h1 class="page-title text-2xl md:text-3xl font-extrabold italic tracking-tight">
                 OpenRun Containers
               </h1>
               <p class="text-sm text-base-content/70">
@@ -86,8 +86,112 @@
             >
           </div>
 
-          <div class="relative">
-            <div id="page-progress" class="progress-line htmx-indicator"></div>
+          {{ template "page_progress" }}
+
+          <!-- Kubernetes namespace stats, loaded async so the list is not
+               slowed down; renders nothing for the other runtimes -->
+          <div
+            id="k8s-stats"
+            hx-get="{{ .AppPath }}/containers/k8s_stats"
+            hx-trigger="load, every 30s"
+            hx-swap="innerHTML">
+            {{ block "k8s_stats" . }}
+              {{ if .Data.K8sError }}
+                {{ template "error_alert" .Data.K8sError }}
+              {{ else if .Data.K8s }}
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {{ if .Data.K8s.cluster }}
+                    <div class="card bg-base-100 border border-base-300">
+                      <div class="card-body p-4 gap-2">
+                        <div class="flex items-center gap-2 flex-wrap">
+                          <h2 class="text-sm font-medium">Cluster</h2>
+                          {{ if .Data.K8s.cluster.version }}
+                            <span
+                              class="badge badge-ghost badge-xs font-mono"
+                              title="{{ .Data.K8s.cluster.platform }}"
+                              >{{ .Data.K8s.cluster.version }}</span
+                            >
+                          {{ end }}
+                        </div>
+                        <div class="flex items-center gap-4 text-xs flex-wrap">
+                          {{ if .Data.K8s.cluster.nodes_error }}
+                            <span
+                              class="text-base-content/70"
+                              title="{{ .Data.K8s.cluster.nodes_error }}"
+                              >node stats unavailable (needs cluster access)</span
+                            >
+                          {{ else }}
+                            <span
+                              class="{{ if lt .Data.K8s.cluster.ready_nodes .Data.K8s.cluster.nodes }}text-warning{{ else }}text-success{{ end }}"
+                              ><span class="font-medium tabular-nums"
+                                >{{ .Data.K8s.cluster.ready_nodes }}/{{ .Data.K8s.cluster.nodes }}</span
+                              >
+                              nodes ready</span
+                            >
+                            <span
+                              ><span class="font-medium tabular-nums">{{ .Data.K8s.cluster.cpu }}</span>
+                              cpu</span
+                            >
+                            <span
+                              ><span class="font-medium tabular-nums">{{ .Data.K8s.cluster.memory }}</span>
+                              memory</span
+                            >
+                          {{ end }}
+                        </div>
+                      </div>
+                    </div>
+                  {{ end }}
+                  {{ range .Data.K8s.namespaces }}
+                    <div class="card bg-base-100 border border-base-300">
+                      <div class="card-body p-4 gap-2">
+                        <div class="flex items-center gap-2 flex-wrap">
+                          <h2 class="text-sm font-medium font-mono break-all">
+                            {{ .namespace }}
+                          </h2>
+                          <span class="badge badge-ghost badge-xs"
+                            >{{ .kind }} namespace</span
+                          >
+                        </div>
+                        <div class="flex items-center gap-4 text-xs flex-wrap">
+                          <span
+                            ><span class="font-medium tabular-nums">{{ .pods }}</span>
+                            pods</span
+                          >
+                          <span class="text-success"
+                            ><span class="font-medium tabular-nums">{{ .running }}</span>
+                            running</span
+                          >
+                          <span
+                            class="{{ if lt .ready .running }}text-warning{{ else }}text-base-content/70{{ end }}"
+                            ><span class="font-medium tabular-nums">{{ .ready }}</span>
+                            ready</span
+                          >
+                          {{ if .pending }}
+                            <span class="text-warning"
+                              ><span class="font-medium tabular-nums">{{ .pending }}</span>
+                              pending</span
+                            >
+                          {{ end }}
+                          {{ if .failed }}
+                            <span class="text-error"
+                              ><span class="font-medium tabular-nums">{{ .failed }}</span>
+                              failed</span
+                            >
+                          {{ end }}
+                          {{ if .succeeded }}
+                            <span class="text-base-content/70"
+                              ><span class="font-medium tabular-nums">{{ .succeeded }}</span>
+                              succeeded</span
+                            >
+                          {{ end }}
+                        </div>
+                      </div>
+                    </div>
+                  {{ end }}
+                </div>
+              {{ end }}
+            {{ end }}
+            <!-- End of "k8s_stats" block -->
           </div>
 
           <div
@@ -99,22 +203,7 @@
             hx-include="#page-search, #app-filter-value"
             hx-indicator="#page-progress">
             {{ block "container_rows" . }}
-              {{ if .Data.Flash }}
-                <div
-                  role="alert"
-                  class="alert alert-success alert-soft py-2 text-sm">
-                  <span aria-hidden="true">✓</span>
-                  <span>{{ .Data.Flash }}</span>
-                </div>
-              {{ end }}
-              {{ if .Data.FlashError }}
-                <div
-                  role="alert"
-                  class="alert alert-error alert-soft py-2 text-sm">
-                  <span aria-hidden="true">✕</span>
-                  <span class="break-all">{{ .Data.FlashError }}</span>
-                </div>
-              {{ end }}
+              {{ template "flash_alerts" .Data }}
 
               {{ if .Data.Containers }}
                 <div class="card bg-base-100 border border-base-300">
@@ -124,9 +213,9 @@
                         <tr>
                           <th scope="col">State</th>
                           <th scope="col">Id</th>
-                          <th scope="col">Container</th>
-                          <th scope="col">App</th>
-                          <th scope="col" class="hidden md:table-cell">Image</th>
+                          <th scope="col" class="w-36">Container</th>
+                          <th scope="col" class="w-2/5">App</th>
+                          <th scope="col" class="hidden md:table-cell w-36">Image</th>
                           <th scope="col" class="hidden lg:table-cell">Ports</th>
                           <th scope="col" class="hidden xl:table-cell">Status</th>
                           <th scope="col" class="text-right">Actions</th>
@@ -149,7 +238,7 @@
                             <td>
                               <a
                                 href="{{ $.AppPath }}/containers/detail?id={{ .id }}"
-                                class="link link-hover font-mono text-xs inline-block max-w-56 truncate align-bottom"
+                                class="link link-hover font-mono text-xs inline-block max-w-36 truncate align-bottom"
                                 title="{{ .name }}"
                                 >{{ .name }}</a
                               >
@@ -158,7 +247,7 @@
                               {{ if .app_path }}
                                 <a
                                   href="{{ $.AppPath }}/apps/detail?path={{ .app_path }}"
-                                  class="link link-hover font-mono text-xs"
+                                  class="link link-hover font-mono text-xs break-all"
                                   >{{ .app_path }}</a
                                 >
                                 {{ if and .env (ne .env "prod") }}
@@ -173,7 +262,7 @@
                               {{ end }}
                             </td>
                             <td
-                              class="font-mono text-xs text-base-content/70 hidden md:table-cell max-w-60 truncate"
+                              class="font-mono text-xs text-base-content/70 hidden md:table-cell max-w-36 truncate"
                               title="{{ .image }}">
                               {{ .image }}
                             </td>
