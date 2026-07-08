@@ -305,22 +305,20 @@
                   </div>
 
                   <div>
-                    <label
-                      class="block text-sm font-medium mb-1"
-                      for="app-params"
-                      >Parameters</label
-                    >
-                    <textarea
-                      id="app-params"
-                      name="params_text"
-                      rows="5"
-                      spellcheck="false"
-                      placeholder="SMTP_HOST=smtp.example.com&#10;API_KEY=secret"
-                      class="textarea w-full font-mono text-sm leading-relaxed">{{ .Data.Values.params_text }}</textarea>
+                    <span class="block text-sm font-medium mb-1">Parameters</span>
+                    {{ template "kv_table" (dict "Field" "params"
+                        "AppPath" .AppPath
+                        "Prefix" "appparam"
+                        "CanCreate" (index .Data.Perms "secret:create")
+                        "Rows" .Data.Values.params_rows
+                        "KeyPlaceholder" "SMTP_HOST"
+                        "ValuePlaceholder" "smtp.example.com"
+                        "AddLabel" "Add parameter") }}
                     <p class="text-xs text-base-content/70 mt-1">
-                      One KEY=value per line.
+                      The lock button encrypts a value into the secrets store
+                      and uses the secret reference instead.
                       {{ if eq .Data.Mode "update" }}
-                        Removing a line deletes the parameter.
+                        Removing a row deletes the parameter.
                       {{ end }}
                     </p>
                   </div>

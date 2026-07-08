@@ -92,17 +92,19 @@
               </div>
 
               {{ if .Data.Meta.kv }}
-                <!-- Free-form entry: properties edited as PROPERTY=value lines -->
+                <!-- Free-form entry: properties edited as key/value rows -->
                 <div>
-                  <label class="block text-sm font-medium mb-1" for="entry-properties"
-                    >{{ or .Data.Meta.kv_label "Properties" }}</label
+                  <span class="block text-sm font-medium mb-1"
+                    >{{ or .Data.Meta.kv_label "Properties" }}</span
                   >
-                  <textarea
-                    id="entry-properties"
-                    name="properties_text"
-                    rows="6"
-                    placeholder="property=value"
-                    class="textarea w-full font-mono text-sm leading-relaxed">{{ index .Data.Values "properties_text" }}</textarea>
+                  {{ template "kv_table" (dict "Field" "properties"
+                      "AppPath" .AppPath
+                      "Prefix" (or .Data.Meta.secret_prefix .Data.Meta.section)
+                      "CanCreate" (index .Data.Perms "secret:create")
+                      "Rows" (index .Data.Values "properties_rows")
+                      "KeyPlaceholder" "property"
+                      "ValuePlaceholder" "value"
+                      "AddLabel" "Add property") }}
                   {{ if .Data.Meta.kv_help }}
                     <p class="text-xs text-base-content/70 mt-1">
                       {{ .Data.Meta.kv_help }}
@@ -144,18 +146,45 @@
                     <label class="block text-sm font-medium mb-1" for="entry-{{ .name }}"
                       >{{ .label }}</label
                     >
-                    <input
-                      id="entry-{{ .name }}"
-                      name="{{ .name }}"
-                      type="password"
-                      autocomplete="off"
-                      {{ if and $.Data.IsEdit $value }}
-                        placeholder="unchanged — leave blank to keep the stored value"
-                      {{ end }}
-                      class="input w-full font-mono text-sm" />
+                    {{ $redacted := and $value (eq (printf "%s" $value) "<redacted>") }}
+                    {{ if .secretable }}
+                      {{/* A stored {{secret ...}} reference passes through
+                           redaction and renders as the locked state; a stored
+                           plain value arrives redacted and round-trips via
+                           the keep placeholder */}}
+                      {{ template "secret_input" (dict "Name" .name
+                          "InputId" (printf "entry-%s" .name)
+                          "AppPath" $.AppPath
+                          "Prefix" (or $.Data.Meta.secret_prefix $.Data.Meta.section)
+                          "CanCreate" (index $.Data.Perms "secret:create")
+                          "Value" (and (not $redacted) $value)
+                          "Masked" true
+                          "File" .file
+                          "Placeholder" (and $redacted "unchanged — leave blank to keep the stored value")) }}
+                    {{ else }}
+                      <input
+                        id="entry-{{ .name }}"
+                        name="{{ .name }}"
+                        type="password"
+                        autocomplete="off"
+                        {{ if and $.Data.IsEdit $value }}
+                          placeholder="unchanged — leave blank to keep the stored value"
+                        {{ end }}
+                        class="input w-full font-mono text-sm" />
+                    {{ end }}
                     {{ if and $.Data.IsEdit $value }}
                       <input type="hidden" name="{{ .name }}__keep" value="true" />
                     {{ end }}
+                  {{ else if .secretable }}
+                    <label class="block text-sm font-medium mb-1" for="entry-{{ .name }}"
+                      >{{ .label }}</label
+                    >
+                    {{ template "secret_input" (dict "Name" .name
+                        "InputId" (printf "entry-%s" .name)
+                        "AppPath" $.AppPath
+                        "Prefix" (or $.Data.Meta.secret_prefix $.Data.Meta.section)
+                        "CanCreate" (index $.Data.Perms "secret:create")
+                        "Value" $value) }}
                   {{ else }}
                     <label class="block text-sm font-medium mb-1" for="entry-{{ .name }}"
                       >{{ .label }}</label

@@ -3089,6 +3089,10 @@
       height: var(--size);
     }
   }
+  .size-4 {
+    width: calc(var(--spacing) * 4);
+    height: calc(var(--spacing) * 4);
+  }
   .h-3 {
     height: calc(var(--spacing) * 3);
   }

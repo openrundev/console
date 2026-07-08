@@ -285,30 +285,38 @@
                                   {{ if eq .state "running" }}
                                     <button
                                       class="btn btn-xs btn-ghost text-error"
-                                      title="Stop container"
                                       aria-label="Stop container {{ .name }}"
-                                      hx-post="{{ $.AppPath }}/containers/lifecycle"
-                                      hx-vals='{"id": "{{ .id }}", "action": "stop"}'
-                                      hx-confirm="Stop container {{ .name }}? The app will be unavailable until it is started again."
-                                      hx-target="#container-rows"
-                                      hx-swap="innerHTML transition:true"
-                                      hx-include="#page-search, #app-filter-value"
-                                      hx-disabled-elt="this"
-                                      hx-indicator="#page-progress">
+                                      {{ if index $.Data.Perms "feature:updates" }}
+                                        title="Stop container"
+                                        hx-post="{{ $.AppPath }}/containers/lifecycle"
+                                        hx-vals='{"id": "{{ .id }}", "action": "stop"}'
+                                        hx-confirm="Stop container {{ .name }}? The app will be unavailable until it is started again."
+                                        hx-target="#container-rows"
+                                        hx-swap="innerHTML transition:true"
+                                        hx-include="#page-search, #app-filter-value"
+                                        hx-disabled-elt="this"
+                                        hx-indicator="#page-progress"
+                                      {{ else }}
+                                        disabled title="updates are disabled for this console install"
+                                      {{ end }}>
                                       stop
                                     </button>
                                   {{ else }}
                                     <button
                                       class="btn btn-xs btn-ghost text-primary"
-                                      title="Start container"
                                       aria-label="Start container {{ .name }}"
-                                      hx-post="{{ $.AppPath }}/containers/lifecycle"
-                                      hx-vals='{"id": "{{ .id }}", "action": "start"}'
-                                      hx-target="#container-rows"
-                                      hx-swap="innerHTML transition:true"
-                                      hx-include="#page-search, #app-filter-value"
-                                      hx-disabled-elt="this"
-                                      hx-indicator="#page-progress">
+                                      {{ if index $.Data.Perms "feature:updates" }}
+                                        title="Start container"
+                                        hx-post="{{ $.AppPath }}/containers/lifecycle"
+                                        hx-vals='{"id": "{{ .id }}", "action": "start"}'
+                                        hx-target="#container-rows"
+                                        hx-swap="innerHTML transition:true"
+                                        hx-include="#page-search, #app-filter-value"
+                                        hx-disabled-elt="this"
+                                        hx-indicator="#page-progress"
+                                      {{ else }}
+                                        disabled title="updates are disabled for this console install"
+                                      {{ end }}>
                                       start
                                     </button>
                                   {{ end }}

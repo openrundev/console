@@ -68,19 +68,19 @@
               </div>
 
               <div>
-                <label
-                  class="block text-sm font-medium mb-1"
-                  for="service-config"
-                  >Config</label
-                >
-                <textarea
-                  id="service-config"
-                  name="config_text"
-                  rows="5"
-                  placeholder="host=db.internal&#10;port=5432&#10;user=app&#10;password=secret"
-                  class="textarea w-full font-mono text-sm leading-relaxed">{{ .Data.Values.config_text }}</textarea>
+                <span class="block text-sm font-medium mb-1">Config</span>
+                {{ template "kv_table" (dict "Field" "config"
+                    "AppPath" .AppPath
+                    "Prefix" "service"
+                    "CanCreate" (index .Data.Perms "secret:create")
+                    "Rows" .Data.Values.config_rows
+                    "KeyPlaceholder" "host"
+                    "ValuePlaceholder" "db.internal"
+                    "AddLabel" "Add config entry") }}
                 <p class="text-xs text-base-content/70 mt-1">
-                  One KEY=value per line. Connection settings for the service
+                  Connection settings for the service. The lock button
+                  encrypts a value (a password for example) into the secrets
+                  store and uses the secret reference instead
                 </p>
               </div>
 

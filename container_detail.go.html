@@ -50,24 +50,32 @@
                     {{ if eq .Data.Container.state "running" }}
                       <button
                         class="btn btn-sm btn-outline btn-error transition-transform duration-150 active:scale-95"
-                        hx-post="{{ .AppPath }}/containers/detail/lifecycle"
-                        hx-vals='{"id": "{{ .Data.Id }}", "action": "stop"}'
-                        hx-confirm="Stop container {{ .Data.Container.name }}? The app will be unavailable until it is started again."
-                        hx-target="#container-content"
-                        hx-swap="innerHTML transition:true"
-                        hx-disabled-elt="this"
-                        hx-indicator="#page-progress">
+                        {{ if index .Data.Perms "feature:updates" }}
+                          hx-post="{{ .AppPath }}/containers/detail/lifecycle"
+                          hx-vals='{"id": "{{ .Data.Id }}", "action": "stop"}'
+                          hx-confirm="Stop container {{ .Data.Container.name }}? The app will be unavailable until it is started again."
+                          hx-target="#container-content"
+                          hx-swap="innerHTML transition:true"
+                          hx-disabled-elt="this"
+                          hx-indicator="#page-progress"
+                        {{ else }}
+                          disabled title="updates are disabled for this console install"
+                        {{ end }}>
                         Stop
                       </button>
                     {{ else }}
                       <button
                         class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95"
-                        hx-post="{{ .AppPath }}/containers/detail/lifecycle"
-                        hx-vals='{"id": "{{ .Data.Id }}", "action": "start"}'
-                        hx-target="#container-content"
-                        hx-swap="innerHTML transition:true"
-                        hx-disabled-elt="this"
-                        hx-indicator="#page-progress">
+                        {{ if index .Data.Perms "feature:updates" }}
+                          hx-post="{{ .AppPath }}/containers/detail/lifecycle"
+                          hx-vals='{"id": "{{ .Data.Id }}", "action": "start"}'
+                          hx-target="#container-content"
+                          hx-swap="innerHTML transition:true"
+                          hx-disabled-elt="this"
+                          hx-indicator="#page-progress"
+                        {{ else }}
+                          disabled title="updates are disabled for this console install"
+                        {{ end }}>
                         Start
                       </button>
                     {{ end }}

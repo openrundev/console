@@ -320,12 +320,14 @@
                         placeholder="{{ .placeholder }}"
                         aria-label="{{ .section }} key"
                         class="input input-sm w-64 font-mono text-xs" />
-                      <input
-                        name="value"
-                        type="text"
-                        placeholder="value"
-                        aria-label="{{ .section }} value"
-                        class="input input-sm flex-1 min-w-40 font-mono text-xs" />
+                      <div class="flex-1 min-w-40">
+                        {{ template "secret_input" (dict "Name" "value"
+                            "AppPath" $.AppPath
+                            "Prefix" .section
+                            "CanCreate" (index $.Data.Perms "secret:create")
+                            "Small" true
+                            "Placeholder" "value") }}
+                      </div>
                       <button
                         type="submit"
                         class="btn btn-xs btn-outline"

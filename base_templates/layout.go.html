@@ -105,6 +105,106 @@
   {{ template "error_alert" .FlashError }}
 {{ end }}
 
+{{/* secret_input renders the <secret-input> web component (console.js): a
+     value input with a "store as secret" button which encrypts the value
+     into the db secrets provider and swaps in the {{secret ...}} reference.
+     Context: dict with Name (form field name), AppPath, Prefix (secret name
+     prefix), CanCreate (secret:create held) and optional Value, InputId,
+     Placeholder, Masked, File, Description, Error */}}
+{{ define "secret_input" }}
+  <secret-input
+    name="{{ .Name }}"
+    endpoint="{{ .AppPath }}/secrets/store"
+    prefix="{{ .Prefix }}"
+    {{ if .Value }}value="{{ .Value }}"{{ end }}
+    {{ if .InputId }}input-id="{{ .InputId }}"{{ end }}
+    {{ if .Placeholder }}placeholder="{{ .Placeholder }}"{{ end }}
+    {{ if .Masked }}masked{{ end }}
+    {{ if .File }}file{{ end }}
+    {{ if .Small }}small{{ end }}
+    {{ if .CanCreate }}can-create{{ end }}
+    {{ if .Description }}description="{{ .Description }}"{{ end }}
+    {{ if .Error }}error="{{ .Error }}"{{ end }}></secret-input>
+{{ end }}
+
+{{/* secret_input_response is the response template of the POST
+     /secrets/store route (referenced by define name in app.star, no page
+     file): unwraps the handler data for the component define */}}
+{{ define "secret_input_response" }}{{ template "secret_input" .Data }}{{ end }}
+
+{{/* error_toast is what the app's error_handler retargets into #error-toast
+     when a partial (HTMX) request fails unexpectedly; referenced by define
+     name from ace.response in app.star */}}
+{{ define "error_toast" }}
+  <div role="alert" class="alert alert-error py-2 text-sm shadow-lg">
+    <span aria-hidden="true">✕</span>
+    <span class="break-all">{{ .Data.Error }}</span>
+  </div>
+{{ end }}
+
+{{/* kv_row renders one key/value row of a kv_table. Context: dict with
+     Field, AppPath, Prefix, CanCreate and optional Key, Value,
+     KeyPlaceholder, ValuePlaceholder */}}
+{{ define "kv_row" }}
+  <div class="kv-row flex gap-2 items-start">
+    <input
+      type="text"
+      name="{{ .Field }}_key"
+      value="{{ if .Key }}{{ .Key }}{{ end }}"
+      placeholder="{{ or .KeyPlaceholder "KEY" }}"
+      aria-label="{{ .Field }} key"
+      autocomplete="off"
+      spellcheck="false"
+      class="input w-2/5 font-mono text-sm" />
+    <div class="flex-1 min-w-0">
+      {{ template "secret_input" (dict "Name" (printf "%s_value" .Field)
+          "AppPath" .AppPath "Prefix" .Prefix "CanCreate" .CanCreate
+          "Value" .Value "Placeholder" (or .ValuePlaceholder "value")) }}
+    </div>
+    <button
+      type="button"
+      class="btn btn-ghost btn-square"
+      title="Remove row"
+      aria-label="Remove row"
+      onclick="removeKvRow(this)">
+      ✕
+    </button>
+  </div>
+{{ end }}
+
+{{/* kv_table renders KEY=value rows with add/remove buttons; the value
+     column is a secret_input so any value can be stored as a secret. Rows
+     post as repeated <Field>_key / <Field>_value form values. Context: dict
+     with Field, AppPath, Prefix, CanCreate and optional Rows (list of
+     key/value dicts), KeyPlaceholder, ValuePlaceholder, AddLabel */}}
+{{ define "kv_table" }}
+  {{ $ctx := . }}
+  <div class="kv-table space-y-3">
+    {{ range .Rows }}
+      {{ template "kv_row" (dict "Field" $ctx.Field "AppPath" $ctx.AppPath
+          "Prefix" $ctx.Prefix "CanCreate" $ctx.CanCreate
+          "KeyPlaceholder" $ctx.KeyPlaceholder "ValuePlaceholder" $ctx.ValuePlaceholder
+          "Key" (index . "key") "Value" (index . "value")) }}
+    {{ end }}
+    {{ if not .Rows }}
+      {{ template "kv_row" (dict "Field" $ctx.Field "AppPath" $ctx.AppPath
+          "Prefix" $ctx.Prefix "CanCreate" $ctx.CanCreate
+          "KeyPlaceholder" $ctx.KeyPlaceholder "ValuePlaceholder" $ctx.ValuePlaceholder) }}
+    {{ end }}
+    <template>
+      {{ template "kv_row" (dict "Field" $ctx.Field "AppPath" $ctx.AppPath
+          "Prefix" $ctx.Prefix "CanCreate" $ctx.CanCreate
+          "KeyPlaceholder" $ctx.KeyPlaceholder "ValuePlaceholder" $ctx.ValuePlaceholder) }}
+    </template>
+    <button
+      type="button"
+      class="btn btn-outline btn-xs"
+      onclick="addKvRow(this)">
+      + {{ or .AddLabel "Add row" }}
+    </button>
+  </div>
+{{ end }}
+
 {{/* app_table renders a list of app rows; shared by the apps page groups
      and the sync detail page. Context: dict with Apps (row list), AppPath
      (console root path), Perms (the user's management permissions) and
@@ -533,9 +633,17 @@
             ><svg aria-hidden="true" focusable="false" class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>Bindings</a
           >
         </li>
-        <li>
+        {{/* Containers screens are install-gated (enable_container param);
+             a disabled install has no /containers routes at all */}}
+        {{ $containersOff := and .Data.Perms (not (index .Data.Perms "feature:container")) }}
+        <li class="{{ if $containersOff }}menu-disabled{{ end }}">
           <a
-            href="{{ .AppPath }}/containers"
+            {{ if $containersOff }}
+              aria-disabled="true" tabindex="-1"
+              title="containers are disabled for this console install"
+            {{ else }}
+              href="{{ .AppPath }}/containers"
+            {{ end }}
             {{ if eq .Data.Nav "containers" }}aria-current="page"{{ end }}
             class="{{ if eq .Data.Nav "containers" }}menu-active{{ end }}"
             ><svg aria-hidden="true" focusable="false" class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" /><path d="m3.3 7 8.7 5 8.7-5" /><path d="M12 22V12" /></svg>Containers</a
@@ -550,8 +658,16 @@
           >
         </li>
         <li>
+          {{/* Configuration screens are install-gated (enable_config
+               param); a disabled install has no /config routes at all */}}
+          {{ $configOff := and .Data.Perms (not (index .Data.Perms "feature:config")) }}
           <a
-            href="{{ .AppPath }}/config"
+            {{ if $configOff }}
+              aria-disabled="true" tabindex="-1"
+              title="configuration is disabled for this console install"
+            {{ else }}
+              href="{{ .AppPath }}/config"
+            {{ end }}
             {{ if eq .Data.Nav "config" }}aria-current="page"{{ end }}
             class="{{ if eq .Data.Nav "config" }}menu-active{{ end }}"
             ><svg aria-hidden="true" focusable="false" class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></svg>Configuration</a

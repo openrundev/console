@@ -1,8 +1,8 @@
 load("openrun.in", "openrun")
 load("openrun_admin.in", "openrun_admin")
-load("utils.star", "query_param", "get_perms", "parse_params_text", "params_to_text",
+load("utils.star", "query_param", "get_perms", "params_to_text",
      "parse_lines", "short_sha", "short_age", "human_size", "pct_num", "nonzero_time", "sort_recent",
-     "flash_result",
+     "flash_result", "parse_kv_rows", "kv_rows", "raw_kv_rows",
      "path_domain_str", "sync_flags", "sync_result_summary", "review_from_dryrun",
      "needs_approval")
 
@@ -258,9 +258,23 @@ def apps_switch_handler(req):
                         "Switched %s to v%s" % (env, version), "Version switch failed")
 
 
+def require_app_path(req, data_fn):
+    # The app write plugin APIs take path globs; a missing path must not
+    # silently become an empty glob (which would match every app). Returns
+    # (path, None) or ("", error page data)
+    path = query_param(req, "path").strip()
+    if not path:
+        data = data_fn(req)
+        data["FlashError"] = "App path is required"
+        return "", data
+    return path, None
+
+
 def apps_promote_handler(req):
     # POST: promote the staging app to prod
-    path = query_param(req, "path")
+    path, error_data = require_app_path(req, apps_detail_data)
+    if error_data:
+        return error_data
     ret = openrun_admin.promote_apps(path)
     error = ret.error
     data = apps_detail_data(req)
@@ -275,7 +289,9 @@ def apps_promote_handler(req):
 
 def apps_approve_handler(req):
     # POST: approve the requested plugin permissions
-    path = query_param(req, "path")
+    path, error_data = require_app_path(req, apps_detail_data)
+    if error_data:
+        return error_data
     # Approval applies to the staging app; promotion is asked as a next step
     ret = openrun_admin.approve_apps(path, promote=False)
     error = ret.error
@@ -297,7 +313,9 @@ def reload_app_staging(path):
 
 def apps_detail_reload_handler(req):
     # POST: reload staging from source, staying on the detail page
-    path = query_param(req, "path")
+    path, error_data = require_app_path(req, apps_detail_data)
+    if error_data:
+        return error_data
     ret = reload_app_staging(path)
     error = ret.error
     data = apps_detail_data(req)
@@ -313,7 +331,9 @@ def apps_detail_reload_handler(req):
 
 def apps_detail_delete_handler(req):
     # POST: delete the app and return to the apps list
-    path = query_param(req, "path")
+    path, error_data = require_app_path(req, apps_detail_data)
+    if error_data:
+        return error_data
     ret = openrun_admin.delete_apps(path)
     if ret.error:
         data = apps_detail_data(req)
@@ -362,7 +382,9 @@ def apps_files_handler(req):
 
 def apps_delete_handler(req):
     # POST: delete an app from the apps list
-    path = query_param(req, "path")
+    path, error_data = require_app_path(req, apps_data)
+    if error_data:
+        return error_data
     ret = openrun_admin.delete_apps(path)
     error = ret.error
     return flash_result(apps_data(req), error, "Deleted %s" % path, "Delete failed")
@@ -370,7 +392,9 @@ def apps_delete_handler(req):
 
 def apps_reload_handler(req):
     # POST: reload staging from the apps list, then go to the detail page
-    path = query_param(req, "path")
+    path, error_data = require_app_path(req, apps_data)
+    if error_data:
+        return error_data
     ret = reload_app_staging(path)
 
     if ret.error:
@@ -431,7 +455,7 @@ def form_values(req):
         "auth": query_param(req, "auth"),
         "git_branch": query_param(req, "git_branch"),
         "git_auth": query_param(req, "git_auth"),
-        "params_text": query_param(req, "params_text"),
+        "params_rows": raw_kv_rows(req, "params"),
         "approve": query_param(req, "approve"),
     }
 
@@ -486,7 +510,7 @@ def apps_create_submit_handler(req):
     if not values["source_url"]:
         return create_form_data(req, values, "Source url is required")
 
-    params, err = parse_params_text(values["params_text"])
+    params, err = parse_kv_rows(req, "params")
     if err:
         return create_form_data(req, values, err)
 
@@ -546,7 +570,7 @@ def apps_update_page_handler(req):
     values = {
         "path": app["path"],
         "auth": app["auth"] or "default",
-        "params_text": params_to_text(app["params"]),
+        "params_rows": kv_rows(app["params"]),
     }
     return update_form_data(req, app, values, "")
 
@@ -557,7 +581,7 @@ def apps_update_submit_handler(req):
     values = {
         "path": path,
         "auth": query_param(req, "auth"),
-        "params_text": query_param(req, "params_text"),
+        "params_rows": raw_kv_rows(req, "params"),
     }
 
     ret = openrun.get_app(path)
@@ -565,7 +589,7 @@ def apps_update_submit_handler(req):
         return update_form_data(req, None, values, ret.error)
     app = ret.value
 
-    params, err = parse_params_text(values["params_text"])
+    params, err = parse_kv_rows(req, "params")
     if err:
         return update_form_data(req, app, values, err)
 
@@ -697,7 +721,7 @@ def binding_form_values(req):
         "path": query_param(req, "path"),
         "source": query_param(req, "source"),
         "grants_text": query_param(req, "grants_text"),
-        "config_text": query_param(req, "config_text"),
+        "config_rows": raw_kv_rows(req, "config"),
     }
 
 
@@ -728,7 +752,7 @@ def bindings_create_submit_handler(req):
     if not values["source"]:
         return binding_form_data(req, "create", values, "Source is required")
 
-    config, err = parse_params_text(values["config_text"])
+    config, err = parse_kv_rows(req, "config")
     if err:
         return binding_form_data(req, "create", values, err)
     grants = parse_lines(values["grants_text"])
@@ -828,7 +852,7 @@ def service_form_data(req, values, error):
 
 def services_create_page_handler(req):
     # Service create form page
-    values = {"id": "", "config_text": "", "is_default": False, "staging": ""}
+    values = {"id": "", "config_rows": [], "is_default": False, "staging": ""}
     return service_form_data(req, values, "")
 
 
@@ -836,13 +860,13 @@ def services_create_submit_handler(req):
     # POST: validate (dry run) or create a service
     values = {
         "id": query_param(req, "id").strip(),
-        "config_text": query_param(req, "config_text"),
+        "config_rows": raw_kv_rows(req, "config"),
         "is_default": query_param(req, "is_default") == "on",
         "staging": query_param(req, "staging").strip(),
     }
     action = query_param(req, "action")
 
-    config, err = parse_params_text(values["config_text"])
+    config, err = parse_kv_rows(req, "config")
     if err:
         return service_form_data(req, values, err)
 
@@ -1106,8 +1130,12 @@ def audit_data(req):
 # named-entry section of openrun.toml), so adding a section here requires no
 # backend change. Field kinds: text (default), secret, bool, list (one value
 # per line). Sections with "kv": True have free-form properties instead of
-# fixed fields, edited as PROPERTY=value lines. Secret fields round-trip as
-# the "<redacted>" placeholder, which the backend swaps for the stored value
+# fixed fields, edited as key/value rows. Secret fields round-trip as the
+# "<redacted>" placeholder, which the backend swaps for the stored value.
+# Fields with "secretable": True render as a secret-input component (the
+# value can be encrypted into the secrets store with one click, using the
+# section's "secret_prefix" for generated names); "file": True additionally
+# offers storing a picked file's content
 REDACTED_VALUE = "<redacted>"
 
 CONFIG_SECTIONS = [
@@ -1116,10 +1144,13 @@ CONFIG_SECTIONS = [
         "title": "Git auth",
         "desc": "SSH keys for private git repo access",
         "name_help": "the name used as git_auth in app create and sync setup",
+        "secret_prefix": "gitauth",
         "fields": [
-            {"name": "user_id", "label": "User id", "help": "ssh user, defaults to git"},
-            {"name": "key_file_path", "label": "Key file path", "help": "path to the private key file on the server"},
-            {"name": "password", "label": "Key password", "kind": "secret", "help": "password for the private key file, if any"},
+            {"name": "user_id", "label": "User id", "secretable": True, "help": "ssh user, defaults to git"},
+            {"name": "private_key", "label": "Private key", "kind": "secret", "secretable": True, "file": True,
+             "help": "the private key contents; pick the key file to store it encrypted in the secrets store"},
+            {"name": "key_file_path", "label": "Key file path", "help": "path to the private key file on the server, when the key is not set inline"},
+            {"name": "password", "label": "Key password", "kind": "secret", "secretable": True, "help": "password for the private key file, if any"},
         ],
     },
     {
@@ -1127,9 +1158,10 @@ CONFIG_SECTIONS = [
         "title": "OAuth / OIDC accounts",
         "desc": "login providers, usable as app auth",
         "name_help": "provider type, optionally with a _suffix: github, google_mycorp, oidc_okta, auth0, okta, gitlab, ...",
+        "secret_prefix": "oauth",
         "fields": [
-            {"name": "key", "label": "Client id"},
-            {"name": "secret", "label": "Client secret", "kind": "secret"},
+            {"name": "key", "label": "Client id", "secretable": True},
+            {"name": "secret", "label": "Client secret", "kind": "secret", "secretable": True},
             {"name": "org_url", "label": "Org URL", "help": "required for okta"},
             {"name": "domain", "label": "Domain", "help": "required for auth0"},
             {"name": "discovery_url", "label": "Discovery URL", "help": "required for oidc"},
@@ -1158,8 +1190,9 @@ CONFIG_SECTIONS = [
         "name_help": "provider type, optionally with a _suffix: asm, ssm, vault, env, prop, kubernetes (e.g. asm_prod)",
         "kv": True,
         "kv_label": "Properties",
-        "kv_help": "one PROPERTY=value per line, provider specific (e.g. region for asm). " +
+        "kv_help": "provider specific properties (e.g. region for asm). " +
                    "Values are parsed as numbers/booleans when possible; use \"quotes\" to force a string",
+        "secret_prefix": "secretmgr",
         "fields": [],
     },
 ]
@@ -1760,12 +1793,9 @@ def config_entry_page_handler(req):
                 values = entry["values"]
                 source = entry["source"]
     if meta.get("kv"):
-        # Free-form entries edit as PROPERTY=value lines; secret-ish values
-        # arrive redacted and round-trip through the placeholder
-        lines = []
-        for key in sorted(values.keys()):
-            lines.append("%s=%s" % (key, values[key]))
-        values = {"properties_text": "\n".join(lines)}
+        # Free-form entries edit as key/value rows; secret-ish values arrive
+        # redacted and round-trip through the placeholder
+        values = {"properties_rows": kv_rows(values)}
     return config_entry_form_data(req, meta, name, values, source == "dynamic", source, "")
 
 
@@ -1781,16 +1811,16 @@ def config_entry_submit_handler(req):
     is_edit = query_param(req, "is_edit") == "true"
     values = {}
     if meta.get("kv"):
-        raw = query_param(req, "properties_text")
-        parsed, error = parse_params_text(raw)
+        rows = raw_kv_rows(req, "properties")
+        parsed, error = parse_kv_rows(req, "properties")
         if error:
-            return config_entry_form_data(req, meta, name, {"properties_text": raw},
+            return config_entry_form_data(req, meta, name, {"properties_rows": rows},
                                           is_edit, query_param(req, "source"), error)
         for key in parsed:
             values[key] = parse_config_value(parsed[key])
         ret = openrun_admin.set_config_entry(section, name, values, query_param(req, "version_id"))
         if ret.error:
-            return config_entry_form_data(req, meta, name, {"properties_text": raw},
+            return config_entry_form_data(req, meta, name, {"properties_rows": rows},
                                           is_edit, query_param(req, "source"), ret.error)
         return ace.redirect(req.AppPath + "/config/" + config_page_for_section(section))
     for field in meta["fields"]:
@@ -2191,3 +2221,49 @@ def syncs_detail_delete_handler(req):
         return data
     return ace.response(syncs_detail_data(req), block="sync_content",
                         redirect=req.AppPath + "/syncs")
+
+
+# ---------- Secrets ----------
+
+
+def secrets_store_handler(req):
+    # POST from the secret-input component (console.js): encrypt the value
+    # (or uploaded file content) into the db secrets provider and re-render
+    # the component with the generated {{secret ...}} reference as its value.
+    # The component echoes its rendering attributes (field, prefix, masked,
+    # ...) so the response fragment can reproduce the element
+    data = {
+        "Name": query_param(req, "field"),
+        "AppPath": req.AppPath,
+        "Prefix": query_param(req, "prefix"),
+        "InputId": query_param(req, "input_id"),
+        "Placeholder": query_param(req, "placeholder"),
+        "Masked": query_param(req, "masked") == "true",
+        "File": query_param(req, "file") == "true",
+        "Small": query_param(req, "small") == "true",
+        "Description": query_param(req, "description"),
+        "CanCreate": get_perms().get("secret:create", False),
+    }
+
+    value = query_param(req, "value").strip()
+    value_b64 = query_param(req, "value_b64")
+    if not data["Prefix"]:
+        data["Error"] = "no secret name prefix is configured for this field"
+        data["Value"] = value
+        return data
+    if not value and not value_b64:
+        data["Error"] = "enter a value to store as a secret"
+        return data
+
+    ret = openrun_admin.create_secret(
+        value=value_b64 if value_b64 else value,
+        prefix=data["Prefix"],
+        encoding="base64" if value_b64 else "",
+        description=data["Description"],
+        source_file=query_param(req, "source_file"))
+    if ret.error:
+        data["Error"] = ret.error
+        data["Value"] = value
+        return data
+    data["Value"] = ret.value["secret_ref"]
+    return data

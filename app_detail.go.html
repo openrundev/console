@@ -63,7 +63,7 @@
                       aria-label="Switch {{ $ctx.Env }} to v{{ .version }}"
                       {{ if index $ctx.Perms "app:update" }}
                         title="Make v{{ .version }} the active {{ $ctx.Env }} version"
-                        hx-post="{{ $ctx.AppPath }}/apps/switch"
+                        hx-post="{{ $ctx.AppPath }}/apps/detail/switch"
                         hx-vals='{"path": "{{ $ctx.Path }}", "env": "{{ $ctx.Env }}", "version": "{{ .version }}"}'
                         hx-confirm="Switch {{ $ctx.Env }} of {{ $ctx.Path }} to v{{ .version }}?"
                         hx-target="#detail-content"
@@ -159,7 +159,7 @@
                     class="btn btn-sm btn-outline btn-primary transition-transform duration-150 active:scale-95"
                     {{ if index .Data.Perms "app:promote" }}
                       title="Push the staging version to prod"
-                      hx-post="{{ .AppPath }}/apps/promote"
+                      hx-post="{{ .AppPath }}/apps/detail/promote"
                       hx-vals='{"path": "{{ .Data.Path }}"}'
                       hx-confirm="Promote staged changes of {{ .Data.Path }} to prod?"
                       hx-target="#detail-content"
@@ -230,7 +230,7 @@
                 <button
                   class="btn btn-xs btn-primary transition-transform duration-150 active:scale-95"
                   {{ if index .Data.Perms "app:promote" }}
-                    hx-post="{{ .AppPath }}/apps/promote"
+                    hx-post="{{ .AppPath }}/apps/detail/promote"
                     hx-vals='{"path": "{{ .Data.Path }}"}'
                     hx-target="#detail-content"
                     hx-swap="innerHTML transition:true"
@@ -399,7 +399,7 @@
                   <button
                     class="btn btn-xs btn-warning ml-auto transition-transform duration-150 active:scale-95"
                     {{ if index .Data.Perms "app:approve" }}
-                      hx-post="{{ .AppPath }}/apps/approve"
+                      hx-post="{{ .AppPath }}/apps/detail/approve"
                       hx-vals='{"path": "{{ .Data.Path }}"}'
                       hx-confirm="Approve the requested plugin permissions for {{ .Data.Path }}?"
                       hx-target="#detail-content"

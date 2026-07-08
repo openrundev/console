@@ -97,3 +97,30 @@ tr:focus-within [class*="group-hover:opacity-100"] {
 .menu li > a.menu-active svg {
   color: inherit;
 }
+
+/* ---- <secret-input> component -----------------------------------------
+   The custom element renders its light DOM from console.js, which loads in
+   <head> before the body parses, so elements upgrade during parsing and
+   pages never flash un-upgraded content. The :not(:defined) guard keeps an
+   element invisible (while holding an input-sized layout box) in the
+   unlikely case the script is delayed or fails. */
+secret-input {
+  display: block;
+  min-width: 0;
+}
+secret-input:not(:defined) {
+  visibility: hidden;
+  min-height: calc(var(--size-field, 0.25rem) * 10); /* daisyui input height */
+}
+
+/* ---- Disabled controls must look disabled -------------------------------
+   Row-action buttons carry text-error/text-primary color utilities and
+   restore/save buttons use colored variants; the Tailwind utility wins over
+   daisyui's :disabled color, so a disabled delete still rendered full red.
+   Mute the text of anything disabled (loaded last, wins ties). */
+.btn:disabled,
+.btn[disabled],
+.btn.btn-disabled,
+a.btn-disabled {
+  color: color-mix(in oklab, var(--color-base-content) 35%, transparent) !important;
+}

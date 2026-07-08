@@ -175,20 +175,19 @@
 
                   {{ if eq .Data.Mode "create" }}
                     <div>
-                      <label
-                        class="block text-sm font-medium mb-1"
-                        for="binding-config"
-                        >Config</label
-                      >
-                      <textarea
-                        id="binding-config"
-                        name="config_text"
-                        rows="4"
-                        spellcheck="false"
-                        placeholder="timeout=30&#10;pool_size=5"
-                        class="textarea w-full font-mono text-sm leading-relaxed">{{ .Data.Values.config_text }}</textarea>
+                      <span class="block text-sm font-medium mb-1">Config</span>
+                      {{ template "kv_table" (dict "Field" "config"
+                          "AppPath" .AppPath
+                          "Prefix" "binding"
+                          "CanCreate" (index .Data.Perms "secret:create")
+                          "Rows" .Data.Values.config_rows
+                          "KeyPlaceholder" "timeout"
+                          "ValuePlaceholder" "30"
+                          "AddLabel" "Add config entry") }}
                       <p class="text-xs text-base-content/70 mt-1">
-                        One KEY=value config entry per line
+                        Config overrides for this binding. The lock button
+                        encrypts a value into the secrets store and uses the
+                        secret reference instead
                       </p>
                     </div>
                   {{ end }}

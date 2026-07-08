@@ -9,16 +9,96 @@ def query_param(req, key):
     return req.Form.get(key)[0] if req.Form.get(key) else ""
 
 
+def features():
+    # Feature flags from the install params (params.star); mirror the
+    # ENABLE_* flags in app.star which gate the routes and plugin permissions
+    return {
+        "updates": param.enable_all or param.enable_updates,
+        "container": param.enable_all or param.enable_container,
+        "config": param.enable_all or param.enable_config,
+    }
+
+
+# Write permissions masked from get_perms when the matching feature is
+# disabled at install time: a permission the install cannot exercise (the
+# route is not registered) must not light up its buttons, so every
+# permission-gated control renders disabled without separate feature checks
+FEATURE_UPDATE_PERMS = [
+    "app:create", "app:update", "app:delete", "app:approve", "app:promote",
+    "app:reload", "app:apply", "app:preview",
+    "sync:create", "sync:run", "sync:delete",
+    "binding:create", "binding:update", "binding:delete",
+    "service:create", "service:update", "service:delete",
+    "secret:create", "secret:delete",
+]
+FEATURE_CONFIG_PERMS = ["config:update"]
+
+
 def get_perms(path=""):
     # Management API permissions held by the current user, as a lookup dict.
     # When RBAC enforcement is not active, all permissions are returned. With
-    # a path, app permissions are evaluated against that app (owner rule)
+    # a path, app permissions are evaluated against that app (owner rule).
+    # Permissions whose feature is disabled at install time are removed, and
+    # feature:updates/container/config pseudo entries carry the flags for
+    # controls without an RBAC permission (containers nav and lifecycle)
     ret = openrun.get_permissions(path=path) if path else openrun.get_permissions()
     perms = {}
     if not ret.error:
         for perm in ret.value:
             perms[perm] = True
+
+    flags = features()
+    if not flags["updates"]:
+        for perm in FEATURE_UPDATE_PERMS:
+            perms.pop(perm, None)
+    if not (flags["config"] and flags["updates"]):
+        # Config changes are writes: config:update needs both flags, so the
+        # restore link and the save buttons render disabled on a view-only
+        # config install
+        for perm in FEATURE_CONFIG_PERMS:
+            perms.pop(perm, None)
+    perms["feature:updates"] = flags["updates"]
+    perms["feature:container"] = flags["container"]
+    perms["feature:config"] = flags["config"]
     return perms
+
+
+def query_param_list(req, key):
+    # All values posted under a repeated form field name (kv_table rows)
+    return list(req.Form.get(key)) if req.Form.get(key) else []
+
+
+def parse_kv_rows(req, field):
+    # Parse the repeated <field>_key / <field>_value inputs of a kv_table
+    # into a dict. Rows with an empty key are skipped (the trailing blank
+    # row), duplicate keys are an error
+    keys = query_param_list(req, field + "_key")
+    values = query_param_list(req, field + "_value")
+    params = {}
+    for i, key in enumerate(keys):
+        key = key.strip()
+        if not key:
+            continue
+        if key in params:
+            return None, 'duplicate key "%s"' % key
+        params[key] = values[i].strip() if i < len(values) else ""
+    return params, ""
+
+
+def kv_rows(params):
+    # Render a params dict as kv_table row dicts, sorted by key
+    return [{"key": key, "value": str(params[key])} for key in sorted(params.keys())]
+
+
+def raw_kv_rows(req, field):
+    # The kv_table rows exactly as posted (including blank/duplicate keys),
+    # used to re-render the form after a validation error
+    keys = query_param_list(req, field + "_key")
+    values = query_param_list(req, field + "_value")
+    rows = []
+    for i, key in enumerate(keys):
+        rows.append({"key": key, "value": values[i] if i < len(values) else ""})
+    return rows
 
 
 def parse_params_text(text):

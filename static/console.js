@@ -1,5 +1,300 @@
 // Shared console page behaviors: theme toggle persistence, app filter chips,
-// the nav drawer toggle and the Cmd/Ctrl-K search shortcut.
+// the nav drawer toggle, the Cmd/Ctrl-K search shortcut, and the
+// <secret-input> / kv-table form components.
+
+// ---- <secret-input> ----------------------------------------------------
+// A value input with a "store as secret" button: the typed value (or a
+// picked file) is POSTed to the console's /secrets/store endpoint, which
+// encrypts it into the db secrets provider; the input is then replaced with
+// the returned {{secret ...}} template reference. Light DOM (no shadow root)
+// so daisyui styles, native form participation and htmx all work. The
+// element renders purely from its attributes:
+//
+//   name        form field name of the inner input (posts with the form)
+//   value       current value; a {{secret ...}} ref renders the locked state
+//   prefix      secret name prefix for generated names (context specific)
+//   endpoint    the store URL, "<app path>/secrets/store"
+//   input-id    id for the inner input (label for= target)
+//   placeholder inner input placeholder
+//   masked      render the value input as type=password until stored
+//   small       compact sizing, for inline forms (input-sm/btn-sm)
+//   file        offer a file picker; the file content is stored base64
+//   can-create  present when the user holds secret:create; else lock disabled
+//   error       inline error message (set by the store fragment on failure)
+//   description recorded as the secret description on store
+//
+// The store response fragment is a fresh <secret-input> tag which upgrades
+// and re-renders on insertion. This script loads in <head> before the body
+// is parsed, so elements upgrade during parsing and there is no flash of
+// un-upgraded content on page loads.
+
+function looksLikeSecretRef(value) {
+	const trimmed = (value || '').trim();
+	return trimmed.startsWith('{{') && /^\{\{\s*secret(_from)?\s/.test(trimmed);
+}
+
+class SecretInput extends HTMLElement {
+	connectedCallback() {
+		this.render();
+	}
+
+	get value() {
+		const input = this.querySelector('input[data-role="value"]');
+		return input ? input.value : this.getAttribute('value') || '';
+	}
+
+	render() {
+		const name = this.getAttribute('name') || '';
+		const value = this.getAttribute('value') || '';
+		const stored = looksLikeSecretRef(value);
+		const canCreate = this.hasAttribute('can-create');
+		const masked = this.hasAttribute('masked') && !stored;
+		const inputId = this.getAttribute('input-id');
+		const error = this.getAttribute('error');
+
+		this.replaceChildren();
+		const join = document.createElement('div');
+		join.className = 'join w-full';
+
+		const input = document.createElement('input');
+		input.type = masked ? 'password' : 'text';
+		input.name = name;
+		input.value = value;
+		input.autocomplete = 'off';
+		input.spellcheck = false;
+		input.dataset.role = 'value';
+		input.className = this.hasAttribute('small')
+			? 'input input-sm w-full font-mono text-xs join-item'
+			: 'input w-full font-mono text-sm join-item';
+		if (inputId) {
+			// A page label targets the input via for=; otherwise give the
+			// input an accessible name itself
+			input.id = inputId;
+		} else {
+			// "params_value" -> "params value", "value" -> "value"
+			const base = name.replace(/_?value$/, '');
+			input.setAttribute('aria-label', base ? base + ' value' : 'value');
+		}
+		if (this.getAttribute('placeholder')) {
+			input.placeholder = this.getAttribute('placeholder');
+		}
+		if (stored) {
+			input.readOnly = true;
+			input.classList.add('bg-base-200');
+			input.title = 'Stored secret reference';
+		}
+		join.appendChild(input);
+
+		if (stored) {
+			join.appendChild(this.makeButton('secret-unlock',
+				'Stored as a secret — click to clear and enter a new value', false,
+				() => this.makeEditable()));
+		} else {
+			if (this.hasAttribute('file')) {
+				const fileInput = document.createElement('input');
+				fileInput.type = 'file';
+				fileInput.hidden = true;
+				fileInput.addEventListener('change', () => this.fileChosen(fileInput));
+				this.appendChild(fileInput);
+				join.appendChild(this.makeButton('secret-file',
+					canCreate ? 'Store a file as a secret' : 'requires secret:create',
+					!canCreate, () => fileInput.click()));
+			}
+			const lock = this.makeButton('secret-lock',
+				canCreate ? 'Encrypt and store as a secret' : 'requires secret:create',
+				!canCreate, null);
+			if (canCreate) {
+				// hx- attributes only on the enabled button: a disabled
+				// button with hx-disabled-elt matches the in-flight spinner
+				// CSS and would show a permanent spinner
+				lock.setAttribute('hx-post', this.getAttribute('endpoint') || '');
+				lock.setAttribute('hx-target', 'closest secret-input');
+				lock.setAttribute('hx-swap', 'outerHTML');
+				// The button sits inside the page form; without this htmx
+				// would post the entire enclosing form to the store
+				// endpoint. The actual parameters are injected in
+				// htmx:configRequest
+				lock.setAttribute('hx-params', 'none');
+				lock.setAttribute('hx-disabled-elt', 'this');
+			}
+			join.appendChild(lock);
+		}
+		this.insertBefore(join, this.firstChild);
+
+		if (error) {
+			const line = document.createElement('p');
+			line.className = 'text-xs text-error mt-1';
+			line.textContent = error;
+			this.appendChild(line);
+		}
+
+		if (!this.dataset.wired) {
+			this.dataset.wired = 'true';
+			this.addEventListener('htmx:configRequest', (event) => this.configRequest(event));
+		}
+
+		// Wire the hx- attributes of the freshly rendered buttons. Needed on
+		// every render, not just insertion: an error/undo re-render creates a
+		// new lock button which htmx has not seen. Also covers kv-table row
+		// clones (htmx only auto-processes its own swaps). During the initial
+		// page parse htmx is already loaded (both scripts are in <head>), and
+		// re-processing already initialized nodes is safe
+		if (window.htmx) {
+			window.htmx.process(this);
+		}
+	}
+
+	makeButton(icon, title, disabled, onClick) {
+		const btn = document.createElement('button');
+		btn.type = 'button';
+		btn.className = this.hasAttribute('small')
+			? 'btn btn-sm btn-square join-item'
+			: 'btn btn-square join-item';
+		btn.title = title;
+		btn.setAttribute('aria-label', title);
+		btn.disabled = disabled;
+		btn.innerHTML = SecretInput.icons[icon];
+		if (onClick) {
+			btn.addEventListener('click', onClick);
+		}
+		return btn;
+	}
+
+	makeEditable() {
+		// Clearing the reference does not delete the stored secret; the field
+		// just goes back to accepting a plain value
+		this.removeAttribute('value');
+		this.removeAttribute('error');
+		this.render();
+		const input = this.querySelector('input[data-role="value"]');
+		if (input) {
+			input.focus();
+		}
+	}
+
+	fileChosen(fileInput) {
+		const file = fileInput.files && fileInput.files[0];
+		if (!file) {
+			return;
+		}
+		if (file.size > 1024 * 1024) {
+			this.showError('file is larger than the 1MB secret size limit');
+			return;
+		}
+		const reader = new FileReader();
+		reader.onload = () => {
+			// readAsDataURL result is "data:<mime>;base64,<data>"
+			this.pendingFile = {
+				b64: String(reader.result).split(',', 2)[1] || '',
+				name: file.name,
+			};
+			const lock = this.querySelector('button[hx-post]');
+			if (lock && window.htmx) {
+				window.htmx.trigger(lock, 'click');
+			}
+		};
+		reader.onerror = () => this.showError('could not read the file');
+		reader.readAsDataURL(file);
+	}
+
+	showError(message) {
+		this.setAttribute('error', message);
+		this.render();
+	}
+
+	configRequest(event) {
+		const params = event.detail.parameters;
+		const set = (key, val) => {
+			if (typeof params.set === 'function') {
+				params.set(key, val);
+			} else {
+				params[key] = val;
+			}
+		};
+		const file = this.pendingFile;
+		this.pendingFile = null;
+		if (!file) {
+			const value = this.value.trim();
+			if (!value) {
+				event.preventDefault();
+				this.showError('enter a value to store as a secret');
+				return;
+			}
+			if (looksLikeSecretRef(value)) {
+				event.preventDefault();
+				this.showError('the value is already a secret reference');
+				return;
+			}
+			set('value', value);
+		} else {
+			set('value_b64', file.b64);
+			set('source_file', file.name);
+		}
+		// Echo the rendering attributes so the response fragment can
+		// reproduce this element
+		set('field', this.getAttribute('name') || '');
+		set('prefix', this.getAttribute('prefix') || '');
+		for (const attr of ['input-id', 'placeholder', 'description']) {
+			if (this.getAttribute(attr)) {
+				set(attr.replace('-', '_'), this.getAttribute(attr));
+			}
+		}
+		for (const flag of ['masked', 'file', 'small']) {
+			if (this.hasAttribute(flag)) {
+				set(flag, 'true');
+			}
+		}
+	}
+}
+SecretInput.icons = {
+	// heroicons mini: lock-closed, lock-open, paper-clip (MIT)
+	'secret-lock':
+		'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4" aria-hidden="true">' +
+		'<path fill-rule="evenodd" d="M10 1a4.5 4.5 0 0 0-4.5 4.5V9H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-.5V5.5A4.5 4.5 0 0 0 10 1Zm3 8V5.5a3 3 0 1 0-6 0V9h6Z" clip-rule="evenodd"/></svg>',
+	'secret-unlock':
+		'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4 text-success" aria-hidden="true">' +
+		'<path d="M14.5 1A4.5 4.5 0 0 0 10 5.5V9H3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-1.5V5.5a3 3 0 1 1 6 0v2.75a.75.75 0 0 0 1.5 0V5.5A4.5 4.5 0 0 0 14.5 1Z"/></svg>',
+	'secret-file':
+		'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4" aria-hidden="true">' +
+		'<path fill-rule="evenodd" d="M15.621 4.379a3 3 0 0 0-4.242 0l-7 7a3 3 0 0 0 4.241 4.243h.001l.497-.5a.75.75 0 0 1 1.064 1.057l-.498.501-.002.002a4.5 4.5 0 0 1-6.364-6.364l7-7a4.5 4.5 0 0 1 6.368 6.36l-3.455 3.553A2.625 2.625 0 1 1 9.52 9.52l3.45-3.451a.75.75 0 1 1 1.061 1.06l-3.45 3.451a1.125 1.125 0 0 0 1.587 1.595l3.454-3.553a3 3 0 0 0 0-4.242Z" clip-rule="evenodd"/></svg>',
+};
+customElements.define('secret-input', SecretInput);
+
+// ---- kv-table row helpers ----------------------------------------------
+// The kv_table template renders KEY=value rows (value is a <secret-input>)
+// plus a <template> holding an empty row. Rows added from the template
+// self-initialize: the secret-input upgrade happens on insertion
+
+function addKvRow(btn) {
+	const table = btn.closest('.kv-table');
+	const template = table.querySelector('template');
+	const row = template.content.firstElementChild.cloneNode(true);
+	template.before(row);
+	const key = row.querySelector('input');
+	if (key) {
+		key.focus();
+	}
+}
+
+function removeKvRow(btn) {
+	const table = btn.closest('.kv-table');
+	const row = btn.closest('.kv-row');
+	// Keep one row so the table never collapses to just the Add button
+	if (table.querySelectorAll('.kv-row').length <= 1) {
+		const key = row.querySelector('input');
+		const secret = row.querySelector('secret-input');
+		if (key) {
+			key.value = '';
+		}
+		if (secret) {
+			secret.removeAttribute('value');
+			secret.removeAttribute('error');
+			secret.render();
+		}
+		return;
+	}
+	row.remove();
+}
 
 // Open/close the nav drawer from the hamburger button. The daisyui drawer is
 // driven by the hidden #nav-drawer checkbox; the button keeps aria-expanded
