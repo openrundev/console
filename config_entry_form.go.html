@@ -17,6 +17,7 @@
           <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" }}
             <div>
+              {{ template "page_title" "OpenRun Configuration" }}
               <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0">
                 <ul>
                   <li>
@@ -36,7 +37,7 @@
                     {{ .Data.Meta.title }}
                   </li>
                 </ul></nav>
-              <h1 class="text-xl font-semibold">
+              <h2 class="text-xl font-semibold">
                 {{ if .Data.IsEdit }}
                   Edit
                 {{ else if eq .Data.Source "static" }}
@@ -45,7 +46,7 @@
                   New
                 {{ end }}
                 {{ .Data.Meta.title }} entry
-              </h1>
+              </h2>
               <p class="text-sm text-base-content/70">
                 {{ if eq .Data.Source "static" }}
                   Saving creates a dynamic entry which overrides the static

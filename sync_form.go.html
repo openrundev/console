@@ -13,8 +13,9 @@
           <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" }}
             <div>
+              {{ template "page_title" "OpenRun Syncs" }}
               <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0"><ul><li><a href="{{ .AppPath }}/syncs">Sync</a></li><li>new source</li></ul></nav>
-              <h1 class="text-xl font-semibold">Add sync source</h1>
+              <h2 class="text-xl font-semibold">Add sync source</h2>
               <p class="text-sm text-base-content/70">
                 Apps declared in the source are created and kept updated
                 automatically

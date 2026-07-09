@@ -74,6 +74,7 @@
                     <table class="table table-sm">
                       <thead>
                         <tr>
+                          <th scope="col" class="w-8"><span class="sr-only">Details</span></th>
                           <th scope="col">State</th>
                           <th scope="col">Source</th>
                           <th scope="col" class="hidden md:table-cell">Trigger</th>
@@ -86,6 +87,15 @@
                       <tbody>
                         {{ range .Data.Syncs }}
                           <tr class="group hover:bg-base-200/60">
+                            <td class="w-8">
+                              <a
+                                href="{{ $.AppPath }}/syncs/detail?id={{ .id }}"
+                                class="btn btn-xs btn-ghost btn-square"
+                                title="{{ .repo }} — details and last run results"
+                                aria-label="View details for sync {{ .repo }}">
+                                <svg aria-hidden="true" focusable="false" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+                              </a>
+                            </td>
                             <td class="whitespace-nowrap">
                               {{ if eq .state "Failing" }}
                                 <span class="status status-error"></span>
@@ -99,11 +109,8 @@
                               {{ end }}
                             </td>
                             <td>
-                              <a
-                                href="{{ $.AppPath }}/syncs/detail?id={{ .id }}"
-                                class="link link-hover font-mono text-xs font-medium break-all"
-                                title="View sync details and last run"
-                                >{{ .repo }}</a
+                              <span class="font-mono text-xs font-medium break-all"
+                                >{{ .repo }}</span
                               >
                               {{ if .branch }}
                                 <span class="badge badge-ghost badge-xs"
@@ -186,13 +193,6 @@
                                   {{ end }}>
                                   sync now
                                 </button>
-                                <a
-                                  href="{{ $.AppPath }}/syncs/detail?id={{ .id }}"
-                                  class="btn btn-xs btn-ghost"
-                                  title="Details and last run results"
-                                  aria-label="Details of sync {{ .repo }}">
-                                  detail <span aria-hidden="true">→</span>
-                                </a>
                                 <button
                                   class="btn btn-xs btn-ghost text-error"
                                   aria-label="Delete sync {{ .repo }}"

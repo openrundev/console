@@ -14,15 +14,16 @@
           <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" }}
             <div>
+              {{ template "page_title" "OpenRun Apps" }}
               <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0"><ul class="flex-wrap whitespace-normal"><li><a href="{{ .AppPath }}/apps">Apps</a></li>{{ if eq .Data.Mode "update" }}<li class="font-mono break-all"><a href="{{ .AppPath }}/apps/detail?path={{ .Data.Values.path }}">{{ .Data.Values.path }}</a></li><li>edit</li>{{ else }}<li>new</li>{{ end }}</ul></nav>
-              <h1 class="text-xl font-semibold">
+              <h2 class="text-xl font-semibold">
                 {{ if eq .Data.Mode "create" }}
                   New app
                 {{ else }}
                   Update
                   <span class="font-mono break-all">{{ .Data.Values.path }}</span>
                 {{ end }}
-              </h1>
+              </h2>
               <p class="text-sm text-base-content/70">
                 {{ if eq .Data.Step "approve" }}
                   Approve the permissions the app requests

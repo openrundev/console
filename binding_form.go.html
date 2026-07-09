@@ -14,15 +14,16 @@
           <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" }}
             <div>
+              {{ template "page_title" "OpenRun Bindings" }}
               <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0"><ul><li><a href="{{ .AppPath }}/bindings">Bindings</a></li><li>{{ if eq .Data.Mode "create" }}new{{ else }}edit{{ end }}</li></ul></nav>
-              <h1 class="text-xl font-semibold">
+              <h2 class="text-xl font-semibold">
                 {{ if eq .Data.Mode "create" }}
                   New binding
                 {{ else }}
                   Update
                   <span class="font-mono">{{ .Data.Values.path }}</span>
                 {{ end }}
-              </h1>
+              </h2>
               <p class="text-sm text-base-content/70">
                 {{ if eq .Data.Mode "create" }}
                   Bind apps to a service or a base binding

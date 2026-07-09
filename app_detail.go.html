@@ -108,8 +108,9 @@
           <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" }}
             <div>
+              {{ template "page_title" "OpenRun Apps" }}
               <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0"><ul class="flex-wrap whitespace-normal"><li><a href="{{ .AppPath }}/apps">Apps</a></li><li class="font-mono break-all">{{ .Data.Path }}</li></ul></nav>
-              <h1 class="text-xl font-semibold font-mono break-all">{{ .Data.Path }}</h1>
+              <h2 class="text-xl font-semibold font-mono break-all">{{ .Data.Path }}</h2>
               <p class="text-sm text-base-content/70">
                 {{ if .Data.App }}
                   {{ .Data.App.name }}
@@ -136,7 +137,7 @@
                   rel="noopener"
                   title="Opens the app in a new tab"
                   class="btn btn-sm btn-outline transition-transform duration-150 active:scale-95">
-                  Open app <span aria-hidden="true">↗</span>
+                  Open app {{ template "globe_icon" }}
                 </a>
                 <button
                   class="btn btn-sm btn-outline transition-transform duration-150 active:scale-95"
@@ -256,7 +257,15 @@
                   class="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1.5 text-sm">
                   <span class="text-xs text-base-content/70 pt-0.5">Source</span>
                   <span class="font-mono text-xs break-all pt-1"
-                    >{{ .Data.App.source_url }}{{ if .Data.App.git_branch }}
+                    >{{ .Data.App.source_url }}{{ if .Data.App.browse_url }}<a
+                        href="{{ .Data.App.browse_url }}"
+                        target="_blank"
+                        rel="noopener"
+                        title="View source code in a new tab"
+                        aria-label="View source of {{ .Data.Path }} in a new tab"
+                        class="inline-block text-primary ml-0.5"
+                        ><span aria-hidden="true">↗</span></a
+                      >{{ end }}{{ if .Data.App.git_branch }}
                       <span class="badge badge-ghost badge-xs"
                         >{{ .Data.App.git_branch }}</span
                       >

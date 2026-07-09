@@ -14,6 +14,7 @@
           <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" }}
             <div>
+              {{ template "page_title" "OpenRun Configuration" }}
               <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0">
                 <ul>
                   <li>
@@ -21,9 +22,9 @@
                   </li>
                   <li class="font-mono">{{ trunc 20 .Data.Version }}…</li>
                 </ul></nav>
-              <h1 class="text-xl font-semibold font-mono break-all">
+              <h2 class="text-xl font-semibold font-mono break-all">
                 {{ .Data.Version }}
-              </h1>
+              </h2>
               <p class="text-sm text-base-content/70">
                 Dynamic config snapshot at this version
               </p>

@@ -18,14 +18,15 @@
             <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
               {{ template "hamburger" }}
               <div>
+                {{ template "page_title" "OpenRun Containers" }}
                 <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0"><ul><li><a href="{{ .AppPath }}/containers">Containers</a></li><li class="font-mono">{{ if .Data.Container }}{{ trunc 24 .Data.Container.name }}…{{ else }}detail{{ end }}</li></ul></nav>
-                <h1 class="text-xl font-semibold font-mono break-all">
+                <h2 class="text-xl font-semibold font-mono break-all">
                   {{ if .Data.Container }}
                     {{ .Data.Container.name }}
                   {{ else }}
                     {{ .Data.Id }}
                   {{ end }}
-                </h1>
+                </h2>
                 <p class="text-sm text-base-content/70">
                   {{ if .Data.Container }}
                     {{ template "container_state" .Data.Container }}

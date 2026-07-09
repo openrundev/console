@@ -139,16 +139,19 @@ label.input:focus-within {
 }
 
 /* ---- Page titles ------------------------------------------------------
-   Main list-page headings carry a short brand-gradient accent bar, giving
-   each screen a strong anchor without contrast concerns. */
+   Main list-page headings carry a brand accent bar, giving each screen a
+   strong anchor without contrast concerns. The width matches the "OpenRun"
+   prefix of the titles (em-based, so it tracks the heading size); the bar
+   fades in from nothing up to the brand light green. */
 .page-title::after {
   content: "";
   display: block;
-  width: 2.75rem;
+  width: 4.3em;
   height: 3px;
   margin-top: 0.3rem;
+  margin-bottom: 0.6rem;
   border-radius: 2px;
-  background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
+  background: linear-gradient(90deg, color-mix(in oklch, var(--color-secondary) 5%, transparent), var(--color-secondary));
 }
 
 /* ---- Cards --------------------------------------------------------------

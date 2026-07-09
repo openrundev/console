@@ -2055,6 +2055,17 @@
       transition: background-color 0.2s ease-out;
     }
   }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border-width: 0;
+  }
   .mockup-code {
     @layer daisyui.l1.l2.l3 {
       position: relative;
@@ -3142,6 +3153,9 @@
   }
   .w-7 {
     width: calc(var(--spacing) * 7);
+  }
+  .w-8 {
+    width: calc(var(--spacing) * 8);
   }
   .w-16 {
     width: calc(var(--spacing) * 16);

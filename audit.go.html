@@ -195,23 +195,41 @@
                 </div>
               </details>
 
-              {{ if .Data.Filters.rid }}
-                <!-- Trace mode: all events of one request -->
+              {{ block "audit_trace_banner" . }}
+                {{/* Trace mode: all events of one request. On HTMX row swaps
+                     the audit_rows partial re-renders this block with
+                     hx-swap-oob, so entering/leaving trace mode updates the
+                     banner without touching the filter inputs; the hidden
+                     rid input keeps later filter changes scoped to the
+                     trace */}}
                 <div
-                  role="alert"
-                  class="alert alert-info alert-soft py-2 text-sm">
-                  <span aria-hidden="true">🔍</span>
-                  <span>
-                    Showing all events for request
-                    <span class="font-mono text-xs">{{ .Data.Filters.rid }}</span>
-                  </span>
-                  <a
-                    href="{{ .AppPath }}/audit"
-                    class="btn btn-xs btn-ghost ml-auto"
-                    >Clear trace</a
-                  >
+                  id="audit-trace-banner"
+                  {{ if .IsPartial }}hx-swap-oob="true"{{ end }}>
+                  {{ if .Data.Filters.rid }}
+                    <div
+                      role="alert"
+                      class="alert alert-info alert-soft py-2 text-sm">
+                      <span aria-hidden="true">🔍</span>
+                      <span>
+                        Showing all events for request
+                        <span class="font-mono text-xs">{{ .Data.Filters.rid }}</span>
+                      </span>
+                      <button
+                        type="button"
+                        class="btn btn-xs btn-ghost ml-auto"
+                        hx-get="{{ .AppPath }}/audit"
+                        hx-include="closest form"
+                        hx-params="not rid"
+                        hx-target="#audit-rows"
+                        hx-swap="innerHTML"
+                        hx-push-url="true"
+                        hx-indicator="#page-progress">
+                        Clear trace
+                      </button>
+                    </div>
+                    <input type="hidden" name="rid" value="{{ .Data.Filters.rid }}" />
+                  {{ end }}
                 </div>
-                <input type="hidden" name="rid" value="{{ .Data.Filters.rid }}" />
               {{ end }}
             </div>
           </form>
@@ -226,6 +244,7 @@
               <table class="table table-sm">
                 <thead>
                   <tr>
+                    <th scope="col" class="w-8"><span class="sr-only">Trace</span></th>
                     <th scope="col">Time</th>
                     <th scope="col">Type</th>
                     <th scope="col">Operation</th>
@@ -233,7 +252,6 @@
                     <th scope="col" class="hidden md:table-cell">App</th>
                     <th scope="col" class="hidden lg:table-cell">User</th>
                     <th scope="col">Status</th>
-                    <th scope="col" class="text-right">Trace</th>
                   </tr>
                 </thead>
                 <tbody id="audit-rows">
@@ -241,13 +259,33 @@
                     {{ $count := len .Data.Events }}
                     {{ range $i, $e := .Data.Events }}
                       <tr
-                        class="hover:bg-base-200/60"
+                        class="group hover:bg-base-200/60"
                         {{ if eq $count (add $i 1) }}
                           hx-get="{{ $.Data.NextPage }}"
                           hx-trigger="revealed"
                           hx-swap="afterend"
                           hx-indicator="#audit-loading"
                         {{ end }}>
+                        <td class="w-8">
+                          {{/* Events recorded outside a request (schedulers,
+                               internal jobs) have no request id to trace. In
+                               trace mode the rows already show this request:
+                               a chevron would reload the same page */}}
+                          {{ if and $e.rid (ne $e.rid $.Data.Filters.rid) }}
+                            <a
+                              class="btn btn-xs btn-ghost btn-square"
+                              title="See all events for this request"
+                              aria-label="Trace request {{ $e.rid }}"
+                              href="{{ $.AppPath }}/audit?rid={{ $e.rid }}"
+                              hx-get="{{ $.AppPath }}/audit?rid={{ $e.rid }}"
+                              hx-target="#audit-rows"
+                              hx-swap="innerHTML"
+                              hx-push-url="true"
+                              hx-indicator="#page-progress">
+                              <svg aria-hidden="true" focusable="false" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+                            </a>
+                          {{ end }}
+                        </td>
                         <td
                           class="text-xs text-base-content/70 whitespace-nowrap">
                           {{ template "time_ago" $e.create_time }}
@@ -279,25 +317,22 @@
                         </td>
                         <td class="hidden md:table-cell">
                           {{ if and $e.app_path (ne $e.app_env "preview") }}
-                            <a
+                            <span
+                              class="font-mono text-xs inline-block max-w-40 break-all align-bottom"
+                              title="{{ $e.app_name }}"
+                              >{{ $e.app_path }}</span
+                            ><a
                               href="{{ $.AppPath }}/apps/detail?path={{ $e.app_path }}"
-                              class="link link-hover font-mono text-xs inline-block max-w-40 break-all align-bottom"
-                              title="{{ $e.app_name }} — view app details"
-                              >{{ $e.app_path }}</a
+                              title="View app details"
+                              aria-label="View details for {{ $e.app_path }}"
+                              class="inline-block text-primary text-xs opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-200 ml-0.5"
+                              ><span aria-hidden="true">↗</span></a
                             >
-                            {{ if eq $e.app_env "stage" }}
-                              <span class="badge badge-ghost badge-xs"
-                                >stage</span
-                              >
-                            {{ end }}
                           {{ else if $e.app_path }}
                             <span
                               class="font-mono text-xs text-base-content/70 inline-block max-w-40 break-all align-bottom"
                               title="{{ $e.app_name }}"
                               >{{ $e.app_path }}</span
-                            >
-                            <span class="badge badge-ghost badge-xs"
-                              >preview</span
                             >
                           {{ else if $e.app_name }}
                             <span
@@ -331,15 +366,6 @@
                             <span class="text-base-content/70 text-xs">—</span>
                           {{ end }}
                         </td>
-                        <td class="text-right whitespace-nowrap">
-                          <a
-                            class="btn btn-xs btn-ghost"
-                            title="See all events for this request"
-                            aria-label="Trace request {{ $e.rid }}"
-                            href="{{ $.AppPath }}/audit?rid={{ $e.rid }}">
-                            trace <span aria-hidden="true">→</span>
-                          </a>
-                        </td>
                       </tr>
                     {{ else }}
                       {{ if not .Data.IsMore }}
@@ -353,6 +379,14 @@
                           </td>
                         </tr>
                       {{ end }}
+                    {{ end }}
+                    {{ if and .IsPartial (not .Data.IsMore) }}
+                      {{/* Out-of-band: keep the trace banner (and its hidden
+                           rid input) in sync on HTMX row swaps. Pagination
+                           continuations (IsMore) skip it: the banner did not
+                           change and replacing it mid-scroll would churn the
+                           DOM under the user */}}
+                      {{ template "audit_trace_banner" . }}
                     {{ end }}
                   {{ end }}
                   <!-- End of "audit_rows" block -->

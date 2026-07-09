@@ -51,6 +51,17 @@ tr:focus-within [class*="group-hover:opacity-100"] {
   opacity: 1;
 }
 
+/* Touch-only devices have no hover at all — tailwind additionally gates its
+   group-hover variants behind @media (hover: hover) — so hover-revealed row
+   links (apps/audit/containers ↗) would never appear. Show them always,
+   undoing the hidden state's -translate-x-1 shift as well */
+@media (hover: none) {
+  [class*="group-hover:opacity-100"] {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
 /* ---- Optical alignment --------------------------------------------------
    Mixed font sizes in a vertically centered flex row: centering the boxes
    leaves the smaller text's glyphs sitting visibly high (its cap band ends

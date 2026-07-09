@@ -14,8 +14,9 @@
           <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" }}
             <div>
+              {{ template "page_title" "OpenRun Apps" }}
               <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0"><ul class="flex-wrap whitespace-normal"><li><a href="{{ .AppPath }}/apps">Apps</a></li><li class="font-mono break-all"><a href="{{ .AppPath }}/apps/detail?path={{ .Data.Path }}">{{ .Data.Path }}</a></li><li>files</li></ul></nav>
-              <h1 class="text-xl font-semibold">
+              <h2 class="text-xl font-semibold">
                 Files
                 <span class="font-mono text-base"
                   >{{ if .Data.Version }}v{{ .Data.Version }}{{ end }}</span
@@ -28,7 +29,7 @@
                   {{ end }} badge-sm badge-soft align-middle"
                   >{{ .Data.Env }}</span
                 >
-              </h1>
+              </h2>
               <p class="text-sm text-base-content/70">
                 {{ len .Data.Files }} files · {{ .Data.TotalSize }}
               </p>

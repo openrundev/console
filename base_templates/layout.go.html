@@ -1,14 +1,16 @@
 {{/* Shared layout pieces for all console pages. Defines used across page
-     templates must live here (page-local defines are not visible to other
-     pages) */}}
+  templates must live here (page-local defines are not visible to other
+  pages)
+*/}}
 
 {{/* head renders the html head: title, pre-paint theme/background scripts,
-     console.js and the generated style/htmx imports */}}
+  console.js and the generated style/htmx imports
+*/}}
 {{ define "head" }}
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>OpenRun — {{ .Data.Title }}</title>
+    <title>OpenRun - {{ .Data.Title }}</title>
 
     <script>
       // The generated daisyui styles follow the system preference by default
@@ -16,10 +18,7 @@
       // choice, if any, before styles load to avoid a flash.
       const theme = localStorage.getItem("theme");
       if (theme == "light" || theme == "dark") {
-        document.documentElement.setAttribute(
-          "data-theme",
-          "openrun-" + theme,
-        );
+        document.documentElement.setAttribute("data-theme", "openrun-" + theme);
       }
     </script>
     <style>
@@ -49,8 +48,9 @@
 {{ end }}
 
 {{/* hamburger renders the skip-to-navigation link (the main content comes
-     before the nav in DOM order) and the button opening the nav drawer on
-     small screens. Rendered at the top of every page header */}}
+  before the nav in DOM order) and the button opening the nav drawer on
+  small screens. Rendered at the top of every page header
+*/}}
 {{ define "hamburger" }}
   <a href="#main-nav" class="skip-link">Skip to navigation</a>
   <button
@@ -65,17 +65,33 @@
 {{ end }}
 
 {{/* time_ago renders an RFC3339 timestamp as a compact "4m ago" style age,
-     with the exact UTC time as a tooltip */}}
+  with the exact UTC time as a tooltip
+*/}}
 {{ define "time_ago" }}
   {{- $t := toDate "2006-01-02T15:04:05Z07:00" . -}}
   {{- $d := ago $t -}}
   {{- $d = regexReplaceAll "([hm])[0-9]+(\\.[0-9]+)?s$" $d "${1}" -}}
   {{- $d = regexReplaceAll "(h)[0-9]+m$" $d "${1}" -}}
-  <span title="{{ dateInZone "2006-01-02 15:04:05" $t "UTC" }} UTC">{{ $d }} ago</span>
+  <span title="{{ dateInZone "2006-01-02 15:04:05" $t "UTC" }} UTC"
+    >{{ $d }} ago</span
+  >
 {{- end }}
 
+{{/* page_title renders the top-level screen title carrying the brand fade
+  bar (.page-title::after in static/css/style.css). Every screen renders
+  it first, subpages follow it with breadcrumbs and their own h2 heading.
+  Context: the title string
+*/}}
+{{ define "page_title" }}
+  <h1
+    class="page-title text-2xl md:text-3xl font-extrabold italic tracking-tight">
+    {{ . }}
+  </h1>
+{{ end }}
+
 {{/* page_progress renders the branded progress line shown while HTMX
-     requests are in flight (targeted with hx-indicator="#page-progress") */}}
+  requests are in flight (targeted with hx-indicator="#page-progress")
+*/}}
 {{ define "page_progress" }}
   <div class="relative">
     <div id="page-progress" class="progress-line htmx-indicator"></div>
@@ -83,7 +99,8 @@
 {{ end }}
 
 {{/* error_alert renders the standard error alert when the message is not
-     empty. Context: the error message string */}}
+  empty. Context: the error message string
+*/}}
 {{ define "error_alert" }}
   {{ if . }}
     <div role="alert" class="alert alert-error alert-soft py-2 text-sm">
@@ -94,7 +111,8 @@
 {{ end }}
 
 {{/* flash_alerts renders the action result alerts (Flash success and
-     FlashError). Context: the page's .Data */}}
+  FlashError). Context: the page's .Data
+*/}}
 {{ define "flash_alerts" }}
   {{ if .Flash }}
     <div role="alert" class="alert alert-success alert-soft py-2 text-sm">
@@ -106,11 +124,12 @@
 {{ end }}
 
 {{/* secret_input renders the <secret-input> web component (console.js): a
-     value input with a "store as secret" button which encrypts the value
-     into the db secrets provider and swaps in the {{secret ...}} reference.
-     Context: dict with Name (form field name), AppPath, Prefix (secret name
-     prefix), CanCreate (secret:create held) and optional Value, InputId,
-     Placeholder, Masked, File, Description, Error */}}
+  value input with a "store as secret" button which encrypts the value
+  into the db secrets provider and swaps in the {{secret ...
+}}
+reference. Context: dict with Name (form field name), AppPath, Prefix (secret
+name prefix), CanCreate (secret:create held) and optional Value, InputId,
+Placeholder, Masked, File, Description, Error */}}
 {{ define "secret_input" }}
   <secret-input
     name="{{ .Name }}"
@@ -128,13 +147,15 @@
 {{ end }}
 
 {{/* secret_input_response is the response template of the POST
-     /secrets/store route (referenced by define name in app.star, no page
-     file): unwraps the handler data for the component define */}}
+  /secrets/store route (referenced by define name in app.star, no page
+  file): unwraps the handler data for the component define
+*/}}
 {{ define "secret_input_response" }}{{ template "secret_input" .Data }}{{ end }}
 
 {{/* error_toast is what the app's error_handler retargets into #error-toast
-     when a partial (HTMX) request fails unexpectedly; referenced by define
-     name from ace.response in app.star */}}
+  when a partial (HTMX) request fails unexpectedly; referenced by define
+  name from ace.response in app.star
+*/}}
 {{ define "error_toast" }}
   <div role="alert" class="alert alert-error py-2 text-sm shadow-lg">
     <span aria-hidden="true">✕</span>
@@ -143,8 +164,9 @@
 {{ end }}
 
 {{/* kv_row renders one key/value row of a kv_table. Context: dict with
-     Field, AppPath, Prefix, CanCreate and optional Key, Value,
-     KeyPlaceholder, ValuePlaceholder */}}
+  Field, AppPath, Prefix, CanCreate and optional Key, Value,
+  KeyPlaceholder, ValuePlaceholder
+*/}}
 {{ define "kv_row" }}
   <div class="kv-row flex gap-2 items-start">
     <input
@@ -158,8 +180,9 @@
       class="input w-2/5 font-mono text-sm" />
     <div class="flex-1 min-w-0">
       {{ template "secret_input" (dict "Name" (printf "%s_value" .Field)
-          "AppPath" .AppPath "Prefix" .Prefix "CanCreate" .CanCreate
-          "Value" .Value "Placeholder" (or .ValuePlaceholder "value")) }}
+        "AppPath" .AppPath "Prefix" .Prefix "CanCreate" .CanCreate
+        "Value" .Value "Placeholder" (or .ValuePlaceholder "value"))
+      }}
     </div>
     <button
       type="button"
@@ -173,43 +196,70 @@
 {{ end }}
 
 {{/* kv_table renders KEY=value rows with add/remove buttons; the value
-     column is a secret_input so any value can be stored as a secret. Rows
-     post as repeated <Field>_key / <Field>_value form values. Context: dict
-     with Field, AppPath, Prefix, CanCreate and optional Rows (list of
-     key/value dicts), KeyPlaceholder, ValuePlaceholder, AddLabel */}}
+  column is a secret_input so any value can be stored as a secret. Rows
+  post as repeated <Field>_key / <Field>_value form values. Context: dict
+  with Field, AppPath, Prefix, CanCreate and optional Rows (list of
+  key/value dicts), KeyPlaceholder, ValuePlaceholder, AddLabel
+*/}}
 {{ define "kv_table" }}
   {{ $ctx := . }}
   <div class="kv-table space-y-3">
     {{ range .Rows }}
       {{ template "kv_row" (dict "Field" $ctx.Field "AppPath" $ctx.AppPath
-          "Prefix" $ctx.Prefix "CanCreate" $ctx.CanCreate
-          "KeyPlaceholder" $ctx.KeyPlaceholder "ValuePlaceholder" $ctx.ValuePlaceholder
-          "Key" (index . "key") "Value" (index . "value")) }}
+        "Prefix" $ctx.Prefix "CanCreate" $ctx.CanCreate
+        "KeyPlaceholder" $ctx.KeyPlaceholder "ValuePlaceholder" $ctx.ValuePlaceholder
+        "Key" (index . "key") "Value" (index . "value"))
+      }}
     {{ end }}
     {{ if not .Rows }}
       {{ template "kv_row" (dict "Field" $ctx.Field "AppPath" $ctx.AppPath
-          "Prefix" $ctx.Prefix "CanCreate" $ctx.CanCreate
-          "KeyPlaceholder" $ctx.KeyPlaceholder "ValuePlaceholder" $ctx.ValuePlaceholder) }}
+        "Prefix" $ctx.Prefix "CanCreate" $ctx.CanCreate
+        "KeyPlaceholder" $ctx.KeyPlaceholder "ValuePlaceholder" $ctx.ValuePlaceholder)
+      }}
     {{ end }}
     <template>
       {{ template "kv_row" (dict "Field" $ctx.Field "AppPath" $ctx.AppPath
-          "Prefix" $ctx.Prefix "CanCreate" $ctx.CanCreate
-          "KeyPlaceholder" $ctx.KeyPlaceholder "ValuePlaceholder" $ctx.ValuePlaceholder) }}
+        "Prefix" $ctx.Prefix "CanCreate" $ctx.CanCreate
+        "KeyPlaceholder" $ctx.KeyPlaceholder "ValuePlaceholder" $ctx.ValuePlaceholder)
+      }}
     </template>
     <button
       type="button"
       class="btn btn-outline btn-xs"
       onclick="addKvRow(this)">
-      + {{ or .AddLabel "Add row" }}
+      +
+      {{ or .AddLabel "Add row" }}
     </button>
   </div>
 {{ end }}
 
+{{/* globe_icon marks links that open the app itself in a new tab (vs the
+  ↗ used for drill-in/source links); shared by the app tables' hover
+  links and the app detail page's Open app button
+*/}}
+{{ define "globe_icon" }}
+  <svg
+    aria-hidden="true"
+    focusable="false"
+    class="w-3.5 h-3.5 inline-block align-bottom"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round">
+    <circle cx="12" cy="12" r="10" />
+    <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+    <path d="M2 12h20" />
+  </svg>
+{{ end }}
+
 {{/* app_table renders a list of app rows; shared by the apps page groups
-     and the sync detail page. Context: dict with Apps (row list), AppPath
-     (console root path), Perms (the user's management permissions) and
-     ShowActions (row action buttons; the apps page passes true — the
-     actions re-render the apps page partial, so view-only pages omit them) */}}
+  and the sync detail page. Context: dict with Apps (row list), AppPath
+  (console root path), Perms (the user's management permissions) and
+  ShowActions (row action buttons; the apps page passes true — the
+  actions re-render the apps page partial, so view-only pages omit them)
+*/}}
 {{ define "app_table" }}
   {{ $root := .AppPath }}
   {{ $perms := .Perms }}
@@ -218,6 +268,7 @@
     <table class="table table-sm">
       <thead>
         <tr>
+          <th scope="col" class="w-8"><span class="sr-only">Details</span></th>
           <th scope="col">App</th>
           <th scope="col" class="hidden md:table-cell w-2/5">Source</th>
           <th scope="col" class="w-28 text-center">Version</th>
@@ -231,12 +282,28 @@
       <tbody>
         {{ range .Apps }}
           <tr class="group hover:bg-base-200/60">
-            <td>
+            <td class="w-8">
               <a
                 href="{{ $root }}/apps/detail?path={{ .path }}"
-                class="link link-hover font-mono font-medium break-all"
+                class="btn btn-xs btn-ghost btn-square"
                 title="{{ .name }} — view details"
-                >{{ .path }}</a
+                aria-label="View details for {{ .path }}">
+                <svg
+                  aria-hidden="true"
+                  focusable="false"
+                  class="w-3.5 h-3.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round">
+                  <path d="m9 18 6-6-6-6" />
+                </svg>
+              </a>
+            </td>
+            <td>
+              <span class="font-mono font-medium break-all">{{ .path }}</span
               ><a
                 href="{{ .url }}"
                 target="_blank"
@@ -244,23 +311,23 @@
                 title="Open app in a new tab"
                 aria-label="Open {{ .path }} in a new tab"
                 class="inline-block text-primary text-xs opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-200 ml-0.5"
-                ><span aria-hidden="true">↗</span></a
+                >{{ template "globe_icon" }}</a
               >
             </td>
             <td class="hidden md:table-cell">
-              {{ if .is_git }}
-                {{ if .source_url }}
+              {{ if .source }}
+                <span class="font-mono text-xs break-all">{{ .source }}</span
+                >{{ if and .is_git .source_url }}
                   <a
                     href="{{ .source_url }}"
                     target="_blank"
-                    class="link link-hover font-mono text-xs break-all"
-                    >{{ .source }}</a
+                    rel="noopener"
+                    title="View source code in a new tab"
+                    aria-label="View source of {{ .path }} in a new tab"
+                    class="inline-block text-primary text-xs opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-200 ml-0.5"
+                    ><span aria-hidden="true">↗</span></a
                   >
-                {{ else }}
-                  <span class="font-mono text-xs break-all">{{ .source }}</span>
                 {{ end }}
-              {{ else if .source }}
-                <span class="font-mono text-xs break-all">{{ .source }}</span>
               {{ end }}
               {{ if or .git_branch .spec }}
                 <!-- Branch and spec on their own row, keeping sources aligned -->
@@ -321,7 +388,11 @@
               class="text-xs text-base-content/70 whitespace-nowrap hidden sm:table-cell">
               {{ if .update_time }}
                 <span
-                  title="{{ dateInZone "2006-01-02 15:04:05" (toDate "2006-01-02T15:04:05Z07:00" .update_time) "UTC" }} UTC · by {{ if .update_user }}{{ .update_user }}{{ else }}unknown{{ end }}"
+                  title="{{ dateInZone "2006-01-02 15:04:05" (toDate "2006-01-02T15:04:05Z07:00" .update_time) "UTC" }} UTC · by {{ if .update_user }}
+                    {{ .update_user }}
+                  {{ else }}
+                    unknown
+                  {{ end }}"
                   >{{ .update_age }}</span
                 >
               {{ else }}
@@ -330,15 +401,24 @@
             </td>
             {{ if $actions }}
               <td class="text-right whitespace-nowrap">
-                <div
-                  class="inline-flex items-center gap-0.5">
+                <div class="inline-flex items-center gap-0.5">
                   <a
                     href="{{ $root }}/apps/update?path={{ .path }}"
-                    class="btn btn-xs btn-ghost btn-square {{ if not (index $perms "app:update") }}btn-disabled{{ end }}"
-                    {{ if not (index $perms "app:update") }}aria-disabled="true" tabindex="-1"{{ end }}
+                    class="btn btn-xs btn-ghost btn-square {{ if not (index $perms "app:update") }}
+                      btn-disabled
+                    {{ end }}"
+                    {{ if not (index $perms "app:update") }}
+                      aria-disabled="true" tabindex="-1"
+                    {{ end }}
                     aria-label="Edit {{ .path }}"
-                    title="{{ if index $perms "app:update" }}Edit auth and parameters{{ else }}requires app:update{{ end }}">
-                    <svg aria-hidden="true" focusable="false"
+                    title="{{ if index $perms "app:update" }}
+                      Edit auth and parameters
+                    {{ else }}
+                      requires app:update
+                    {{ end }}">
+                    <svg
+                      aria-hidden="true"
+                      focusable="false"
                       class="w-3.5 h-3.5"
                       viewBox="0 0 24 24"
                       fill="none"
@@ -354,19 +434,23 @@
                     class="btn btn-xs btn-ghost btn-square"
                     aria-label="Reload {{ .path }}"
                     {{ if index $perms "app:reload" }}
-                      title="{{ if .is_git }}Reload from git{{ else }}Reload from source{{ end }}"
-                      hx-post="{{ $root }}/apps/reload"
-                      hx-disabled-elt="this"
-                      hx-vals='{"path": "{{ .path }}"}'
-                      hx-confirm="Reload {{ .path }} from its source and promote?"
-                      hx-target="#app-groups"
-                      hx-swap="innerHTML transition:true"
-                      hx-include="#page-search, #app-filter-value"
-                      hx-indicator="#page-progress"
+                      title="{{ if .is_git }}
+                        Reload from git
+                      {{ else }}
+                        Reload from source
+                      {{ end }}"
+                      hx-post="{{ $root }}/apps/reload" hx-disabled-elt="this"
+                      hx-vals='{"path": "{{ .path }}"}' hx-confirm="Reload
+                      {{ .path }} from its source and promote?"
+                      hx-target="#app-groups" hx-swap="innerHTML
+                      transition:true" hx-include="#page-search,
+                      #app-filter-value" hx-indicator="#page-progress"
                     {{ else }}
                       disabled title="requires app:reload"
                     {{ end }}>
-                    <svg aria-hidden="true" focusable="false"
+                    <svg
+                      aria-hidden="true"
+                      focusable="false"
                       class="w-3.5 h-3.5"
                       viewBox="0 0 24 24"
                       fill="none"
@@ -382,19 +466,19 @@
                     class="btn btn-xs btn-ghost btn-square text-error"
                     aria-label="Delete {{ .path }}"
                     {{ if index $perms "app:delete" }}
-                      title="Delete app"
-                      hx-post="{{ $root }}/apps/delete"
-                      hx-disabled-elt="this"
-                      hx-vals='{"path": "{{ .path }}"}'
-                      hx-confirm="Delete {{ .path }}? This deletes the prod, staging and preview apps."
-                      hx-target="#app-groups"
+                      title="Delete app" hx-post="{{ $root }}/apps/delete"
+                      hx-disabled-elt="this" hx-vals='{"path": "{{ .path }}"}'
+                      hx-confirm="Delete {{ .path }}? This deletes the prod,
+                      staging and preview apps." hx-target="#app-groups"
                       hx-swap="innerHTML transition:true"
                       hx-include="#page-search, #app-filter-value"
                       hx-indicator="#page-progress"
                     {{ else }}
                       disabled title="requires app:delete"
                     {{ end }}>
-                    <svg aria-hidden="true" focusable="false"
+                    <svg
+                      aria-hidden="true"
+                      focusable="false"
                       class="w-3.5 h-3.5"
                       viewBox="0 0 24 24"
                       fill="none"
@@ -427,15 +511,17 @@
         >{{ .Label }}</span
       >
       <span class="font-mono text-xs break-all"
-        >{{ range $i, $item := .Items }}{{ if $i }},
-          {{ end }}{{ $item }}{{ end }}</span
+        >{{ range $i, $item := .Items }}
+          {{ if $i }},{{ end }}{{ $item }}
+        {{ end }}</span
       >
     </div>
   {{ end }}
 {{ end }}
 
 {{/* sync_result renders the detailed results of a sync run.
-     Context: the SyncResult summary dict */}}
+  Context: the SyncResult summary dict
+*/}}
 {{ define "sync_result" }}
   <div class="card bg-base-100 border border-success/40">
     <div class="card-body p-4 gap-2">
@@ -475,7 +561,8 @@
 {{ end }}
 
 {{/* perms_card renders the requested permissions summary.
-     Context: dict with Review (loads + permissions) and Note (footer text) */}}
+  Context: dict with Review (loads + permissions) and Note (footer text)
+*/}}
 {{ define "perms_card" }}
   <div class="card bg-base-100 border border-base-300">
     <div class="card-body p-5 gap-3">
@@ -533,7 +620,8 @@
 {{ end }}
 
 {{/* container_state renders the state dot and label for a container. The
-     dot is decorative — the state is always conveyed by the text label */}}
+  dot is decorative — the state is always conveyed by the text label
+*/}}
 {{ define "container_state" }}
   {{ if eq .state "running" }}
     <span class="status status-success" aria-hidden="true"></span>
@@ -554,8 +642,9 @@
 {{ end }}
 
 {{/* theme_toggle is the sun/moon switch, persisted via localStorage. The
-     checkbox stays focusable (daisyui swap hides it visually, style.css
-     stretches it over the label) so the toggle works from the keyboard */}}
+  checkbox stays focusable (daisyui swap hides it visually, style.css
+  stretches it over the label) so the toggle works from the keyboard
+*/}}
 {{ define "theme_toggle" }}
   <label
     class="swap swap-rotate btn btn-sm btn-ghost btn-circle"
@@ -583,22 +672,24 @@
 {{ end }}
 
 {{/* sidebar renders the nav drawer: logo, menu (highlighted via .Data.Nav),
-     user footer with theme toggle, the nav progress bar and the error toast
-     target used by the error_handler fallback */}}
+  user footer with theme toggle, the nav progress bar and the error toast
+  target used by the error_handler fallback
+*/}}
 {{ define "sidebar" }}
   <!-- Indeterminate top bar shown while navigating to the next page -->
   <div id="nav-progress" class="nav-progress" aria-hidden="true"></div>
   <!-- Fallback error target: error_handler retargets failed HTMX requests here -->
   <div id="error-toast" class="toast toast-end z-50"></div>
   <div class="drawer-side z-20">
-    <label
-      for="nav-drawer"
-      aria-hidden="true"
-      class="drawer-overlay"></label>
+    <label for="nav-drawer" aria-hidden="true" class="drawer-overlay"></label>
     <aside
       class="w-60 min-h-full bg-base-100 border-r border-base-300 flex flex-col">
-      <div class="px-3 py-1.5 flex items-center justify-center border-b border-base-300">
-        <a href="{{ .AppPath }}/" title="OpenRun home" class="logo-mark inline-block">
+      <div
+        class="px-3 py-1.5 flex items-center justify-center border-b border-base-300">
+        <a
+          href="{{ .AppPath }}/"
+          title="OpenRun home"
+          class="logo-mark inline-block">
           <img
             src="{{ static "openrun.png" }}"
             alt="OpenRun"
@@ -607,73 +698,164 @@
             class="h-8 md:h-14 w-auto" />
         </a>
       </div>
-      <nav id="main-nav" aria-label="Main navigation" tabindex="-1" class="grow w-full">
-      <ul class="menu w-full px-2 pt-3 gap-1 text-[0.95rem]">
-        <li>
-          <a
-            href="{{ .AppPath }}/apps"
-            {{ if eq .Data.Nav "apps" }}aria-current="page"{{ end }}
-            class="{{ if eq .Data.Nav "apps" }}menu-active{{ end }}"
-            ><svg aria-hidden="true" focusable="false" class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1" /><rect width="7" height="7" x="14" y="3" rx="1" /><rect width="7" height="7" x="14" y="14" rx="1" /><rect width="7" height="7" x="3" y="14" rx="1" /></svg>Apps</a
-          >
-        </li>
-        <li>
-          <a
-            href="{{ .AppPath }}/syncs"
-            {{ if eq .Data.Nav "syncs" }}aria-current="page"{{ end }}
-            class="{{ if eq .Data.Nav "syncs" }}menu-active{{ end }}"
-            ><svg aria-hidden="true" focusable="false" class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><path d="M8 16H3v5" /></svg>Syncs</a
-          >
-        </li>
-        <li>
-          <a
-            href="{{ .AppPath }}/bindings"
-            {{ if eq .Data.Nav "bindings" }}aria-current="page"{{ end }}
-            class="{{ if eq .Data.Nav "bindings" }}menu-active{{ end }}"
-            ><svg aria-hidden="true" focusable="false" class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>Bindings</a
-          >
-        </li>
-        {{/* Containers screens are install-gated (enable_container param);
-             a disabled install has no /containers routes at all */}}
-        {{ $containersOff := and .Data.Perms (not (index .Data.Perms "feature:container")) }}
-        <li class="{{ if $containersOff }}menu-disabled{{ end }}">
-          <a
-            {{ if $containersOff }}
-              aria-disabled="true" tabindex="-1"
-              title="containers are disabled for this console install"
-            {{ else }}
-              href="{{ .AppPath }}/containers"
-            {{ end }}
-            {{ if eq .Data.Nav "containers" }}aria-current="page"{{ end }}
-            class="{{ if eq .Data.Nav "containers" }}menu-active{{ end }}"
-            ><svg aria-hidden="true" focusable="false" class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" /><path d="m3.3 7 8.7 5 8.7-5" /><path d="M12 22V12" /></svg>Containers</a
-          >
-        </li>
-        <li>
-          <a
-            href="{{ .AppPath }}/audit"
-            {{ if eq .Data.Nav "audit" }}aria-current="page"{{ end }}
-            class="{{ if eq .Data.Nav "audit" }}menu-active{{ end }}"
-            ><svg aria-hidden="true" focusable="false" class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" /><path d="M14 2v4a2 2 0 0 0 2 2h4" /><path d="M10 9H8" /><path d="M16 13H8" /><path d="M16 17H8" /></svg>Audit Logs</a
-          >
-        </li>
-        <li>
-          {{/* Configuration screens are install-gated (enable_config
-               param); a disabled install has no /config routes at all */}}
-          {{ $configOff := and .Data.Perms (not (index .Data.Perms "feature:config")) }}
-          <a
-            {{ if $configOff }}
-              aria-disabled="true" tabindex="-1"
-              title="configuration is disabled for this console install"
-            {{ else }}
-              href="{{ .AppPath }}/config"
-            {{ end }}
-            {{ if eq .Data.Nav "config" }}aria-current="page"{{ end }}
-            class="{{ if eq .Data.Nav "config" }}menu-active{{ end }}"
-            ><svg aria-hidden="true" focusable="false" class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></svg>Configuration</a
-          >
-        </li>
-      </ul>
+      <nav
+        id="main-nav"
+        aria-label="Main navigation"
+        tabindex="-1"
+        class="grow w-full">
+        <ul class="menu w-full px-2 pt-3 gap-1 text-[0.95rem]">
+          <li>
+            <a
+              href="{{ .AppPath }}/apps"
+              {{ if eq .Data.Nav "apps" }}aria-current="page"{{ end }}
+              class="{{ if eq .Data.Nav "apps" }}menu-active{{ end }}"
+              ><svg
+                aria-hidden="true"
+                focusable="false"
+                class="w-4 h-4 text-primary"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round">
+                <rect width="7" height="7" x="3" y="3" rx="1" />
+                <rect width="7" height="7" x="14" y="3" rx="1" />
+                <rect width="7" height="7" x="14" y="14" rx="1" />
+                <rect width="7" height="7" x="3" y="14" rx="1" /></svg
+              >Apps</a
+            >
+          </li>
+          <li>
+            <a
+              href="{{ .AppPath }}/syncs"
+              {{ if eq .Data.Nav "syncs" }}aria-current="page"{{ end }}
+              class="{{ if eq .Data.Nav "syncs" }}menu-active{{ end }}"
+              ><svg
+                aria-hidden="true"
+                focusable="false"
+                class="w-4 h-4 text-primary"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round">
+                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+                <path d="M21 3v5h-5" />
+                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+                <path d="M8 16H3v5" /></svg
+              >Syncs</a
+            >
+          </li>
+          <li>
+            <a
+              href="{{ .AppPath }}/bindings"
+              {{ if eq .Data.Nav "bindings" }}aria-current="page"{{ end }}
+              class="{{ if eq .Data.Nav "bindings" }}menu-active{{ end }}"
+              ><svg
+                aria-hidden="true"
+                focusable="false"
+                class="w-4 h-4 text-primary"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round">
+                <path
+                  d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                <path
+                  d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg
+              >Bindings</a
+            >
+          </li>
+          {{/* Containers screens are install-gated (enable_container param);
+            a disabled install has no /containers routes at all
+          */}}
+          {{ $containersOff := and .Data.Perms (not (index .Data.Perms "feature:container")) }}
+          <li class="{{ if $containersOff }}menu-disabled{{ end }}">
+            <a
+              {{ if $containersOff }}
+                aria-disabled="true" tabindex="-1" title="containers are
+                disabled for this console install"
+              {{ else }}
+                href="{{ .AppPath }}/containers"
+              {{ end }}
+              {{ if eq .Data.Nav "containers" }}aria-current="page"{{ end }}
+              class="{{ if eq .Data.Nav "containers" }}menu-active{{ end }}"
+              ><svg
+                aria-hidden="true"
+                focusable="false"
+                class="w-4 h-4 text-primary"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round">
+                <path
+                  d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+                <path d="m3.3 7 8.7 5 8.7-5" />
+                <path d="M12 22V12" /></svg
+              >Containers</a
+            >
+          </li>
+          <li>
+            <a
+              href="{{ .AppPath }}/audit"
+              {{ if eq .Data.Nav "audit" }}aria-current="page"{{ end }}
+              class="{{ if eq .Data.Nav "audit" }}menu-active{{ end }}"
+              ><svg
+                aria-hidden="true"
+                focusable="false"
+                class="w-4 h-4 text-primary"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round">
+                <path
+                  d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+                <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+                <path d="M10 9H8" />
+                <path d="M16 13H8" />
+                <path d="M16 17H8" /></svg
+              >Audit Logs</a
+            >
+          </li>
+          <li>
+            {{/* Configuration screens are install-gated (enable_config
+              param); a disabled install has no /config routes at all
+            */}}
+            {{ $configOff := and .Data.Perms (not (index .Data.Perms "feature:config")) }}
+            <a
+              {{ if $configOff }}
+                aria-disabled="true" tabindex="-1" title="configuration is
+                disabled for this console install"
+              {{ else }}
+                href="{{ .AppPath }}/config"
+              {{ end }}
+              {{ if eq .Data.Nav "config" }}aria-current="page"{{ end }}
+              class="{{ if eq .Data.Nav "config" }}menu-active{{ end }}"
+              ><svg
+                aria-hidden="true"
+                focusable="false"
+                class="w-4 h-4 text-primary"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round">
+                <path
+                  d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                <circle cx="12" cy="12" r="3" /></svg
+              >Configuration</a
+            >
+          </li>
+        </ul>
       </nav>
       <div
         class="px-4 py-3 border-t border-base-300 flex items-center gap-2 text-sm">
