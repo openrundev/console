@@ -9,7 +9,7 @@
 
   <body class="min-h-screen bg-base-200">
     <div class="drawer lg:drawer-open">
-      <input id="nav-drawer" type="checkbox" class="drawer-toggle" tabindex="-1" aria-hidden="true" />
+      {{ template "drawer_toggle" }}
 
       <div class="drawer-content">
         <main class="p-4 lg:p-6 space-y-4 max-w-2xl">
@@ -50,7 +50,7 @@
               <p class="text-sm text-base-content/70">
                 {{ if eq .Data.Source "static" }}
                   Saving creates a dynamic entry which overrides the static
-                  <span class="font-mono">openrun.toml</span> entry —
+                  <span class="font-mono">openrun.toml</span> entry -
                 {{ end }}
                 Changes are validated and take effect immediately on save
               </p>
@@ -102,6 +102,7 @@
                       "AppPath" .AppPath
                       "Prefix" (or .Data.Meta.secret_prefix .Data.Meta.section)
                       "CanCreate" (index .Data.Perms "secret:create")
+                        "CanDelete" (index .Data.Perms "secret:delete")
                       "Rows" (index .Data.Values "properties_rows")
                       "KeyPlaceholder" "property"
                       "ValuePlaceholder" "value"
@@ -114,7 +115,7 @@
                   {{ if .Data.IsEdit }}
                     <p class="text-xs text-base-content/70 mt-1">
                       Secret values show as
-                      <span class="font-mono">&lt;redacted&gt;</span> — leave
+                      <span class="font-mono">&lt;redacted&gt;</span> - leave
                       them unchanged to keep the stored value
                     </p>
                   {{ end }}
@@ -158,10 +159,11 @@
                           "AppPath" $.AppPath
                           "Prefix" (or $.Data.Meta.secret_prefix $.Data.Meta.section)
                           "CanCreate" (index $.Data.Perms "secret:create")
+                        "CanDelete" (index $.Data.Perms "secret:delete")
                           "Value" (and (not $redacted) $value)
                           "Masked" true
                           "File" .file
-                          "Placeholder" (and $redacted "unchanged — leave blank to keep the stored value")) }}
+                          "Placeholder" (and $redacted "unchanged - leave blank to keep the stored value")) }}
                     {{ else }}
                       <input
                         id="entry-{{ .name }}"
@@ -169,7 +171,7 @@
                         type="password"
                         autocomplete="off"
                         {{ if and $.Data.IsEdit $value }}
-                          placeholder="unchanged — leave blank to keep the stored value"
+                          placeholder="unchanged - leave blank to keep the stored value"
                         {{ end }}
                         class="input w-full font-mono text-sm" />
                     {{ end }}
@@ -185,6 +187,7 @@
                         "AppPath" $.AppPath
                         "Prefix" (or $.Data.Meta.secret_prefix $.Data.Meta.section)
                         "CanCreate" (index $.Data.Perms "secret:create")
+                        "CanDelete" (index $.Data.Perms "secret:delete")
                         "Value" $value) }}
                   {{ else }}
                     <label class="block text-sm font-medium mb-1" for="entry-{{ .name }}"
@@ -215,7 +218,7 @@
                     disabled title="requires config:update"
                   {{ end }}
                   class="btn btn-primary btn-sm transition-transform duration-150 active:scale-95">
-                  Save — takes effect immediately
+                  Save - takes effect immediately
                 </button>
               </div>
             </div>

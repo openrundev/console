@@ -6,7 +6,7 @@
 
   <body class="min-h-screen bg-base-200">
     <div class="drawer lg:drawer-open">
-      <input id="nav-drawer" type="checkbox" class="drawer-toggle" tabindex="-1" aria-hidden="true" />
+      {{ template "drawer_toggle" }}
 
       <div class="drawer-content">
         <main class="p-4 lg:p-6 space-y-4 max-w-4xl">
@@ -33,8 +33,6 @@
               <p class="text-sm text-base-content/70">
                 {{ len .Data.Files }} files · {{ .Data.TotalSize }}
               </p>
-            </div>
-            <div class="ml-auto flex items-center gap-2">
             </div>
           </div>
 

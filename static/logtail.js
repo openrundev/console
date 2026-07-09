@@ -1,4 +1,4 @@
-// <log-tail> — streaming log viewer custom element.
+// <log-tail> - streaming log viewer custom element.
 //
 //   <log-tail src="/app/containers/logs_stream?id=X&tail=500" max-lines="5000"></log-tail>
 //
@@ -109,7 +109,7 @@
 					break;
 				} else {
 					// Other escape sequence: ESC, intermediates 0x20-0x2f,
-					// one final byte (e.g. charset designation ESC ( B) — strip
+					// one final byte (e.g. charset designation ESC ( B) - strip
 					let j = i + 1;
 					while (j < n && line.charCodeAt(j) >= 0x20 && line.charCodeAt(j) <= 0x2f) j++;
 					i = j < n ? j + 1 : n;
@@ -176,7 +176,7 @@
 				}
 				const parts = text.split('\n');
 				state.partial = parts.pop();
-				// Fast path: plain printable chunk with default style — the
+				// Fast path: plain printable chunk with default style - the
 				// single regex test skips per-line parsing for typical logs
 				if (state.style === STYLE_DEFAULT && !SLOW_RE.test(text)) {
 					for (let i = 0; i < parts.length; i++) {
@@ -411,7 +411,7 @@
 						this._scroll.textContent = '';
 						this._clearPending = false;
 					}
-					this._setStatus(follow ? '— stream ended' : '');
+					this._setStatus(follow ? '- stream ended' : '');
 					this.dispatchEvent(new CustomEvent('logtail-end', { bubbles: true }));
 				}
 			} catch (err) {

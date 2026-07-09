@@ -6,7 +6,7 @@
 
   <body class="min-h-screen bg-base-200">
     <div class="drawer lg:drawer-open">
-      <input id="nav-drawer" type="checkbox" class="drawer-toggle" tabindex="-1" aria-hidden="true" />
+      {{ template "drawer_toggle" }}
 
       <div class="drawer-content">
         <main class="p-4 lg:p-6 space-y-4 max-w-6xl">
@@ -14,11 +14,9 @@
           <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" }}
             <div>
-              <h1 class="page-title text-2xl md:text-3xl font-extrabold italic tracking-tight">
-                OpenRun Syncs
-              </h1>
+              {{ template "page_title" "OpenRun Syncs" }}
               <p class="text-sm text-base-content/70">
-                Declarative sources of truth — apps are created and updated
+                Declarative sources of truth - apps are created and updated
                 from these repos
               </p>
             </div>
@@ -91,7 +89,7 @@
                               <a
                                 href="{{ $.AppPath }}/syncs/detail?id={{ .id }}"
                                 class="btn btn-xs btn-ghost btn-square"
-                                title="{{ .repo }} — details and last run results"
+                                title="{{ .repo }} - details and last run results"
                                 aria-label="View details for sync {{ .repo }}">
                                 <svg aria-hidden="true" focusable="false" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg>
                               </a>
@@ -142,7 +140,7 @@
                               {{ else }}
                                 <span
                                   class="text-xs text-base-content/70"
-                                  title="staging only — no promote"
+                                  title="staging only - no promote"
                                   >staging only</span
                                 >
                               {{ end }}
@@ -153,7 +151,7 @@
                               {{ if .user }}
                                 {{ .user }}
                               {{ else }}
-                                —
+                                -
                               {{ end }}
                             </td>
                             <td
@@ -235,7 +233,7 @@
                       <span class="text-xl" aria-hidden="true">🔄</span>
                       <p>No sync sources configured yet</p>
                       <p class="text-xs text-base-content/70">
-                        Manage apps declaratively — point OpenRun at a git repo
+                        Manage apps declaratively - point OpenRun at a git repo
                         with app definitions
                       </p>
                       <a

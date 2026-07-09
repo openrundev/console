@@ -20,6 +20,8 @@
 //   small       compact sizing, for inline forms (input-sm/btn-sm)
 //   file        offer a file picker; the file content is stored base64
 //   can-create  present when the user holds secret:create; else lock disabled
+//   can-delete  present when the user holds secret:delete; unlocking a
+//               stored field then offers deleting the secret from the db
 //   error       inline error message (set by the store fragment on failure)
 //   description recorded as the secret description on store
 //
@@ -31,6 +33,22 @@
 function looksLikeSecretRef(value) {
 	const trimmed = (value || '').trim();
 	return trimmed.startsWith('{{') && /^\{\{\s*secret(_from)?\s/.test(trimmed);
+}
+
+// Extracts provider/name from a {{secret "name"}} or
+// {{secret_from "provider" "name"}} reference; null when it does not match
+// (hand-written refs stay untouched, only clear-not-delete is offered)
+function parseSecretRef(value) {
+	const trimmed = (value || '').trim();
+	let m = /^\{\{\s*secret\s+"([^"]+)"\s*\}\}$/.exec(trimmed);
+	if (m) {
+		return { provider: '', name: m[1] };
+	}
+	m = /^\{\{\s*secret_from\s+"([^"]+)"\s+"([^"]+)"\s*\}\}$/.exec(trimmed);
+	if (m) {
+		return { provider: m[1], name: m[2] };
+	}
+	return null;
 }
 
 class SecretInput extends HTMLElement {
@@ -87,8 +105,10 @@ class SecretInput extends HTMLElement {
 
 		if (stored) {
 			join.appendChild(this.makeButton('secret-unlock',
-				'Stored as a secret — click to clear and enter a new value', false,
-				() => this.makeEditable()));
+				this.hasAttribute('can-delete')
+					? 'Stored as a secret - click to replace or delete it'
+					: 'Stored as a secret - click to clear and enter a new value',
+				false, () => this.unlockClicked()));
 		} else {
 			if (this.hasAttribute('file')) {
 				const fileInput = document.createElement('input');
@@ -160,6 +180,35 @@ class SecretInput extends HTMLElement {
 		return btn;
 	}
 
+	unlockClicked() {
+		// With secret:delete held, unlocking offers deleting the stored
+		// secret from the database; otherwise (or for a hand-written ref the
+		// component cannot parse) the field is just cleared, keeping the secret
+		const ref = parseSecretRef(this.value);
+		if (!ref || !this.hasAttribute('can-delete')) {
+			this.makeEditable();
+			return;
+		}
+		showSecretUnlockDialog(ref.name,
+			() => this.makeEditable(),
+			() => this.deleteSecret(ref));
+	}
+
+	deleteSecret(ref) {
+		// POST to the delete endpoint; the response fragment replaces this
+		// element (empty editable field on success, locked state + error
+		// message on failure). configRequest injects the parameters
+		this.deleteParams = ref;
+		// The element sits inside the page form: without this htmx would post
+		// the whole form, whose fields (e.g. "name") would collide
+		this.setAttribute('hx-params', 'none');
+		if (window.htmx) {
+			window.htmx.ajax('POST',
+				(this.getAttribute('endpoint') || '').replace(/\/store$/, '/delete'),
+				{ source: this, target: this, swap: 'outerHTML' });
+		}
+	}
+
 	makeEditable() {
 		// Clearing the reference does not delete the stored secret; the field
 		// just goes back to accepting a plain value
@@ -211,6 +260,17 @@ class SecretInput extends HTMLElement {
 				params[key] = val;
 			}
 		};
+		const del = this.deleteParams;
+		if (del) {
+			// Delete request (deleteSecret): name/provider parsed from the
+			// reference; the ref itself re-renders the locked state on failure
+			this.deleteParams = null;
+			set('name', del.name);
+			set('provider', del.provider || '');
+			set('ref', this.getAttribute('value') || '');
+			this.echoRenderAttrs(set);
+			return;
+		}
 		const file = this.pendingFile;
 		this.pendingFile = null;
 		if (!file) {
@@ -230,8 +290,12 @@ class SecretInput extends HTMLElement {
 			set('value_b64', file.b64);
 			set('source_file', file.name);
 		}
-		// Echo the rendering attributes so the response fragment can
-		// reproduce this element
+		this.echoRenderAttrs(set);
+	}
+
+	// Echo the rendering attributes so the response fragment can reproduce
+	// this element
+	echoRenderAttrs(set) {
 		set('field', this.getAttribute('name') || '');
 		set('prefix', this.getAttribute('prefix') || '');
 		for (const attr of ['input-id', 'placeholder', 'description']) {
@@ -259,6 +323,54 @@ SecretInput.icons = {
 		'<path fill-rule="evenodd" d="M15.621 4.379a3 3 0 0 0-4.242 0l-7 7a3 3 0 0 0 4.241 4.243h.001l.497-.5a.75.75 0 0 1 1.064 1.057l-.498.501-.002.002a4.5 4.5 0 0 1-6.364-6.364l7-7a4.5 4.5 0 0 1 6.368 6.36l-3.455 3.553A2.625 2.625 0 1 1 9.52 9.52l3.45-3.451a.75.75 0 1 1 1.061 1.06l-3.45 3.451a1.125 1.125 0 0 0 1.587 1.595l3.454-3.553a3 3 0 0 0 0-4.242Z" clip-rule="evenodd"/></svg>',
 };
 customElements.define('secret-input', SecretInput);
+
+// Three-way dialog shown when unlocking a stored secret-input with
+// secret:delete held: keep the stored secret (the field is just cleared) or
+// also delete it from the database. Cancel/Escape leaves the field locked.
+function showSecretUnlockDialog(name, onKeep, onDelete) {
+	let dialog = document.getElementById('secret-unlock-dialog');
+	if (!dialog) {
+		dialog = document.createElement('dialog');
+		dialog.id = 'secret-unlock-dialog';
+		dialog.className = 'modal';
+		dialog.setAttribute('aria-labelledby', 'secret-unlock-title');
+		dialog.setAttribute('aria-describedby', 'secret-unlock-text');
+		dialog.innerHTML =
+			'<div class="modal-box max-w-md">' +
+			'<h3 id="secret-unlock-title" class="text-base font-semibold mb-2">Stop using this secret?</h3>' +
+			'<p id="secret-unlock-text" class="text-sm text-base-content/70 break-words"></p>' +
+			'<div class="modal-action mt-5">' +
+			'<button id="secret-unlock-cancel" class="btn btn-ghost btn-sm">Cancel</button>' +
+			'<button id="secret-unlock-keep" class="btn btn-sm btn-primary">Keep secret</button>' +
+			'<button id="secret-unlock-delete" class="btn btn-sm btn-error">Delete secret</button>' +
+			'</div></div>' +
+			'<form method="dialog" class="modal-backdrop"><button>close</button></form>';
+		document.body.appendChild(dialog);
+		const run = (which) => {
+			const actions = dialog.pendingActions;
+			dialog.pendingActions = null;
+			dialog.close();
+			if (actions && actions[which]) {
+				actions[which]();
+			}
+		};
+		dialog.querySelector('#secret-unlock-cancel').addEventListener('click', () => dialog.close());
+		dialog.querySelector('#secret-unlock-keep').addEventListener('click', () => run('keep'));
+		dialog.querySelector('#secret-unlock-delete').addEventListener('click', () => run('delete'));
+		dialog.addEventListener('close', () => {
+			dialog.pendingActions = null;
+		});
+	}
+
+	dialog.querySelector('#secret-unlock-text').innerText =
+		'The field goes back to accepting a plain value. Should the stored secret "' +
+		name + '" also be deleted from the database? Deleting can break other ' +
+		'apps or settings that still reference this secret.';
+	dialog.pendingActions = { keep: onKeep, delete: onDelete };
+	dialog.showModal();
+	// Focus Cancel so Enter does not trigger an action by accident
+	dialog.querySelector('#secret-unlock-cancel').focus();
+}
 
 // ---- kv-table row helpers ----------------------------------------------
 // The kv_table template renders KEY=value rows (value is a <secret-input>)
@@ -464,6 +576,12 @@ document.addEventListener('DOMContentLoaded', () => {
 			event.shiftKey ||
 			event.altKey
 		) {
+			return;
+		}
+		// Current-page links do not need a document teardown/repaint. This is
+		// especially noticeable on the sidebar logo when Apps is already open.
+		if (link.href === location.href) {
+			event.preventDefault();
 			return;
 		}
 		showNavProgress();

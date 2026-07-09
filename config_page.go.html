@@ -10,7 +10,7 @@
 
   <body class="min-h-screen bg-base-200">
     <div class="drawer lg:drawer-open">
-      <input id="nav-drawer" type="checkbox" class="drawer-toggle" tabindex="-1" aria-hidden="true" />
+      {{ template "drawer_toggle" }}
 
       <div class="drawer-content">
         <main class="p-4 lg:p-6 max-w-6xl">
@@ -32,7 +32,7 @@
                   </ul></nav>
                 <h2 class="text-xl font-semibold">{{ .Data.PageTitle }}</h2>
                 <p class="text-sm text-base-content/70">
-                  {{ .Data.PageDesc }} — changes take effect immediately
+                  {{ .Data.PageDesc }} - changes take effect immediately
                 </p>
               </div>
             </div>
@@ -188,7 +188,7 @@
                               {{ if eq .source "static" }}
                                 <span
                                   class="badge badge-ghost badge-xs"
-                                  title="from openrun.toml, read only — override creates a dynamic entry with the same name"
+                                  title="from openrun.toml, read only - override creates a dynamic entry with the same name"
                                   >static</span
                                 >
                               {{ else if .overrides }}
@@ -323,6 +323,7 @@
                             "AppPath" $.AppPath
                             "Prefix" .section
                             "CanCreate" (index $.Data.Perms "secret:create")
+                        "CanDelete" (index $.Data.Perms "secret:delete")
                             "Small" true
                             "Placeholder" "value") }}
                       </div>

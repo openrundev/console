@@ -51,8 +51,8 @@ tr:focus-within [class*="group-hover:opacity-100"] {
   opacity: 1;
 }
 
-/* Touch-only devices have no hover at all — tailwind additionally gates its
-   group-hover variants behind @media (hover: hover) — so hover-revealed row
+/* Touch-only devices have no hover at all - tailwind additionally gates its
+   group-hover variants behind @media (hover: hover) - so hover-revealed row
    links (apps/audit/containers ↗) would never appear. Show them always,
    undoing the hidden state's -translate-x-1 shift as well */
 @media (hover: none) {
@@ -65,8 +65,8 @@ tr:focus-within [class*="group-hover:opacity-100"] {
 /* ---- Optical alignment --------------------------------------------------
    Mixed font sizes in a vertically centered flex row: centering the boxes
    leaves the smaller text's glyphs sitting visibly high (its cap band ends
-   up top-aligned with the heading's). Line-height changes cannot fix this —
-   under box centering the baseline position depends only on the font size —
+   up top-aligned with the heading's). Line-height changes cannot fix this -
+   under box centering the baseline position depends only on the font size -
    so the small caption next to a heading is nudged down to optically center
    its glyph band within the heading's. */
 :is(h1, h2, h3) ~ span.text-xs {
@@ -86,7 +86,7 @@ tr:focus-within [class*="group-hover:opacity-100"] {
    browser paints the streamed content before the sidebar arrives; daisyui
    sizes the sidebar grid column by content (grid-auto-columns:
    max-content), so the column is 0 wide until the sidebar parses in and
-   the whole page then shifts right — visible as a flicker on refresh and
+   the whole page then shifts right - visible as a flicker on refresh and
    when navigating to content-heavy pages. Reserve the docked sidebar
    column up front and pre-paint its surface and border. */
 @media (min-width: 64rem) {
@@ -134,4 +134,14 @@ secret-input:not(:defined) {
 .btn.btn-disabled,
 a.btn-disabled {
   color: color-mix(in oklab, var(--color-base-content) 35%, transparent) !important;
+}
+/* Keep the wide sidebar brand legible without crowding the 15rem drawer. */
+.sidebar-logo {
+  height: 2.5rem;
+}
+
+@media (min-width: 48rem) {
+  .sidebar-logo {
+    height: 6.5rem;
+  }
 }

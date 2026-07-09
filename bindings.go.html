@@ -23,7 +23,7 @@
       >{{ len .config_keys }} keys</span
     >
   {{ else }}
-    <span class="text-xs text-base-content/70">—</span>
+    <span class="text-xs text-base-content/70">-</span>
   {{ end }}
 {{ end }}
 
@@ -109,7 +109,7 @@
 
   <body class="min-h-screen bg-base-200">
     <div class="drawer lg:drawer-open">
-      <input id="nav-drawer" type="checkbox" class="drawer-toggle" tabindex="-1" aria-hidden="true" />
+      {{ template "drawer_toggle" }}
 
       <div class="drawer-content">
         <main class="p-4 lg:p-6 space-y-4 max-w-6xl">
@@ -117,11 +117,9 @@
           <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" }}
             <div>
-              <h1 class="page-title text-2xl md:text-3xl font-extrabold italic tracking-tight">
-                OpenRun Bindings
-              </h1>
+              {{ template "page_title" "OpenRun Bindings" }}
               <p class="text-sm text-base-content/70">
-                {{ .Data.Total }} bindings — connect apps to services and
+                {{ .Data.Total }} bindings - connect apps to services and
                 shared config
               </p>
             </div>
@@ -181,7 +179,7 @@
                   class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
                   <h2 class="text-sm font-medium">Services</h2>
                   <span class="text-xs text-base-content/70"
-                    >{{ len .Data.Services }} services — bindings connect apps
+                    >{{ len .Data.Services }} services - bindings connect apps
                     to these</span
                   >
                 </div>
@@ -228,7 +226,7 @@
                                 >
                               {{ else }}
                                 <span class="text-base-content/70 text-xs"
-                                  >—</span
+                                  >-</span
                                 >
                               {{ end }}
                             </td>
@@ -237,7 +235,7 @@
                               {{ if .staging }}
                                 {{ .staging }}
                               {{ else }}
-                                —
+                                -
                               {{ end }}
                             </td>
                             <td
@@ -329,7 +327,7 @@
                               {{ if .created_by }}
                                 {{ .created_by }}
                               {{ else }}
-                                —
+                                -
                               {{ end }}
                             </td>
                             <td
@@ -411,7 +409,7 @@
                               {{ if .created_by }}
                                 {{ .created_by }}
                               {{ else }}
-                                —
+                                -
                               {{ end }}
                             </td>
                             <td

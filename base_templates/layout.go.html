@@ -64,6 +64,19 @@
   </button>
 {{ end }}
 
+{{/* drawer_toggle is the hidden checkbox controlled by the mobile
+  hamburger and sidebar overlay. It must be the first child of .drawer on
+  every full page
+*/}}
+{{ define "drawer_toggle" }}
+  <input
+    id="nav-drawer"
+    type="checkbox"
+    class="drawer-toggle"
+    tabindex="-1"
+    aria-hidden="true" />
+{{ end }}
+
 {{/* time_ago renders an RFC3339 timestamp as a compact "4m ago" style age,
   with the exact UTC time as a tooltip
 */}}
@@ -123,13 +136,33 @@
   {{ template "error_alert" .FlashError }}
 {{ end }}
 
+{{/* validation_alert renders the shared dry-run success result used by
+  create forms. Context: dict with Validated, Value, Suffix and optional
+  BreakAll
+*/}}
+{{ define "validation_alert" }}
+  {{ if .Validated }}
+    <div role="alert" class="alert alert-success alert-soft py-2 text-sm">
+      <span aria-hidden="true">✓</span>
+      <span
+        >Validation succeeded -
+        <span class="font-mono{{ if .BreakAll }} break-all{{ end }}"
+          >{{ .Value }}</span
+        >
+        {{ .Suffix }}</span
+      >
+    </div>
+  {{ end }}
+{{ end }}
+
 {{/* secret_input renders the <secret-input> web component (console.js): a
   value input with a "store as secret" button which encrypts the value
   into the db secrets provider and swaps in the {{secret ...
 }}
 reference. Context: dict with Name (form field name), AppPath, Prefix (secret
-name prefix), CanCreate (secret:create held) and optional Value, InputId,
-Placeholder, Masked, File, Description, Error */}}
+name prefix), CanCreate (secret:create held), CanDelete (secret:delete held;
+unlocking a stored field then offers deleting the secret) and optional Value,
+InputId, Placeholder, Masked, File, Description, Error */}}
 {{ define "secret_input" }}
   <secret-input
     name="{{ .Name }}"
@@ -142,6 +175,7 @@ Placeholder, Masked, File, Description, Error */}}
     {{ if .File }}file{{ end }}
     {{ if .Small }}small{{ end }}
     {{ if .CanCreate }}can-create{{ end }}
+    {{ if .CanDelete }}can-delete{{ end }}
     {{ if .Description }}description="{{ .Description }}"{{ end }}
     {{ if .Error }}error="{{ .Error }}"{{ end }}></secret-input>
 {{ end }}
@@ -164,7 +198,7 @@ Placeholder, Masked, File, Description, Error */}}
 {{ end }}
 
 {{/* kv_row renders one key/value row of a kv_table. Context: dict with
-  Field, AppPath, Prefix, CanCreate and optional Key, Value,
+  Field, AppPath, Prefix, CanCreate, CanDelete and optional Key, Value,
   KeyPlaceholder, ValuePlaceholder
 */}}
 {{ define "kv_row" }}
@@ -181,6 +215,7 @@ Placeholder, Masked, File, Description, Error */}}
     <div class="flex-1 min-w-0">
       {{ template "secret_input" (dict "Name" (printf "%s_value" .Field)
         "AppPath" .AppPath "Prefix" .Prefix "CanCreate" .CanCreate
+        "CanDelete" .CanDelete
         "Value" .Value "Placeholder" (or .ValuePlaceholder "value"))
       }}
     </div>
@@ -198,28 +233,28 @@ Placeholder, Masked, File, Description, Error */}}
 {{/* kv_table renders KEY=value rows with add/remove buttons; the value
   column is a secret_input so any value can be stored as a secret. Rows
   post as repeated <Field>_key / <Field>_value form values. Context: dict
-  with Field, AppPath, Prefix, CanCreate and optional Rows (list of
-  key/value dicts), KeyPlaceholder, ValuePlaceholder, AddLabel
+  with Field, AppPath, Prefix, CanCreate, CanDelete and optional Rows (list
+  of key/value dicts), KeyPlaceholder, ValuePlaceholder, AddLabel
 */}}
 {{ define "kv_table" }}
   {{ $ctx := . }}
   <div class="kv-table space-y-3">
     {{ range .Rows }}
       {{ template "kv_row" (dict "Field" $ctx.Field "AppPath" $ctx.AppPath
-        "Prefix" $ctx.Prefix "CanCreate" $ctx.CanCreate
+        "Prefix" $ctx.Prefix "CanCreate" $ctx.CanCreate "CanDelete" $ctx.CanDelete
         "KeyPlaceholder" $ctx.KeyPlaceholder "ValuePlaceholder" $ctx.ValuePlaceholder
         "Key" (index . "key") "Value" (index . "value"))
       }}
     {{ end }}
     {{ if not .Rows }}
       {{ template "kv_row" (dict "Field" $ctx.Field "AppPath" $ctx.AppPath
-        "Prefix" $ctx.Prefix "CanCreate" $ctx.CanCreate
+        "Prefix" $ctx.Prefix "CanCreate" $ctx.CanCreate "CanDelete" $ctx.CanDelete
         "KeyPlaceholder" $ctx.KeyPlaceholder "ValuePlaceholder" $ctx.ValuePlaceholder)
       }}
     {{ end }}
     <template>
       {{ template "kv_row" (dict "Field" $ctx.Field "AppPath" $ctx.AppPath
-        "Prefix" $ctx.Prefix "CanCreate" $ctx.CanCreate
+        "Prefix" $ctx.Prefix "CanCreate" $ctx.CanCreate "CanDelete" $ctx.CanDelete
         "KeyPlaceholder" $ctx.KeyPlaceholder "ValuePlaceholder" $ctx.ValuePlaceholder)
       }}
     </template>
@@ -257,7 +292,7 @@ Placeholder, Masked, File, Description, Error */}}
 {{/* app_table renders a list of app rows; shared by the apps page groups
   and the sync detail page. Context: dict with Apps (row list), AppPath
   (console root path), Perms (the user's management permissions) and
-  ShowActions (row action buttons; the apps page passes true — the
+  ShowActions (row action buttons; the apps page passes true - the
   actions re-render the apps page partial, so view-only pages omit them)
 */}}
 {{ define "app_table" }}
@@ -286,7 +321,7 @@ Placeholder, Masked, File, Description, Error */}}
               <a
                 href="{{ $root }}/apps/detail?path={{ .path }}"
                 class="btn btn-xs btn-ghost btn-square"
-                title="{{ .name }} — view details"
+                title="{{ .name }} - view details"
                 aria-label="View details for {{ .path }}">
                 <svg
                   aria-hidden="true"
@@ -535,11 +570,11 @@ Placeholder, Masked, File, Description, Error */}}
         {{ end }}
         <span class="text-xs text-base-content/70">
           {{ if .skipped_apply }}
-            — no new commit, apply was skipped
+            - no new commit, apply was skipped
           {{ else if not .changed }}
-            — {{ .total }} apps checked, everything matches the declared state
+            - {{ .total }} apps checked, everything matches the declared state
           {{ else }}
-            — {{ .total }} apps in scope
+            - {{ .total }} apps in scope
           {{ end }}
         </span>
       </div>
@@ -620,7 +655,7 @@ Placeholder, Masked, File, Description, Error */}}
 {{ end }}
 
 {{/* container_state renders the state dot and label for a container. The
-  dot is decorative — the state is always conveyed by the text label
+  dot is decorative - the state is always conveyed by the text label
 */}}
 {{ define "container_state" }}
   {{ if eq .state "running" }}
@@ -687,7 +722,7 @@ Placeholder, Masked, File, Description, Error */}}
       <div
         class="px-3 py-1.5 flex items-center justify-center border-b border-base-300">
         <a
-          href="{{ .AppPath }}/"
+          href="{{ .AppPath }}/apps"
           title="OpenRun home"
           class="logo-mark inline-block">
           <img
@@ -695,7 +730,7 @@ Placeholder, Masked, File, Description, Error */}}
             alt="OpenRun"
             width="600"
             height="325"
-            class="h-8 md:h-14 w-auto" />
+            class="sidebar-logo w-auto" />
         </a>
       </div>
       <nav

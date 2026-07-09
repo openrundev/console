@@ -6,7 +6,7 @@
 
   <body class="min-h-screen bg-base-200">
     <div class="drawer lg:drawer-open">
-      <input id="nav-drawer" type="checkbox" class="drawer-toggle" tabindex="-1" aria-hidden="true" />
+      {{ template "drawer_toggle" }}
 
       <div class="drawer-content">
         <main class="p-4 lg:p-6 space-y-4 max-w-2xl">
@@ -37,7 +37,7 @@
                 {{ .Data.Kind }}
               </h2>
               <p class="text-sm text-base-content/70">
-                Changes are staged — publish from the RBAC page to make them
+                Changes are staged - publish from the RBAC page to make them
                 live
               </p>
             </div>
@@ -183,7 +183,7 @@
                     One per line: user ids or
                     <span class="font-mono">group:name</span> references
                     {{ if .Data.GroupNames }}
-                      — groups:
+                      - groups:
                       {{ range .Data.GroupNames }}
                         <span class="font-mono">{{ . }}</span>
                       {{ end }}
@@ -210,7 +210,7 @@
                     </div>
                   {{ else }}
                     <p class="text-xs text-base-content/70">
-                      No roles defined yet — add a role first, or save the
+                      No roles defined yet - add a role first, or save the
                       grant and add roles before publishing
                     </p>
                   {{ end }}

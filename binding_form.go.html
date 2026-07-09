@@ -6,7 +6,7 @@
 
   <body class="min-h-screen bg-base-200">
     <div class="drawer lg:drawer-open">
-      <input id="nav-drawer" type="checkbox" class="drawer-toggle" tabindex="-1" aria-hidden="true" />
+      {{ template "drawer_toggle" }}
 
       <div class="drawer-content">
         <main class="p-4 lg:p-6 space-y-4 max-w-2xl">
@@ -32,22 +32,14 @@
                 {{ end }}
               </p>
             </div>
-            <div class="ml-auto flex items-center gap-2">
-            </div>
           </div>
 
           {{ template "error_alert" .Data.Error }}
 
-          {{ if .Data.Validated }}
-            <div role="alert" class="alert alert-success alert-soft py-2 text-sm">
-              <span aria-hidden="true">✓</span>
-              <span
-                >Validation succeeded —
-                <span class="font-mono">{{ .Data.Values.path }}</span> is ready
-                to be created</span
-              >
-            </div>
-          {{ end }}
+          {{ template "validation_alert" (dict
+            "Validated" .Data.Validated
+            "Value" .Data.Values.path
+            "Suffix" "is ready to be created") }}
 
           {{ if and (eq .Data.Mode "update") (not .Data.Binding) }}
             <div class="card bg-base-100 border border-base-300 py-10">
@@ -80,7 +72,7 @@
                       {{ if .Data.Binding.derived_from }}
                         {{ .Data.Binding.derived_from }}
                       {{ else }}
-                        —
+                        -
                       {{ end }}
                     </div>
                   </div>
@@ -181,6 +173,7 @@
                           "AppPath" .AppPath
                           "Prefix" "binding"
                           "CanCreate" (index .Data.Perms "secret:create")
+                        "CanDelete" (index .Data.Perms "secret:delete")
                           "Rows" .Data.Values.config_rows
                           "KeyPlaceholder" "timeout"
                           "ValuePlaceholder" "30"

@@ -26,7 +26,7 @@ load("handler.star",
      "bindings_update_page_handler", "bindings_update_submit_handler",
      "bindings_delete_handler", "services_create_page_handler",
      "services_create_submit_handler", "services_delete_handler",
-     "secrets_store_handler")
+     "secrets_store_handler", "secrets_delete_handler")
 
 # OpenRun management console. Routes mirror the UI layout: one route per
 # screen, each screen template defines a partial block which HTMX requests
@@ -39,7 +39,7 @@ load("handler.star",
 # permissions are not requested, so a disabled area needs no approval and
 # cannot be invoked at all.
 #   enable_updates:   the write switch: app/sync/binding/service changes,
-#                     storing secrets, and — combined with the area flags —
+#                     storing secrets, and - combined with the area flags -
 #                     container start/stop and config/RBAC changes
 #   enable_container: the containers screens; start/stop additionally needs
 #                     enable_updates
@@ -291,6 +291,9 @@ def build_routes():
         # define referenced by name (no page file)
         routes += [
             ace.html("/secrets/store", method="POST", full="secret_input_response", handler=secrets_store_handler),
+            # Unlocking a stored field offers deleting the secret; the
+            # response is the same component fragment (empty on success)
+            ace.html("/secrets/delete", method="POST", full="secret_input_response", handler=secrets_delete_handler),
         ]
 
     return routes
@@ -387,6 +390,7 @@ def build_permissions():
     if ENABLE_UPDATES:
         permissions += [
             ace.permission("openrun_admin.in", "create_secret"),
+            ace.permission("openrun_admin.in", "delete_secret"),
         ]
 
     return permissions

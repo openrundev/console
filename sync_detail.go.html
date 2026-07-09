@@ -6,7 +6,7 @@
 
   <body class="min-h-screen bg-base-200">
     <div class="drawer lg:drawer-open">
-      <input id="nav-drawer" type="checkbox" class="drawer-toggle" tabindex="-1" aria-hidden="true" />
+      {{ template "drawer_toggle" }}
 
       <div class="drawer-content">
         <main class="p-4 lg:p-6 max-w-6xl">
@@ -131,7 +131,7 @@
                     >
                     <span class="text-xs pt-1">
                       {{ if $s.is_scheduled }}
-                        scheduled — every {{ $s.schedule_frequency }} minutes
+                        scheduled - every {{ $s.schedule_frequency }} minutes
                       {{ else }}
                         webhook
                         {{ if $s.webhook_url }}
@@ -158,7 +158,7 @@
                         {{ end }}
                       {{ else }}
                         <span class="text-xs text-base-content/70"
-                          >staging only — no promote</span
+                          >staging only - no promote</span
                         >
                       {{ end }}
                     </span>
@@ -234,10 +234,10 @@
                         {{ if $r.skipped_apply }}
                           No new commit was found, the apply was skipped
                         {{ else if not $r.changed }}
-                          {{ $r.total }} apps checked — everything matched the
+                          {{ $r.total }} apps checked - everything matched the
                           declared state, no changes were applied
                         {{ else }}
-                          {{ $r.total }} apps in scope — changes applied:
+                          {{ $r.total }} apps in scope - changes applied:
                         {{ end }}
                       </div>
                       {{ if $r.changed }}

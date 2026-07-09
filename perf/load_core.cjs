@@ -1,6 +1,6 @@
 // Loads the parsing core from static/logtail.js for Node tests. The file is
 // a classic browser script (an app static asset, not a module), so it is
-// evaluated with a CommonJS-style module shim rather than require()d — the
+// evaluated with a CommonJS-style module shim rather than require()d - the
 // nearest package.json declares "type": "module" which would break require.
 'use strict';
 

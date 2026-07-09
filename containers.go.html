@@ -6,7 +6,7 @@
 
   <body class="min-h-screen bg-base-200">
     <div class="drawer lg:drawer-open">
-      <input id="nav-drawer" type="checkbox" class="drawer-toggle" tabindex="-1" aria-hidden="true" />
+      {{ template "drawer_toggle" }}
 
       <div class="drawer-content">
         <main class="p-4 lg:p-6 space-y-4 max-w-6xl">
@@ -14,9 +14,7 @@
           <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" }}
             <div>
-              <h1 class="page-title text-2xl md:text-3xl font-extrabold italic tracking-tight">
-                OpenRun Containers
-              </h1>
+              {{ template "page_title" "OpenRun Containers" }}
               <p class="text-sm text-base-content/70">
                 {{ .Data.Total }} containers · {{ .Data.Running }} running
                 {{ if .Data.Runtime }}
@@ -229,7 +227,7 @@
                               <a
                                 href="{{ $.AppPath }}/containers/detail?id={{ .id }}"
                                 class="btn btn-xs btn-ghost btn-square"
-                                title="{{ .name }} — details, stats and logs"
+                                title="{{ .name }} - details, stats and logs"
                                 aria-label="View details for container {{ .name }}">
                                 <svg aria-hidden="true" focusable="false" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg>
                               </a>
@@ -269,7 +267,7 @@
                                 {{ end }}
                               {{ else }}
                                 <span class="text-base-content/70 text-xs"
-                                  >—</span
+                                  >-</span
                                 >
                               {{ end }}
                             </td>
@@ -283,7 +281,7 @@
                               {{ if .ports }}
                                 {{ .ports }}
                               {{ else }}
-                                —
+                                -
                               {{ end }}
                             </td>
                             <td

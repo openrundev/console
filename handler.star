@@ -1258,14 +1258,14 @@ CONFIG_PAGES = [
         "kv_sections": [
             {"section": "app_config",
              "title": "App config defaults",
-             "help": "defaults applied to all apps on their next reload — dotted keys like " +
+             "help": "defaults applied to all apps on their next reload - dotted keys like " +
                      "cors.allow_origin or container.health_timeout_secs. Values are parsed as " +
                      "numbers/booleans when possible; use \"quotes\" to force a string",
              "placeholder": "cors.allow_origin"},
             {"section": "node_config",
              "title": "Node config",
              "help": "values apps read with the config() builtin, applied on their next " +
-                     "reload — free form keys. Values are parsed as numbers/booleans when " +
+                     "reload - free form keys. Values are parsed as numbers/booleans when " +
                      "possible; use \"quotes\" to force a string",
              "placeholder": "key_name"},
         ],
@@ -1602,7 +1602,7 @@ def config_page_action_handler(req, page):
         raw = query_param(req, "value")
         if kind == "bool":
             ret = openrun_admin.set_config_value(section, key, raw == "on", version_id)
-            ok = "Set %s %s — change is live" % (section, key)
+            ok = "Set %s %s - change is live" % (section, key)
         elif raw.strip() == "":
             # Clearing the field resets to the static config value
             if query_param(req, "is_dynamic") == "true":
@@ -1618,17 +1618,17 @@ def config_page_action_handler(req, page):
                 data["FlashError"] = "%s %s must be a number" % (section, key)
                 return data
             ret = openrun_admin.set_config_value(section, key, int(raw.strip()), version_id)
-            ok = "Set %s %s — change is live" % (section, key)
+            ok = "Set %s %s - change is live" % (section, key)
         else:
             ret = openrun_admin.set_config_value(section, key, raw.strip(), version_id)
-            ok = "Set %s %s — change is live" % (section, key)
+            ok = "Set %s %s - change is live" % (section, key)
     elif action == "delete_value":
         ret = openrun_admin.delete_config_value(section, key, version_id)
         ok = "Reset %s %s to the static config value" % (section, key)
     elif action == "delete_entry":
         name = query_param(req, "name")
         ret = openrun_admin.delete_config_entry(section, name, version_id)
-        ok = "Deleted %s entry %s — change is live" % (section, name)
+        ok = "Deleted %s entry %s - change is live" % (section, name)
     elif action == "kv_set":
         kv_section = _page_kv_section(meta, query_param(req, "kv_section"))
         kv_key = query_param(req, "key").strip()
@@ -1638,7 +1638,7 @@ def config_page_action_handler(req, page):
             return data
         value = parse_config_value(query_param(req, "value"))
         ret = openrun_admin.set_config_value(kv_section, kv_key, value, version_id)
-        ok = "Set %s %s — applies on the next app reload" % (kv_section, kv_key)
+        ok = "Set %s %s - applies on the next app reload" % (kv_section, kv_key)
     elif action == "kv_delete":
         kv_section = _page_kv_section(meta, query_param(req, "kv_section"))
         if not kv_section:
@@ -1708,8 +1708,14 @@ def config_rbac_data(req):
     data["HasStaged"] = cfg["has_staged"]
     data["DraftVersion"] = ""
     data["Live"] = rbac_section(cfg["rbac"])
-    # The tables show the draft when one exists; enforcement uses live
-    data["View"] = rbac_section(cfg["staged"]) if cfg["has_staged"] else data["Live"]
+    # The tables show the draft when one exists; enforcement uses live.
+    # ?view=live switches to a read-only view of the live config while a
+    # draft is pending (no-op without a draft, the tables show live anyway)
+    data["ViewLive"] = cfg["has_staged"] and query_param(req, "view") == "live"
+    if cfg["has_staged"] and not data["ViewLive"]:
+        data["View"] = rbac_section(cfg["staged"])
+    else:
+        data["View"] = data["Live"]
     if cfg["has_staged"]:
         data["Diff"] = rbac_diff(cfg["rbac"], cfg["staged"])
         data["Draft"] = cfg["draft"]
@@ -1733,7 +1739,7 @@ def config_rbac_action_handler(req):
     elif action == "toggle_enabled":
         enabled = query_param(req, "enabled") == "true"
         ret = openrun_admin.update_rbac_enabled(enabled, draft_version)
-        ok = "RBAC %s in the staged config — publish to apply" % ("enabled" if enabled else "disabled")
+        ok = "RBAC %s in the staged config - publish to apply" % ("enabled" if enabled else "disabled")
     elif action == "delete_group":
         ret = openrun_admin.delete_rbac_group(query_param(req, "name"), draft_version)
         ok = "Deleted group %s from the staged config" % query_param(req, "name")
@@ -2226,13 +2232,12 @@ def syncs_detail_delete_handler(req):
 # ---------- Secrets ----------
 
 
-def secrets_store_handler(req):
-    # POST from the secret-input component (console.js): encrypt the value
-    # (or uploaded file content) into the db secrets provider and re-render
-    # the component with the generated {{secret ...}} reference as its value.
-    # The component echoes its rendering attributes (field, prefix, masked,
-    # ...) so the response fragment can reproduce the element
-    data = {
+def secret_input_data(req):
+    # Common re-render context for the secret-input component fragments: the
+    # component echoes its rendering attributes (field, prefix, masked, ...)
+    # so the response fragment can reproduce the element
+    perms = get_perms()
+    return {
         "Name": query_param(req, "field"),
         "AppPath": req.AppPath,
         "Prefix": query_param(req, "prefix"),
@@ -2242,8 +2247,16 @@ def secrets_store_handler(req):
         "File": query_param(req, "file") == "true",
         "Small": query_param(req, "small") == "true",
         "Description": query_param(req, "description"),
-        "CanCreate": get_perms().get("secret:create", False),
+        "CanCreate": perms.get("secret:create", False),
+        "CanDelete": perms.get("secret:delete", False),
     }
+
+
+def secrets_store_handler(req):
+    # POST from the secret-input component (console.js): encrypt the value
+    # (or uploaded file content) into the db secrets provider and re-render
+    # the component with the generated {{secret ...}} reference as its value
+    data = secret_input_data(req)
 
     value = query_param(req, "value").strip()
     value_b64 = query_param(req, "value_b64")
@@ -2266,4 +2279,28 @@ def secrets_store_handler(req):
         data["Value"] = value
         return data
     data["Value"] = ret.value["secret_ref"]
+    return data
+
+
+def secrets_delete_handler(req):
+    # POST from the secret-input component when the user unlocks a stored
+    # field and chooses to also delete the secret from the database. The
+    # component parses the {{secret ...}} reference into name/provider and
+    # echoes the original ref so a failure re-renders the locked state
+    data = secret_input_data(req)
+
+    name = query_param(req, "name").strip()
+    if not name:
+        data["Error"] = "no secret name to delete"
+        data["Value"] = query_param(req, "ref")
+        return data
+
+    ret = openrun_admin.delete_secret(name=name, provider=query_param(req, "provider"))
+    error = ret.error
+    if error:
+        data["Error"] = error
+        data["Value"] = query_param(req, "ref")
+        return data
+    # Deleted: the field goes back to accepting a plain value
+    data["Value"] = ""
     return data

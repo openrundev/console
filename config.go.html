@@ -10,7 +10,7 @@
 
   <body class="min-h-screen bg-base-200">
     <div class="drawer lg:drawer-open">
-      <input id="nav-drawer" type="checkbox" class="drawer-toggle" tabindex="-1" aria-hidden="true" />
+      {{ template "drawer_toggle" }}
 
       <div class="drawer-content">
         <main class="p-4 lg:p-6 max-w-6xl">
@@ -20,12 +20,9 @@
             <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
               {{ template "hamburger" }}
               <div>
-                <h1
-                  class="page-title text-2xl md:text-3xl font-extrabold italic tracking-tight">
-                  OpenRun Configuration
-                </h1>
+                {{ template "page_title" "OpenRun Configuration" }}
                 <p class="text-sm text-base-content/70">
-                  Server configuration — entry changes are live immediately,
+                  Server configuration - entry changes are live immediately,
                   RBAC changes are staged on their own page
                 </p>
               </div>
@@ -66,7 +63,7 @@
                       </a>
                     </div>
                     <p class="text-xs text-base-content/70">
-                      Role based access control —
+                      Role based access control -
                       {{ .Data.RBAC.groups }} groups,
                       {{ .Data.RBAC.roles }} roles,
                       {{ .Data.RBAC.grants }} grants. Changes are staged and go
@@ -100,7 +97,7 @@
                         </a>
                       </div>
                       <p class="text-xs text-base-content/70">
-                        {{ .desc }} — changes take effect immediately
+                        {{ .desc }} - changes take effect immediately
                       </p>
                     </div>
                   </div>
@@ -113,7 +110,7 @@
                   class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2">
                   <h2 class="text-sm font-medium">History</h2>
                   <span class="text-xs text-base-content/70"
-                    >{{ len .Data.History }} config versions — restoring
+                    >{{ len .Data.History }} config versions - restoring
                     creates a new version</span
                   >
                 </div>
@@ -145,7 +142,7 @@
                               {{ if $h.user_id }}
                                 {{ $h.user_id }}
                               {{ else }}
-                                —
+                                -
                               {{ end }}
                             </td>
                             <td class="text-xs text-base-content/70">
