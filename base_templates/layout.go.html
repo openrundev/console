@@ -41,6 +41,13 @@
     </style>
     <script src="{{ static "console.js" }}"></script>
 
+    {{/* Cross-document view transitions (see accessibility.css) snapshot
+      the outgoing and incoming pages; block rendering until the sidebar
+      nav - the last element in the body - is parsed, so the incoming
+      snapshot is never a partially rendered page (Chrome 124+, ignored
+      elsewhere) */}}
+    <link rel="expect" href="#main-nav" blocking="render" />
+
     {{ template "openrun_gen_import" . }}
     <!-- Accessibility overrides, loaded after the generated + design styles -->
     <link rel="stylesheet" href="{{ static "css/accessibility.css" }}" />
@@ -272,11 +279,32 @@ InputId, Placeholder, Masked, File, Description, Error */}}
   ↗ used for drill-in/source links); shared by the app tables' hover
   links and the app detail page's Open app button
 */}}
+{{/* drilldown_icon is the shared first-column click-in indicator (see the
+  tables convention in design/notes.md: static svg, primary color baked in,
+  explicit size, wrapping <a> must be btn-square)
+*/}}
+{{ define "drilldown_icon" }}
+  <img src="{{ static "icons/drilldown.svg" }}" width="20" height="20" style="width:20px;height:20px" alt="" />
+{{ end }}
+
+{{/* builder_status_badge renders a builder session status as a colored
+  badge with a pulse dot on the in-flight states. Context: the status string
+*/}}
+{{ define "builder_status_badge" }}
+  <span
+    class="badge badge-sm gap-1 {{ if eq . "error" }}badge-error{{ else if eq . "published" }}badge-success{{ else if eq . "running" }}badge-info{{ else if eq . "detached" }}badge-ghost{{ else if eq . "starting" }}badge-warning badge-soft{{ else }}badge-success badge-soft{{ end }}">
+    <span
+      aria-hidden="true"
+      class="w-1.5 h-1.5 rounded-full bg-current {{ if or (eq . "running") (eq . "starting") }}animate-pulse{{ end }}"></span>
+    {{ . }}
+  </span>
+{{ end }}
+
 {{ define "globe_icon" }}
   <svg
     aria-hidden="true"
     focusable="false"
-    class="w-3.5 h-3.5 inline-block align-bottom"
+    class="w-3.5 h-3.5 inline-block align-[-0.125em] text-primary"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
@@ -321,20 +349,9 @@ InputId, Placeholder, Masked, File, Description, Error */}}
               <a
                 href="{{ $root }}/apps/detail?path={{ .path }}"
                 class="btn btn-xs btn-ghost btn-square"
-                title="{{ .name }} - view details"
+                title="Expand: {{ .name }} - view details"
                 aria-label="View details for {{ .path }}">
-                <svg
-                  aria-hidden="true"
-                  focusable="false"
-                  class="w-3.5 h-3.5"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round">
-                  <path d="m9 18 6-6-6-6" />
-                </svg>
+                {{ template "drilldown_icon" }}
               </a>
             </td>
             <td>
@@ -718,7 +735,7 @@ InputId, Placeholder, Masked, File, Description, Error */}}
   <div class="drawer-side z-20">
     <label for="nav-drawer" aria-hidden="true" class="drawer-overlay"></label>
     <aside
-      class="w-60 min-h-full bg-base-100 border-r border-base-300 flex flex-col">
+      class="console-sidebar w-60 min-h-full bg-base-100 border-r border-base-300 flex flex-col">
       <div
         class="px-3 py-1.5 flex items-center justify-center border-b border-base-300">
         <a
@@ -747,7 +764,7 @@ InputId, Placeholder, Masked, File, Description, Error */}}
               ><svg
                 aria-hidden="true"
                 focusable="false"
-                class="w-4 h-4 text-primary"
+                class="w-5 h-5 text-primary"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -769,7 +786,7 @@ InputId, Placeholder, Masked, File, Description, Error */}}
               ><svg
                 aria-hidden="true"
                 focusable="false"
-                class="w-4 h-4 text-primary"
+                class="w-5 h-5 text-primary"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -791,7 +808,7 @@ InputId, Placeholder, Masked, File, Description, Error */}}
               ><svg
                 aria-hidden="true"
                 focusable="false"
-                class="w-4 h-4 text-primary"
+                class="w-5 h-5 text-primary"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -803,6 +820,34 @@ InputId, Placeholder, Masked, File, Description, Error */}}
                 <path
                   d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg
               >Bindings</a
+            >
+          </li>
+          {{/* Builder screens are install-gated (enable_builder param);
+            a disabled install has no /builder routes at all
+          */}}
+          {{ $builderOff := and .Data.Perms (not (index .Data.Perms "feature:builder")) }}
+          <li class="{{ if $builderOff }}menu-disabled{{ end }}">
+            <a
+              {{ if $builderOff }}
+                aria-disabled="true" tabindex="-1" title="the builder is
+                disabled for this console install"
+              {{ else }}
+                href="{{ .AppPath }}/builder"
+              {{ end }}
+              {{ if eq .Data.Nav "builder" }}aria-current="page"{{ end }}
+              class="{{ if eq .Data.Nav "builder" }}menu-active{{ end }}"
+              ><svg
+                aria-hidden="true"
+                focusable="false"
+                class="w-5 h-5 text-primary"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round">
+                <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" /><path d="M20 3v4" /><path d="M22 5h-4" /><path d="M4 17v2" /><path d="M5 18H3" /></svg
+              >Builder</a
             >
           </li>
           {{/* Containers screens are install-gated (enable_container param);
@@ -822,7 +867,7 @@ InputId, Placeholder, Masked, File, Description, Error */}}
               ><svg
                 aria-hidden="true"
                 focusable="false"
-                class="w-4 h-4 text-primary"
+                class="w-5 h-5 text-primary"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -844,7 +889,7 @@ InputId, Placeholder, Masked, File, Description, Error */}}
               ><svg
                 aria-hidden="true"
                 focusable="false"
-                class="w-4 h-4 text-primary"
+                class="w-5 h-5 text-primary"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -877,7 +922,7 @@ InputId, Placeholder, Masked, File, Description, Error */}}
               ><svg
                 aria-hidden="true"
                 focusable="false"
-                class="w-4 h-4 text-primary"
+                class="w-5 h-5 text-primary"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"

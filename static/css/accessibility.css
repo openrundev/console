@@ -100,6 +100,14 @@ tr:focus-within [class*="group-hover:opacity-100"] {
       transparent 15rem
     );
   }
+  /* Once the sidebar has parsed it sizes (and paints) its own column, and
+     the column must track the side's width so the native resize below can
+     hand freed space to the content. The pre-paint gradient would otherwise
+     leave a stray border line when the sidebar is resized narrower. */
+  .drawer.lg\:drawer-open:has(.drawer-side) {
+    grid-template-columns: max-content auto;
+    background: none;
+  }
 }
 
 /* Sidebar nav icons: primary-colored at rest; on the active item they
@@ -143,5 +151,141 @@ a.btn-disabled {
 @media (min-width: 48rem) {
   .sidebar-logo {
     height: 6.5rem;
+  }
+}
+
+/* ---- Cross-document navigation ------------------------------------------
+   Same-origin page navigations crossfade via view transitions instead of
+   flashing a repaint (audit -> containers etc.). The static chrome gets its
+   own named transition groups so it stays rock solid while only the content
+   crossfades: pinning those groups to no animation renders them as a no-op.
+   Reduced motion opts out (the reduced-motion block above also zeroes
+   animation durations). Chrome 126+; other browsers ignore all of this and
+   keep plain navigation */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition {
+    navigation: auto;
+  }
+  /* Content fade-through: the old body fades fully out to the page
+     background before the new one fades in. A plain crossfade double-
+     exposes two dissimilar pages (audit's dense table over config's
+     cards) which reads as a bright flash; sequencing through the solid
+     background never overlaps them */
+  ::view-transition-old(root) {
+    animation: vt-page-out 90ms ease-out both;
+  }
+  ::view-transition-new(root) {
+    animation: vt-page-in 150ms ease-out 60ms both;
+  }
+  /* the sidebar does not move or fade between pages */
+  #main-nav {
+    view-transition-name: console-sidebar;
+  }
+  ::view-transition-group(console-sidebar) {
+    animation-duration: 0ms;
+  }
+  ::view-transition-old(console-sidebar),
+  ::view-transition-new(console-sidebar) {
+    animation: none;
+  }
+  /* the page header band (brand title, description, page actions) snaps
+     instead of crossfading, same as the sidebar: the shared layout reads
+     as static chrome even when the text changes */
+  .page-header {
+    view-transition-name: console-header;
+  }
+  ::view-transition-group(console-header) {
+    animation-duration: 0ms;
+  }
+  ::view-transition-old(console-header),
+  ::view-transition-new(console-header) {
+    animation: none;
+  }
+
+  /* title and description animate as a pair: both carry the same
+     view-transition-class (Chrome 125+), so the rise/settle rules are
+     written once against *.console-pair. Names must still be unique */
+  .page-title {
+    view-transition-name: console-title;
+    view-transition-class: console-pair;
+  }
+  .page-desc {
+    view-transition-name: console-desc;
+    view-transition-class: console-pair;
+  }
+  /* header right-side cluster (search box, page action buttons) fades with
+     the same sequenced no-scale treatment */
+  .page-actions {
+    view-transition-name: console-actions;
+    view-transition-class: console-pair;
+  }
+  /* No geometry tween and no snapshot scaling: the group box snaps (the
+     titles are left-anchored transparent text, a width snap is invisible)
+     and old/new keep their natural size, so differing title widths
+     (Containers vs Configuration) never stretch the text. The fades run in
+     sequence - old fully out, new landing just after - so two readable
+     texts never overlap */
+  ::view-transition-group(*.console-pair) {
+    animation: none;
+  }
+  ::view-transition-old(*.console-pair),
+  ::view-transition-new(*.console-pair) {
+    width: auto;
+    height: auto;
+  }
+  ::view-transition-old(*.console-pair) {
+    animation: vt-title-out 90ms ease-out both;
+  }
+  ::view-transition-new(*.console-pair) {
+    animation: vt-title-in 160ms cubic-bezier(0.2, 0.8, 0.2, 1) 70ms both;
+  }
+}
+
+@keyframes vt-title-out {
+  to {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes vt-title-in {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+}
+
+@keyframes vt-page-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes vt-page-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ---- Resizable panels ----------------------------------------------------
+   Native CSS resize (no script): the browser renders a corner grip. The
+   sidebar is resizable where the drawer is static (lg+); sizes are not
+   persisted across navigations - that is inherent to the CSS-only approach */
+@media (min-width: 64rem) {
+  /* The resize must live on .drawer-side: the drawer grid column (the
+     max-content template above) tracks the side's definite width, and with
+     overflow hidden the grid item's automatic min-size floor is dropped so
+     the column actually follows - resizing the aside alone would leave the
+     column, and a dead gap, behind */
+  .drawer-side {
+    width: 15rem; /* starting size; the browser resize writes inline width */
+    resize: horizontal;
+    overflow: hidden;
+    min-width: 11rem;
+    max-width: 24rem;
+  }
+  aside.console-sidebar {
+    width: 100%;
+    min-width: 0;
   }
 }

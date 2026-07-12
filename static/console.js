@@ -122,12 +122,15 @@ class SecretInput extends HTMLElement {
 			}
 			const lock = this.makeButton('secret-lock',
 				canCreate ? 'Encrypt and store as a secret' : 'requires secret:create',
-				!canCreate, null);
+				!canCreate, canCreate ? () => this.lockClicked() : null);
 			if (canCreate) {
 				// hx- attributes only on the enabled button: a disabled
 				// button with hx-disabled-elt matches the in-flight spinner
-				// CSS and would show a permanent spinner
+				// CSS and would show a permanent spinner. The request fires
+				// on the custom event (not click): the click first opens the
+				// description dialog, which triggers the event on confirm
 				lock.setAttribute('hx-post', this.getAttribute('endpoint') || '');
+				lock.setAttribute('hx-trigger', 'secret-store');
 				lock.setAttribute('hx-target', 'closest secret-input');
 				lock.setAttribute('hx-swap', 'outerHTML');
 				// The button sits inside the page form; without this htmx
@@ -178,6 +181,34 @@ class SecretInput extends HTMLElement {
 			btn.addEventListener('click', onClick);
 		}
 		return btn;
+	}
+
+	lockClicked() {
+		// Prompt for an optional secret description before storing. An
+		// invalid value skips the dialog and fires the request anyway, so
+		// configRequest renders its usual inline error. Cancel leaves the
+		// field exactly as it was
+		const fire = () => {
+			const lock = this.querySelector('button[hx-post]');
+			if (lock && window.htmx) {
+				window.htmx.trigger(lock, 'secret-store');
+			}
+		};
+		if (!this.pendingFile) {
+			const value = this.value.trim();
+			if (!value || looksLikeSecretRef(value)) {
+				fire();
+				return;
+			}
+		}
+		showSecretDescriptionDialog(this.getAttribute('description') || '',
+			(description) => {
+				this.pendingDescription = description;
+				fire();
+			},
+			() => {
+				this.pendingFile = null;
+			});
 	}
 
 	unlockClicked() {
@@ -237,10 +268,7 @@ class SecretInput extends HTMLElement {
 				b64: String(reader.result).split(',', 2)[1] || '',
 				name: file.name,
 			};
-			const lock = this.querySelector('button[hx-post]');
-			if (lock && window.htmx) {
-				window.htmx.trigger(lock, 'click');
-			}
+			this.lockClicked();
 		};
 		reader.onerror = () => this.showError('could not read the file');
 		reader.readAsDataURL(file);
@@ -291,6 +319,12 @@ class SecretInput extends HTMLElement {
 			set('source_file', file.name);
 		}
 		this.echoRenderAttrs(set);
+		if (this.pendingDescription !== undefined && this.pendingDescription !== null) {
+			// Description entered in the store dialog; wins over the preset
+			// description attribute echoed above
+			set('description', this.pendingDescription);
+			this.pendingDescription = null;
+		}
 	}
 
 	// Echo the rendering attributes so the response fragment can reproduce
@@ -370,6 +404,64 @@ function showSecretUnlockDialog(name, onKeep, onDelete) {
 	dialog.showModal();
 	// Focus Cancel so Enter does not trigger an action by accident
 	dialog.querySelector('#secret-unlock-cancel').focus();
+}
+
+// Dialog shown when the lock button is clicked: asks for an optional
+// description recorded on the stored secret. Store proceeds (with or
+// without a description); Cancel/Escape/backdrop leaves the field untouched
+function showSecretDescriptionDialog(initial, onStore, onCancel) {
+	let dialog = document.getElementById('secret-desc-dialog');
+	if (!dialog) {
+		dialog = document.createElement('dialog');
+		dialog.id = 'secret-desc-dialog';
+		dialog.className = 'modal';
+		dialog.setAttribute('aria-labelledby', 'secret-desc-title');
+		dialog.innerHTML =
+			'<div class="modal-box max-w-md">' +
+			'<h3 id="secret-desc-title" class="text-base font-semibold mb-2">Store as a secret</h3>' +
+			'<p class="text-sm text-base-content/70 mb-3">The value is encrypted into the secret store ' +
+			'and the field keeps a reference to it.</p>' +
+			'<label class="block text-sm font-medium mb-1" for="secret-desc-input">Description (optional)</label>' +
+			'<input id="secret-desc-input" type="text" autocomplete="off" ' +
+			'placeholder="what this secret is for" class="input w-full text-sm" />' +
+			'<div class="modal-action mt-5">' +
+			'<button id="secret-desc-cancel" class="btn btn-ghost btn-sm">Cancel</button>' +
+			'<button id="secret-desc-store" class="btn btn-sm btn-primary">Store secret</button>' +
+			'</div></div>' +
+			'<form method="dialog" class="modal-backdrop"><button>close</button></form>';
+		document.body.appendChild(dialog);
+		const input = dialog.querySelector('#secret-desc-input');
+		const store = () => {
+			const actions = dialog.pendingActions;
+			dialog.pendingActions = null;
+			dialog.close();
+			if (actions && actions.store) {
+				actions.store(input.value.trim());
+			}
+		};
+		dialog.querySelector('#secret-desc-store').addEventListener('click', store);
+		dialog.querySelector('#secret-desc-cancel').addEventListener('click', () => dialog.close());
+		input.addEventListener('keydown', (event) => {
+			if (event.key === 'Enter') {
+				event.preventDefault();
+				store();
+			}
+		});
+		// Fires on every close path (cancel button, Escape, backdrop); the
+		// store path clears pendingActions first so this is cancel-only
+		dialog.addEventListener('close', () => {
+			const actions = dialog.pendingActions;
+			dialog.pendingActions = null;
+			if (actions && actions.cancel) {
+				actions.cancel();
+			}
+		});
+	}
+
+	dialog.querySelector('#secret-desc-input').value = initial || '';
+	dialog.pendingActions = { store: onStore, cancel: onCancel };
+	dialog.showModal();
+	dialog.querySelector('#secret-desc-input').focus();
 }
 
 // ---- kv-table row helpers ----------------------------------------------

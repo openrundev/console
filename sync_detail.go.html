@@ -12,14 +12,10 @@
         <main class="p-4 lg:p-6 max-w-6xl">
           <div
             id="sync-content"
-            class="space-y-4"
-            hx-get="{{ .AppPath }}/syncs/detail?id={{ .Data.Id }}"
-            hx-trigger="every 30s"
-            hx-swap="innerHTML transition:true"
-            hx-indicator="#page-progress">
+            class="space-y-4">
           {{ block "sync_content" . }}
             <!-- Header -->
-            <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+            <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
               {{ template "hamburger" }}
               <div>
                 {{ template "page_title" "OpenRun Syncs" }}
@@ -31,7 +27,7 @@
                 <h2 class="text-xl font-semibold font-mono break-all">
                   {{ if .Data.Sync }}{{ .Data.Sync.repo }}{{ else }}{{ .Data.Id }}{{ end }}
                 </h2>
-                <p class="text-sm text-base-content/70">
+                <p class="page-desc text-sm text-base-content/70">
                   {{ if .Data.Sync }}
                     {{ if eq .Data.Sync.state "Failing" }}
                       <span class="status status-error"></span>
@@ -51,7 +47,7 @@
                   {{ end }}
                 </p>
               </div>
-              <div class="ml-auto flex items-center gap-2">
+              <div class="page-actions ml-auto flex items-center gap-2">
                 {{ if .Data.Sync }}
                   <button
                     class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95"

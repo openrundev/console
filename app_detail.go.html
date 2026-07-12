@@ -105,13 +105,13 @@
           <div id="detail-content" class="space-y-4">
           {{ block "detail_content" . }}
           <!-- Header -->
-          <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+          <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" }}
             <div>
               {{ template "page_title" "OpenRun Apps" }}
               <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0"><ul class="flex-wrap whitespace-normal"><li><a href="{{ .AppPath }}/apps">Apps</a></li><li class="font-mono break-all">{{ .Data.Path }}</li></ul></nav>
               <h2 class="text-xl font-semibold font-mono break-all">{{ .Data.Path }}</h2>
-              <p class="text-sm text-base-content/70">
+              <p class="page-desc text-sm text-base-content/70">
                 {{ if .Data.App }}
                   {{ .Data.App.name }}
                   {{ if .Data.App.is_dev }}
@@ -129,7 +129,7 @@
                 {{ end }}
               </p>
             </div>
-            <div class="ml-auto flex items-center gap-2">
+            <div class="page-actions ml-auto flex items-center gap-2">
               {{ if .Data.App }}
                 <a
                   href="{{ .Data.App.url }}"

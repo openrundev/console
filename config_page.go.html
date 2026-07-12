@@ -19,7 +19,7 @@
             {{ $actionPath := printf "%s/config/%s/action" .AppPath .Data.Page }}
             {{ $canEdit := index .Data.Perms "config:update" }}
             <!-- Header -->
-            <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+            <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
               {{ template "hamburger" }}
               <div>
                 {{ template "page_title" "OpenRun Configuration" }}
@@ -31,7 +31,7 @@
                     <li>{{ .Data.PageTitle }}</li>
                   </ul></nav>
                 <h2 class="text-xl font-semibold">{{ .Data.PageTitle }}</h2>
-                <p class="text-sm text-base-content/70">
+                <p class="page-desc text-sm text-base-content/70">
                   {{ .Data.PageDesc }} - changes take effect immediately
                 </p>
               </div>
@@ -105,6 +105,13 @@
                                 </option>
                               {{ end }}
                             </select>
+                          {{ else if eq .kind "textarea" }}
+                            <textarea
+                              id="setting-{{ .section }}-{{ .key }}"
+                              name="value"
+                              rows="4"
+                              class="textarea w-full font-mono text-xs leading-relaxed"
+                              {{ if not $canEdit }}disabled{{ end }}>{{ .value }}</textarea>
                           {{ else }}
                             <input
                               id="setting-{{ .section }}-{{ .key }}"

@@ -3,20 +3,30 @@
 <html lang="en">
   {{ template "head" . }}
 
+
   <body class="min-h-screen bg-base-200">
     <div class="drawer lg:drawer-open">
       {{ template "drawer_toggle" }}
 
+
       <div class="drawer-content">
         <main class="p-4 lg:p-6 space-y-4 max-w-2xl">
           <!-- Header -->
-          <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+          <div
+            class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" }}
             <div>
               {{ template "page_title" "OpenRun Syncs" }}
-              <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0"><ul><li><a href="{{ .AppPath }}/syncs">Sync</a></li><li>new source</li></ul></nav>
+              <nav
+                aria-label="Breadcrumb"
+                class="breadcrumbs text-xs text-base-content/70 p-0">
+                <ul>
+                  <li><a href="{{ .AppPath }}/syncs">Sync</a></li>
+                  <li>new source</li>
+                </ul>
+              </nav>
               <h2 class="text-xl font-semibold">Add sync source</h2>
-              <p class="text-sm text-base-content/70">
+              <p class="page-desc text-sm text-base-content/70">
                 Apps declared in the source are created and kept updated
                 automatically
               </p>
@@ -29,7 +39,8 @@
             "Validated" .Data.Validated
             "Value" .Data.Values.path
             "Suffix" "can be applied"
-            "BreakAll" true) }}
+            "BreakAll" true)
+          }}
 
 
           <form
@@ -48,7 +59,7 @@
                     type="text"
                     required
                     value="{{ .Data.Values.path }}"
-                    placeholder="github.com/org/repo/apps.ace"
+                    placeholder="github.com/org/repo/apps.star"
                     class="input w-full font-mono text-sm" />
                   <p class="text-xs text-base-content/70 mt-1">
                     Git url (or server directory) of the apply file declaring
@@ -166,7 +177,8 @@
                   name="action"
                   value="validate"
                   {{ if index .Data.Perms "sync:create" }}
-                    title="Dry run: apply the source without committing any changes"
+                    title="Dry run: apply the source without committing any
+                    changes"
                   {{ else }}
                     disabled title="requires sync:create"
                   {{ end }}

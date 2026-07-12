@@ -13,15 +13,15 @@
       <div class="drawer-content">
         <main class="p-4 lg:p-6 space-y-4 max-w-6xl">
           <!-- Header -->
-          <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+          <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" }}
             <div>
               {{ template "page_title" "OpenRun Apps" }}
-              <p class="text-sm text-base-content/70">
+              <p class="page-desc text-sm text-base-content/70">
                 Deployed apps, grouped by the sync source managing them
               </p>
             </div>
-            <div class="ml-auto flex items-center gap-2">
+            <div class="page-actions ml-auto flex items-center gap-2">
               <label
                 class="input input-sm w-48 focus-within:w-60 transition-[width] duration-300 hidden sm:flex">
                 <kbd class="kbd kbd-xs" aria-hidden="true">⌘K</kbd>
@@ -104,9 +104,6 @@
                 </div>
               </button>
             </div>
-            <span class="text-xs text-base-content/70 ml-auto hidden md:inline self-end"
-              >auto-refresh 30s</span
-            >
           </div>
 
           {{ template "page_progress" }}
@@ -115,11 +112,7 @@
           <div
             id="app-groups"
             class="space-y-4"
-            hx-get="{{ .AppPath }}/apps"
-            hx-trigger="every 30s"
-            hx-swap="innerHTML transition:true"
-            hx-include="#page-search, #app-filter-value"
-            hx-indicator="#page-progress">
+>
             {{ block "app_groups" . }}
               {{ template "flash_alerts" .Data }}
               {{ if .Data.SyncResult }}

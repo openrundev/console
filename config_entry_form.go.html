@@ -14,7 +14,7 @@
       <div class="drawer-content">
         <main class="p-4 lg:p-6 space-y-4 max-w-2xl">
           <!-- Header -->
-          <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+          <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" }}
             <div>
               {{ template "page_title" "OpenRun Configuration" }}
@@ -47,7 +47,7 @@
                 {{ end }}
                 {{ .Data.Meta.title }} entry
               </h2>
-              <p class="text-sm text-base-content/70">
+              <p class="page-desc text-sm text-base-content/70">
                 {{ if eq .Data.Source "static" }}
                   Saving creates a dynamic entry which overrides the static
                   <span class="font-mono">openrun.toml</span> entry -
@@ -144,6 +144,26 @@
                       name="{{ .name }}"
                       rows="3"
                       class="textarea w-full font-mono text-sm leading-relaxed">{{ if $value }}{{ range $i, $item := $value }}{{ if $i }}&#10;{{ end }}{{ $item }}{{ end }}{{ end }}</textarea>
+                  {{ else if eq $kind "textarea" }}
+                    <label class="block text-sm font-medium mb-1" for="entry-{{ .name }}"
+                      >{{ .label }}</label
+                    >
+                    <textarea
+                      id="entry-{{ .name }}"
+                      name="{{ .name }}"
+                      rows="6"
+                      class="textarea w-full text-sm leading-relaxed">{{ if $value }}{{ $value }}{{ end }}</textarea>
+                  {{ else if eq $kind "kvtable" }}
+                    <span class="block text-sm font-medium mb-1">{{ .label }}</span>
+                    {{ template "kv_table" (dict "Field" .name
+                        "AppPath" $.AppPath
+                        "Prefix" (or $.Data.Meta.secret_prefix $.Data.Meta.section)
+                        "CanCreate" (index $.Data.Perms "secret:create")
+                        "CanDelete" (index $.Data.Perms "secret:delete")
+                        "Rows" (index $.Data.Values (printf "%s_rows" .name))
+                        "KeyPlaceholder" "KEY"
+                        "ValuePlaceholder" "value"
+                        "AddLabel" "Add variable") }}
                   {{ else if eq $kind "secret" }}
                     <label class="block text-sm font-medium mb-1" for="entry-{{ .name }}"
                       >{{ .label }}</label

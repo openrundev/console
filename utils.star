@@ -16,6 +16,7 @@ def features():
         "updates": param.enable_all or param.enable_updates,
         "container": param.enable_all or param.enable_container,
         "config": param.enable_all or param.enable_config,
+        "builder": param.enable_all or param.enable_builder,
     }
 
 
@@ -32,6 +33,7 @@ FEATURE_UPDATE_PERMS = [
     "secret:create", "secret:delete",
 ]
 FEATURE_CONFIG_PERMS = ["config:update"]
+FEATURE_BUILDER_PERMS = ["builder:create", "builder:publish"]
 
 
 def get_perms(path=""):
@@ -57,9 +59,14 @@ def get_perms(path=""):
         # config install
         for perm in FEATURE_CONFIG_PERMS:
             perms.pop(perm, None)
+    if not (flags["builder"] and flags["updates"]):
+        # Builder session/publish actions are writes: need both flags
+        for perm in FEATURE_BUILDER_PERMS:
+            perms.pop(perm, None)
     perms["feature:updates"] = flags["updates"]
     perms["feature:container"] = flags["container"]
     perms["feature:config"] = flags["config"]
+    perms["feature:builder"] = flags["builder"]
     return perms
 
 

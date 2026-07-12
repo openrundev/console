@@ -15,7 +15,7 @@
           <div id="container-content" class="space-y-4">
           {{ block "container_content" . }}
             <!-- Header -->
-            <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+            <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
               {{ template "hamburger" }}
               <div>
                 {{ template "page_title" "OpenRun Containers" }}
@@ -27,7 +27,7 @@
                     {{ .Data.Id }}
                   {{ end }}
                 </h2>
-                <p class="text-sm text-base-content/70">
+                <p class="page-desc text-sm text-base-content/70">
                   {{ if .Data.Container }}
                     {{ template "container_state" .Data.Container }}
                     {{ if .Data.Container.health }}
@@ -38,7 +38,7 @@
                   {{ end }}
                 </p>
               </div>
-              <div class="ml-auto flex items-center gap-2">
+              <div class="page-actions ml-auto flex items-center gap-2">
                 {{ if .Data.Container }}
                   {{ if .Data.Container.app_path }}
                     <a
@@ -109,8 +109,8 @@
                   role="group"
                   aria-label="Container statistics"
                   tabindex="0"
-                  class="stats stats-vertical sm:stats-horizontal shadow-sm border border-base-300 bg-base-100 w-full">
-                  <div class="stat py-3">
+                  class="stats grid grid-flow-row grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 shadow-sm border border-base-300 bg-base-100 w-full">
+                  <div class="stat px-4 py-2.5">
                     <div class="stat-figure text-primary">
                       <div
                         class="radial-progress"
@@ -118,12 +118,12 @@
                         aria-hidden="true"></div>
                     </div>
                     <div class="stat-title text-xs">CPU</div>
-                    <div class="stat-value text-lg font-mono">
+                    <div class="stat-value text-base font-mono">
                       {{ $c.stats.cpu_percent }}
                     </div>
                     <div class="stat-desc">of host cores</div>
                   </div>
-                  <div class="stat py-3">
+                  <div class="stat px-4 py-2.5">
                     <div class="stat-figure text-secondary">
                       <div
                         class="radial-progress"
@@ -131,46 +131,46 @@
                         aria-hidden="true"></div>
                     </div>
                     <div class="stat-title text-xs">Memory</div>
-                    <div class="stat-value text-lg font-mono">
+                    <div class="stat-value text-base font-mono">
                       {{ $c.stats.mem_percent }}
                     </div>
                     <div class="stat-desc font-mono">
                       {{ $c.stats.mem_usage }}
                     </div>
                   </div>
-                  <div class="stat py-3">
+                  <div class="stat px-4 py-2.5">
                     <div class="stat-figure text-accent">
                       <svg aria-hidden="true" focusable="false" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7" /><path d="M7 7h10v10" /><path d="M17 17H7V7" opacity="0" /><path d="m7 7-4 4 4 4" opacity="0" /></svg>
                     </div>
                     <div class="stat-title text-xs">Network I/O</div>
-                    <div class="stat-value text-lg font-mono">
+                    <div class="stat-value text-base font-mono">
                       {{ $c.stats.net_io }}
                     </div>
                     <div class="stat-desc">rx / tx</div>
                   </div>
-                  <div class="stat py-3">
+                  <div class="stat px-4 py-2.5">
                     <div class="stat-figure text-warning">
                       <svg aria-hidden="true" focusable="false" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M3 5v14a9 3 0 0 0 18 0V5" /><path d="M3 12a9 3 0 0 0 18 0" /></svg>
                     </div>
                     <div class="stat-title text-xs">Disk I/O</div>
-                    <div class="stat-value text-lg font-mono">
+                    <div class="stat-value text-base font-mono">
                       {{ $c.stats.block_io }}
                     </div>
                     <div class="stat-desc">read / write</div>
                   </div>
-                  <div class="stat py-3">
+                  <div class="stat px-4 py-2.5">
                     <div class="stat-title text-xs">PIDs</div>
-                    <div class="stat-value text-lg font-mono">
+                    <div class="stat-value text-base font-mono">
                       {{ $c.stats.pids }}
                     </div>
                     <div class="stat-desc">processes</div>
                   </div>
-                  <div class="stat py-3">
+                  <div class="stat px-4 py-2.5">
                     <div class="stat-figure text-info">
                       <svg aria-hidden="true" focusable="false" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12H3" /><path d="M5 12V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6" /><path d="M5 12v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" /><circle cx="17" cy="16" r=".5" /></svg>
                     </div>
                     <div class="stat-title text-xs">Disk usage</div>
-                    <div class="stat-value text-lg font-mono">
+                    <div class="stat-value text-base font-mono">
                       {{ $c.size_rw_human }}
                     </div>
                     <div class="stat-desc font-mono">
@@ -190,9 +190,9 @@
                   {{ else }}
                     <!-- Placeholder while the stats load -->
                     <div
-                      class="stats stats-vertical sm:stats-horizontal shadow-sm border border-base-300 bg-base-100 w-full">
+                      class="stats grid grid-flow-row grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 shadow-sm border border-base-300 bg-base-100 w-full">
                       {{ range $i := list 1 2 3 4 5 6 }}
-                        <div class="stat py-3">
+                        <div class="stat px-4 py-2.5">
                           <div class="skeleton h-3 w-16 mb-2"></div>
                           <div class="skeleton h-6 w-20"></div>
                         </div>

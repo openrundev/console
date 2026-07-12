@@ -12,11 +12,11 @@
       <div class="drawer-content">
         <main class="p-4 lg:p-6 space-y-4 max-w-6xl">
           <!-- Header -->
-          <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+          <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" }}
             <div>
               {{ template "page_title" "OpenRun Audit Logs" }}
-              <p class="text-sm text-base-content/70">
+              <p class="page-desc text-sm text-base-content/70">
                 HTTP, system and custom events recorded for every app
               </p>
             </div>
@@ -272,7 +272,7 @@
                           {{ if and $e.rid (ne $e.rid $.Data.Filters.rid) }}
                             <a
                               class="btn btn-xs btn-ghost btn-square"
-                              title="See all events for this request"
+                              title="Expand: all events for this request"
                               aria-label="Trace request {{ $e.rid }}"
                               href="{{ $.AppPath }}/audit?rid={{ $e.rid }}"
                               hx-get="{{ $.AppPath }}/audit?rid={{ $e.rid }}"
@@ -280,7 +280,7 @@
                               hx-swap="innerHTML"
                               hx-push-url="true"
                               hx-indicator="#page-progress">
-                              <svg aria-hidden="true" focusable="false" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+                              {{ template "drilldown_icon" }}
                             </a>
                           {{ end }}
                         </td>

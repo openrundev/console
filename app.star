@@ -15,6 +15,7 @@ load("handler.star",
      "config_git_data", "config_git_action_handler",
      "config_secrets_data", "config_secrets_action_handler",
      "config_system_data", "config_system_action_handler",
+     "config_builder_data", "config_builder_action_handler",
      "config_group_page_handler", "config_group_submit_handler",
      "config_role_page_handler", "config_role_submit_handler",
      "config_grant_page_handler", "config_grant_submit_handler",
@@ -26,7 +27,12 @@ load("handler.star",
      "bindings_update_page_handler", "bindings_update_submit_handler",
      "bindings_delete_handler", "services_create_page_handler",
      "services_create_submit_handler", "services_delete_handler",
-     "secrets_store_handler", "secrets_delete_handler")
+     "secrets_store_handler", "secrets_delete_handler",
+     "builder_data", "builder_create_page_handler", "builder_create_submit_handler",
+     "builder_detail_data", "builder_detail_action", "builder_delete_handler",
+     "builder_publish_handler", "builder_unpublish_handler",
+     "builder_events_handler", "builder_file_handler", "builder_rows_action",
+     "builder_download_handler")
 
 # OpenRun management console. Routes mirror the UI layout: one route per
 # screen, each screen template defines a partial block which HTMX requests
@@ -49,6 +55,7 @@ load("handler.star",
 ENABLE_UPDATES = param.enable_all or param.enable_updates
 ENABLE_CONTAINER = param.enable_all or param.enable_container
 ENABLE_CONFIG = param.enable_all or param.enable_config
+ENABLE_BUILDER = param.enable_all or param.enable_builder
 
 
 def error_handler(req, ret):
@@ -235,6 +242,10 @@ def build_routes():
                      fragments=[
                          ace.fragment("action", method="POST", handler=config_system_action_handler),
                      ] if ENABLE_UPDATES else []),
+            ace.html("/config/builder", full="config_page.go.html", partial="page_content", handler=config_builder_data,
+                     fragments=[
+                         ace.fragment("action", method="POST", handler=config_builder_action_handler),
+                     ] if ENABLE_UPDATES else []),
             ace.html("/config/rbac", full="config_rbac.go.html", partial="rbac_content", handler=config_rbac_data,
                      fragments=[
                          ace.fragment("action", method="POST", handler=config_rbac_action_handler),
@@ -261,6 +272,43 @@ def build_routes():
                          ace.fragment("", method="POST", handler=config_grant_submit_handler),
                      ]),
         ]
+
+    if ENABLE_BUILDER:
+        # AI app builder: sessions list, new-app form and the session
+        # workspace (chat + preview). Session mutations and publishing are
+        # writes: those fragments additionally need enable_updates
+        routes += [
+            ace.html("/builder", full="builder.go.html", partial="builder_rows", handler=builder_data,
+                     fragments=[
+                         ace.fragment("stop", method="POST", handler=lambda req: builder_rows_action(req, "stop")),
+                         ace.fragment("resume", method="POST", handler=lambda req: builder_rows_action(req, "resume")),
+                         ace.fragment("delete", method="POST", handler=lambda req: builder_rows_action(req, "delete")),
+                     ] if ENABLE_UPDATES else []),
+            ace.html("/builder/detail", full="builder_session.go.html", partial="session_content", handler=builder_detail_data,
+                     fragments=[
+                         ace.fragment("message", method="POST", handler=lambda req: builder_detail_action(req, "message")),
+                         ace.fragment("cancel", method="POST", handler=lambda req: builder_detail_action(req, "cancel")),
+                         ace.fragment("stop", method="POST", handler=lambda req: builder_detail_action(req, "stop")),
+                         ace.fragment("resume", method="POST", handler=lambda req: builder_detail_action(req, "resume")),
+                         ace.fragment("approve", method="POST", handler=lambda req: builder_detail_action(req, "approve")),
+                         ace.fragment("delete", method="POST", handler=builder_delete_handler),
+                         ace.fragment("publish", method="POST", handler=builder_publish_handler),
+                         ace.fragment("unpublish", method="POST", handler=builder_unpublish_handler),
+                     ] if ENABLE_UPDATES else []),
+            # Event stream consumed by the <builder-chat> element
+            ace.api("/builder/events", handler=builder_events_handler, type="TEXT"),
+            # Raw workspace file content for the <builder-files> viewer
+            ace.api("/builder/file", handler=builder_file_handler, type="TEXT"),
+            # Source zip download: redirects to a single-access temp file url
+            ace.html("/builder/download", full="builder_session.go.html", handler=builder_download_handler),
+        ]
+        if ENABLE_UPDATES:
+            routes += [
+                ace.html("/builder/create", full="builder_form.go.html", handler=builder_create_page_handler,
+                         fragments=[
+                             ace.fragment("", method="POST", handler=builder_create_submit_handler),
+                         ]),
+            ]
 
     if ENABLE_CONTAINER:
         # Containers list and detail; the stats/k8s fragments override the
@@ -355,6 +403,7 @@ def build_permissions():
         # Config changes are writes: need both flags
         permissions += [
             ace.permission("openrun_admin.in", "update_rbac_enabled"),
+            ace.permission("openrun_admin.in", "update_rbac_force"),
             ace.permission("openrun_admin.in", "set_rbac_group"),
             ace.permission("openrun_admin.in", "delete_rbac_group"),
             ace.permission("openrun_admin.in", "set_rbac_role"),
@@ -369,6 +418,32 @@ def build_permissions():
             ace.permission("openrun_admin.in", "delete_config_entry"),
             ace.permission("openrun_admin.in", "set_config_value"),
             ace.permission("openrun_admin.in", "delete_config_value"),
+        ]
+
+    if ENABLE_BUILDER:
+        permissions += [
+            ace.permission("build.in", "list_sessions"),
+            ace.permission("build.in", "get_session"),
+            ace.permission("build.in", "get_messages"),
+            ace.permission("build.in", "session_events"),
+            ace.permission("build.in", "list_files"),
+            ace.permission("build.in", "read_file"),
+            ace.permission("build.in", "get_source_zip"),
+            ace.permission("build.in", "get_publish_config"),
+            ace.permission("build.in", "list_activity"),
+        ]
+
+    if ENABLE_BUILDER and ENABLE_UPDATES:
+        # Builder session and publish actions are writes: need both flags
+        permissions += [
+            ace.permission("build.in", "create_session"),
+            ace.permission("build.in", "send_message"),
+            ace.permission("build.in", "cancel_turn"),
+            ace.permission("build.in", "stop_session"),
+            ace.permission("build.in", "resume_session"),
+            ace.permission("build.in", "delete_session"),
+            ace.permission("build.in", "publish_app"),
+            ace.permission("build.in", "unpublish_app"),
         ]
 
     if ENABLE_CONTAINER:

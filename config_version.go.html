@@ -11,7 +11,7 @@
       <div class="drawer-content">
         <main class="p-4 lg:p-6 space-y-4 max-w-6xl">
           <!-- Header -->
-          <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+          <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" }}
             <div>
               {{ template "page_title" "OpenRun Configuration" }}
@@ -25,7 +25,7 @@
               <h2 class="text-xl font-semibold font-mono break-all">
                 {{ .Data.Version }}
               </h2>
-              <p class="text-sm text-base-content/70">
+              <p class="page-desc text-sm text-base-content/70">
                 Dynamic config snapshot at this version
               </p>
             </div>

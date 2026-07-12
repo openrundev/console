@@ -11,7 +11,7 @@
       <div class="drawer-content">
         <main class="p-4 lg:p-6 space-y-4 max-w-2xl">
           <!-- Header -->
-          <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+          <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" }}
             <div>
               {{ template "page_title" "OpenRun Bindings" }}
@@ -24,7 +24,7 @@
                   <span class="font-mono">{{ .Data.Values.path }}</span>
                 {{ end }}
               </h2>
-              <p class="text-sm text-base-content/70">
+              <p class="page-desc text-sm text-base-content/70">
                 {{ if eq .Data.Mode "create" }}
                   Bind apps to a service or a base binding
                 {{ else }}

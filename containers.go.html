@@ -11,11 +11,11 @@
       <div class="drawer-content">
         <main class="p-4 lg:p-6 space-y-4 max-w-6xl">
           <!-- Header -->
-          <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+          <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" }}
             <div>
               {{ template "page_title" "OpenRun Containers" }}
-              <p class="text-sm text-base-content/70">
+              <p class="page-desc text-sm text-base-content/70">
                 {{ .Data.Total }} containers · {{ .Data.Running }} running
                 {{ if .Data.Runtime }}
                   <span class="badge badge-ghost badge-xs align-middle"
@@ -24,7 +24,7 @@
                 {{ end }}
               </p>
             </div>
-            <div class="ml-auto flex items-center gap-2">
+            <div class="page-actions ml-auto flex items-center gap-2">
               <label
                 class="input input-sm w-48 focus-within:w-60 transition-[width] duration-300 hidden sm:flex">
                 <kbd class="kbd kbd-xs" aria-hidden="true">⌘K</kbd>
@@ -78,6 +78,24 @@
                 data-filter="all" onclick="setAppFilter(this, 'all')">
                 All
               </button>
+              {{ if and .Data.Perms (index .Data.Perms "feature:builder") }}
+                <button
+                  class="btn btn-sm join-item transition-transform duration-150 active:scale-95 {{ if eq .Data.Filter "agent" }}btn-primary{{ end }}"
+                  aria-pressed="{{ if eq .Data.Filter "agent" }}true{{ else }}false{{ end }}"
+                  title="App builder AI agent containers"
+                  data-filter="agent" onclick="setAppFilter(this, 'agent')">
+                  Agents
+                </button>
+              {{ end }}
+              {{ if eq .Data.Runtime "kubernetes" }}
+                <button
+                  class="btn btn-sm join-item transition-transform duration-150 active:scale-95 {{ if eq .Data.Filter "kaniko" }}btn-primary{{ end }}"
+                  aria-pressed="{{ if eq .Data.Filter "kaniko" }}true{{ else }}false{{ end }}"
+                  title="Kaniko image build pods"
+                  data-filter="kaniko" onclick="setAppFilter(this, 'kaniko')">
+                  Image builds
+                </button>
+              {{ end }}
             </div>
             <span class="text-xs text-base-content/70 ml-auto hidden md:inline"
               >auto-refresh 30s</span
@@ -213,8 +231,7 @@
                           <th scope="col">State</th>
                           <th scope="col">Id</th>
                           <th scope="col" class="w-36">Container</th>
-                          <th scope="col" class="w-2/5">App</th>
-                          <th scope="col" class="hidden md:table-cell w-36">Image</th>
+                          <th scope="col" class="w-1/2">App</th>
                           <th scope="col" class="hidden lg:table-cell">Ports</th>
                           <th scope="col" class="hidden xl:table-cell">Status</th>
                           <th scope="col" class="text-right">Actions</th>
@@ -227,9 +244,9 @@
                               <a
                                 href="{{ $.AppPath }}/containers/detail?id={{ .id }}"
                                 class="btn btn-xs btn-ghost btn-square"
-                                title="{{ .name }} - details, stats and logs"
+                                title="Expand: {{ .name }} - details, stats and logs"
                                 aria-label="View details for container {{ .name }}">
-                                <svg aria-hidden="true" focusable="false" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+                                {{ template "drilldown_icon" }}
                               </a>
                             </td>
                             <td class="whitespace-nowrap">
@@ -251,7 +268,7 @@
                             </td>
                             <td>
                               {{ if .app_path }}
-                                <span class="font-mono text-xs break-all"
+                                <span class="font-mono text-xs break-all whitespace-normal"
                                   >{{ .app_path }}</span
                                 ><a
                                   href="{{ $.AppPath }}/apps/detail?path={{ .app_path }}"
@@ -270,11 +287,6 @@
                                   >-</span
                                 >
                               {{ end }}
-                            </td>
-                            <td
-                              class="font-mono text-xs text-base-content/70 hidden md:table-cell max-w-36 truncate"
-                              title="{{ .image }}">
-                              {{ .image }}
                             </td>
                             <td
                               class="font-mono text-xs text-base-content/70 hidden lg:table-cell whitespace-nowrap">
@@ -331,13 +343,6 @@
                                     </button>
                                   {{ end }}
                                 {{ end }}
-                                <a
-                                  href="{{ $.AppPath }}/containers/detail?id={{ .id }}"
-                                  class="btn btn-xs btn-ghost"
-                                  title="Details, stats and logs"
-                                  aria-label="Logs and details for container {{ .name }}">
-                                  logs <span aria-hidden="true">→</span>
-                                </a>
                               </div>
                             </td>
                           </tr>
@@ -360,11 +365,25 @@
                       </button>
                     {{ else }}
                       <span class="text-xl" aria-hidden="true">📦</span>
-                      <p>No containers are being managed</p>
-                      <p class="text-xs text-base-content/70">
-                        Apps with a container spec start containers when they
-                        serve requests
-                      </p>
+                      {{ if eq .Data.Filter "agent" }}
+                        <p>No agent containers are running</p>
+                        <p class="text-xs text-base-content/70">
+                          Agent containers start with a builder session and
+                          stop when it is idle or stopped
+                        </p>
+                      {{ else if eq .Data.Filter "kaniko" }}
+                        <p>No image builds are running</p>
+                        <p class="text-xs text-base-content/70">
+                          Kaniko pods run while a container app's image is
+                          being built and are cleaned up after
+                        </p>
+                      {{ else }}
+                        <p>No containers are being managed</p>
+                        <p class="text-xs text-base-content/70">
+                          Apps with a container spec start containers when they
+                          serve requests
+                        </p>
+                      {{ end }}
                     {{ end }}
                   </div>
                 </div>

@@ -1,0 +1,123 @@
+{{/* Builder new-app form (/builder/create) */}}
+<!DOCTYPE html>
+<html lang="en">
+  {{ template "head" . }}
+
+  <body class="min-h-screen bg-base-200">
+    <div class="drawer lg:drawer-open">
+      {{ template "drawer_toggle" }}
+
+      <div class="drawer-content">
+        <main class="p-4 lg:p-6 space-y-4 max-w-2xl">
+          <!-- Header -->
+          <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+            {{ template "hamburger" }}
+            <div>
+              {{ template "page_title" "OpenRun Builder" }}
+              <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0"><ul><li><a href="{{ .AppPath }}/builder">Builder</a></li><li>new app</li></ul></nav>
+              <h2 class="text-xl font-semibold">New app</h2>
+              <p class="page-desc text-sm text-base-content/70">
+                Describe the app; the agent scaffolds it and you refine it in
+                a chat with a live preview
+              </p>
+            </div>
+          </div>
+
+          {{ template "error_alert" .Data.Error }}
+
+          <form
+            method="post"
+            action="{{ .AppPath }}/builder/create"
+            class="card bg-base-100 border border-base-300">
+            <div class="card-body p-5 gap-5">
+              <div class="space-y-4">
+                <label class="form-control w-full">
+                  <div class="label"><span class="label-text">App name</span></div>
+                  <input
+                    type="text"
+                    name="name"
+                    required
+                    value="{{ .Data.Values.name }}"
+                    placeholder="Sales PTO tracker"
+                    class="input input-bordered w-full" />
+                </label>
+
+                <label class="form-control w-full">
+                  <div class="label">
+                    <span class="label-text">What should the app do?</span>
+                  </div>
+                  <textarea
+                    name="prompt"
+                    required
+                    rows="6"
+                    placeholder="A team PTO tracker: calendar view of who is out, a form to request time off, and a CSV export."
+                    class="textarea textarea-bordered w-full">{{ .Data.Values.prompt }}</textarea>
+                  <div class="label">
+                    <span class="label-text-alt text-base-content/70">
+                      This is the first message to the agent - the more
+                      specific, the better the first draft
+                    </span>
+                  </div>
+                </label>
+
+                <label class="form-control w-full">
+                  <div class="label"><span class="label-text">Framework</span></div>
+                  <select name="spec" class="select select-bordered w-full">
+                    <option value="">Let the agent choose</option>
+                    {{ range .Data.Specs }}
+                      <option value="{{ . }}" {{ if eq . $.Data.Values.spec }}selected{{ end }}>{{ . }}</option>
+                    {{ end }}
+                  </select>
+                </label>
+
+                {{ if .Data.Prompts }}
+                  <label class="form-control w-full">
+                    <div class="label"><span class="label-text">Prompt preset</span></div>
+                    <select name="prompt_preset" class="select select-bordered w-full">
+                      <option value="">None - default prompt</option>
+                      {{ range .Data.Prompts }}
+                        <option value="{{ .name }}" {{ if eq .name $.Data.Values.preset }}selected{{ end }}>
+                          {{ .name }}{{ if .description }} - {{ .description }}{{ end }}{{ if .replace }} (replaces system prompt){{ end }}{{ if .git_config }} [publishes to {{ .git_config }}]{{ end }}
+                        </option>
+                      {{ end }}
+                    </select>
+                    <div class="label">
+                      <span class="label-text-alt text-base-content/70">
+                        Admin-configured prompt added for this app (Configuration → App builder)
+                      </span>
+                    </div>
+                  </label>
+                {{ end }}
+
+                {{ if gt (len .Data.Agents) 1 }}
+                  <label class="form-control w-full">
+                    <div class="label"><span class="label-text">Agent profile</span></div>
+                    <select name="agent" class="select select-bordered w-full">
+                      {{ range .Data.Agents }}
+                        <option value="{{ . }}" {{ if eq . $.Data.DefaultAgent }}selected{{ end }}>{{ . }}</option>
+                      {{ end }}
+                    </select>
+                  </label>
+                {{ end }}
+              </div>
+
+              <div class="card-actions justify-end">
+                <a href="{{ .AppPath }}/builder" class="btn btn-ghost btn-sm">Cancel</a>
+                <button
+                  type="submit"
+                  class="btn btn-primary btn-sm transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "builder:create") }}btn-disabled{{ end }}"
+                  {{ if not (index .Data.Perms "builder:create") }}
+                    disabled title="requires builder:create"
+                  {{ end }}>
+                  Start building
+                </button>
+              </div>
+            </div>
+          </form>
+        </main>
+      </div>
+
+      {{ template "sidebar" . }}
+    </div>
+  </body>
+</html>

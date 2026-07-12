@@ -17,11 +17,11 @@
           <div id="config-content" class="space-y-4">
           {{ block "config_content" . }}
             <!-- Header -->
-            <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+            <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
               {{ template "hamburger" }}
               <div>
                 {{ template "page_title" "OpenRun Configuration" }}
-                <p class="text-sm text-base-content/70">
+                <p class="page-desc text-sm text-base-content/70">
                   Server configuration - entry changes are live immediately,
                   RBAC changes are staged on their own page
                 </p>

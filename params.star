@@ -7,3 +7,5 @@ param("enable_container", type=BOOLEAN, description="Whether to enable container
 param("enable_config", type=BOOLEAN, description="Whether to enable config operations", default=False)
 
 param("enable_all", type=BOOLEAN, description="Whether to enable everything : read and writes and container and config", default=False)
+
+param("enable_builder", type=BOOLEAN, description="Whether to enable the AI app builder screens", default=False)

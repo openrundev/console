@@ -1,5 +1,6 @@
 load("openrun.in", "openrun")
 load("openrun_admin.in", "openrun_admin")
+load("build.in", "build")
 load("utils.star", "query_param", "get_perms", "params_to_text",
      "parse_lines", "short_sha", "short_age", "human_size", "pct_num", "nonzero_time", "sort_recent",
      "flash_result", "parse_kv_rows", "kv_rows", "raw_kv_rows",
@@ -896,9 +897,11 @@ def services_delete_handler(req):
 
 
 def containers_data(req):
-    # Containers page: managed containers with state/search filters
+    # Containers page: managed containers with state/search filters, plus
+    # the app builder's agent containers and (on Kubernetes) kaniko image
+    # build pods as their own views
     query = query_param(req, "query").lower()
-    filter = query_param(req, "filter") or "running"  # running / exited / all
+    filter = query_param(req, "filter") or "running"  # running / exited / all / agent / kaniko
 
     data = {
         "Title": "Containers",
@@ -916,9 +919,32 @@ def containers_data(req):
     if ret.error:
         data["FlashError"] = ret.error
         return data
+    app_containers = ret.value
+
+    if filter in ("agent", "kaniko"):
+        # Runtime and counts still come from the managed list (drives the
+        # header and the kaniko tab visibility)
+        for entry in app_containers:
+            data["Total"] += 1
+            data["Runtime"] = entry["runtime"]
+            if entry["state"] == "running":
+                data["Running"] += 1
+        special = openrun.list_containers(type=filter)
+        error = special.error
+        if error:
+            data["FlashError"] = error
+            return data
+        containers = []
+        for entry in special.value:
+            if query and query not in entry["name"].lower() and \
+               query not in entry["app_path"].lower() and query not in entry["id"].lower():
+                continue
+            containers.append(entry)
+        data["Containers"] = sorted(containers, key=lambda c: c["name"])
+        return data
 
     containers = []
-    for entry in ret.value:
+    for entry in app_containers:
         data["Total"] += 1
         data["Runtime"] = entry["runtime"]
         running = entry["state"] == "running"
@@ -1195,6 +1221,80 @@ CONFIG_SECTIONS = [
         "secret_prefix": "secretmgr",
         "fields": [],
     },
+    {
+        "section": "builder_agent",
+        "title": "Agents profiles",
+        "desc": "AI agent profiles for the app builder",
+        "name_help": "agent type with optional _suffix: opencode, opencode_dev, claude, codex, pi, " +
+                     "or custom_<name> (custom needs dockerfile + command). The type comes from the name",
+        "fields": [
+            {"name": "dockerfile", "label": "Dockerfile path",
+             "help": "server path to a Dockerfile overriding the embedded one; required for custom_* agents"},
+            {"name": "command", "label": "ACP command", "kind": "list",
+             "help": "command speaking ACP on stdio, one argument per line; required for custom_* " +
+                     "agents, overrides the type default otherwise"},
+            {"name": "env", "label": "Container env", "kind": "kvtable",
+             "help": "environment variables set in the agent sandbox (API keys go here; " +
+                     "use the lock button to store a value as a {{secret ...}} reference)"},
+            {"name": "config_files", "label": "Config file mounts", "kind": "list",
+             "help": "host:container[:ro] mounts for agent config/auth files, one per line"},
+            {"name": "model", "label": "Model",
+             "help": "model passed to the agent at session start, in the agent's naming " +
+                     "(e.g. anthropic/claude-fable-5); empty uses the agent's default"},
+            {"name": "effort", "label": "Effort level",
+             "help": "reasoning effort passed to the agent at session start (e.g. low, medium, high); " +
+                     "empty uses the agent's default"},
+        ],
+    },
+    {
+        "section": "builder_prompt",
+        "title": "Builder prompt presets",
+        "desc": "named prompts users can pick when creating a builder app",
+        "name_help": "short name shown in the new-app form (e.g. internal_tool, dashboard)",
+        "fields": [
+            {"name": "prompt", "label": "Prompt", "kind": "textarea",
+             "help": "the preset text; appended to the system prompt, or replacing it when Replace is set"},
+            {"name": "replace", "label": "Replace the system prompt", "kind": "bool",
+             "help": "when set this preset replaces the system prompt entirely instead of being appended"},
+            {"name": "description", "label": "Description",
+             "help": "shown next to the preset in the new-app form"},
+            {"name": "git_config", "label": "Git destination",
+             "help": "builder_git entry apps created with this preset publish to; " +
+                     "empty uses the builder default git destination"},
+        ],
+    },
+    {
+        "section": "builder_publish",
+        "title": "Builder publish destinations",
+        "desc": "where builder apps may be published, set RBAC permissions in RBAC config",
+        "name_help": "short name for this destination (e.g. teams, tools)",
+        "fields": [
+            {"name": "path", "label": "App path glob",
+             "help": "e.g. /teams/* or example.com:/** - publish targets must match one destination. " +
+                     "No destinations configured means any path is allowed"},
+            {"name": "description", "label": "Description",
+             "help": "shown in the publish dialog, mention what RBAC rules will apply"},
+        ],
+    },
+    {
+        "section": "builder_git",
+        "title": "Builder git destinations",
+        "desc": "named git repos builder apps publish to; a prompt preset picks one via Git destination, " +
+                "else the builder default applies; no choice publishes locally",
+        "name_help": "short name for this repo (e.g. tools, prod)",
+        "fields": [
+            {"name": "repo", "label": "Repo",
+             "help": "git repo url for publish commits (e.g. github.com/org/apps)"},
+            {"name": "branch", "label": "Branch",
+             "help": "branch for publish commits; empty means main"},
+            {"name": "auth", "label": "Git auth",
+             "help": "git_auth entry for this repo; empty for public/unauthenticated"},
+            {"name": "apps_file", "label": "Apps file",
+             "help": "declarative file relative to the repo root; empty means apps.star"},
+            {"name": "source_dir", "label": "Source directory",
+             "help": "repo directory for published app sources; empty means apps"},
+        ],
+    },
 ]
 
 
@@ -1268,6 +1368,31 @@ CONFIG_PAGES = [
                      "reload - free form keys. Values are parsed as numbers/booleans when " +
                      "possible; use \"quotes\" to force a string",
              "placeholder": "key_name"},
+        ],
+    },
+    {
+        "page": "builder",
+        "title": "App builder",
+        "desc": "AI agent profiles, publish destinations and builder settings",
+        "entry_sections": ["builder_agent", "builder_git", "builder_publish", "builder_prompt"],
+        "settings": [
+            {"section": "app_builder", "key": "enabled", "label": "Enabled", "kind": "bool",
+             "help": "the AI app builder (Builder tab); needs a docker/podman runtime, not supported on Kubernetes"},
+            {"section": "app_builder", "key": "default_agent", "label": "Default agent",
+             "help": "builder_agent entry used when the user does not pick one"},
+            {"section": "app_builder", "key": "default_git_config", "label": "Default git destination",
+             "help": "builder_git entry used when the prompt preset does not pick one; " +
+                     "empty publishes locally to $OPENRUN_HOME/app_src"},
+            {"section": "app_builder", "key": "preview_path", "label": "Preview path prefix",
+             "help": "where draft preview apps are mounted"},
+            {"section": "app_builder", "key": "max_sessions", "label": "Max live sessions", "kind": "int",
+             "help": "concurrent agent sandboxes; further creates ask to stop an idle session"},
+            {"section": "app_builder", "key": "session_idle_mins", "label": "Session idle minutes", "kind": "int",
+             "help": "stop the agent sandbox after this idle time (the draft and transcript remain)"},
+            {"section": "app_builder", "key": "system_prompt", "label": "System prompt", "kind": "textarea",
+             "help": "replaces the embedded base prompt sent to the agent; leave empty for the built-in default"},
+            {"section": "app_builder", "key": "prompt_extra", "label": "Prompt additions", "kind": "textarea",
+             "help": "appended to the system prompt for every new session"},
         ],
     },
 ]
@@ -1345,12 +1470,20 @@ def rbac_section(rbac):
             "roles": grant.get("roles") or [],
             "targets": grant.get("targets") or [],
         })
+    force = rbac.get("force_rbac_when_enabled")
     return {
         "enabled": rbac.get("enabled") or False,
+        "force": True if force == None else force,
         "groups": groups,
         "roles": roles,
         "grants": grants,
     }
+
+
+def rbac_force_value(rbac):
+    # force_rbac_when_enabled with its absent-means-true default
+    force = rbac.get("force_rbac_when_enabled")
+    return True if force == None else force
 
 
 def rbac_diff(live, draft):
@@ -1368,8 +1501,9 @@ def rbac_diff(live, draft):
         "grants": len(draft.get("grants") or []) != len(live.get("grants") or []) or
                   (live.get("grants") or []) != (draft.get("grants") or []),
         "enabled": (live.get("enabled") or False) != (draft.get("enabled") or False),
+        "force": rbac_force_value(live) != rbac_force_value(draft),
     }
-    diff["any"] = bool(diff["groups"] or diff["roles"] or diff["grants"] or diff["enabled"])
+    diff["any"] = bool(diff["groups"] or diff["roles"] or diff["grants"] or diff["enabled"] or diff["force"])
     return diff
 
 
@@ -1688,6 +1822,14 @@ def config_system_action_handler(req):
     return config_page_action_handler(req, "system")
 
 
+def config_builder_data(req):
+    return config_page_data(req, "builder")
+
+
+def config_builder_action_handler(req):
+    return config_page_action_handler(req, "builder")
+
+
 def config_rbac_data(req):
     # RBAC sub page: live/staged groups/roles/grants tables with the staged
     # draft publish workflow
@@ -1740,6 +1882,10 @@ def config_rbac_action_handler(req):
         enabled = query_param(req, "enabled") == "true"
         ret = openrun_admin.update_rbac_enabled(enabled, draft_version)
         ok = "RBAC %s in the staged config - publish to apply" % ("enabled" if enabled else "disabled")
+    elif action == "toggle_force":
+        force = query_param(req, "force") == "true"
+        ret = openrun_admin.update_rbac_force(force, draft_version)
+        ok = "Force RBAC %s in the staged config - publish to apply" % ("enabled" if force else "disabled")
     elif action == "delete_group":
         ret = openrun_admin.delete_rbac_group(query_param(req, "name"), draft_version)
         ok = "Deleted group %s from the staged config" % query_param(req, "name")
@@ -1802,6 +1948,10 @@ def config_entry_page_handler(req):
         # Free-form entries edit as key/value rows; secret-ish values arrive
         # redacted and round-trip through the placeholder
         values = {"properties_rows": kv_rows(values)}
+    for field in meta["fields"]:
+        # kvtable fields edit their dict value as key/value rows
+        if field.get("kind") == "kvtable":
+            values[field["name"] + "_rows"] = kv_rows(values.get(field["name"]) or {})
     return config_entry_form_data(req, meta, name, values, source == "dynamic", source, "")
 
 
@@ -1839,6 +1989,21 @@ def config_entry_submit_handler(req):
             lines = parse_lines(raw)
             if lines:
                 values[field["name"]] = lines
+        elif kind == "textarea":
+            # multi-line text, newlines preserved
+            if raw.strip():
+                values[field["name"]] = raw
+        elif kind == "kvtable":
+            # key/value rows (kv_table template); the _rows key is for form
+            # re-render only and is stripped before the entry is saved
+            values[field["name"] + "_rows"] = raw_kv_rows(req, field["name"])
+            parsed, error = parse_kv_rows(req, field["name"])
+            if error:
+                return config_entry_form_data(req, meta, name, values, is_edit,
+                                              query_param(req, "source"),
+                                              "%s: %s" % (field["label"], error))
+            if parsed:
+                values[field["name"]] = parsed
         elif kind == "secret":
             if raw:
                 values[field["name"]] = raw
@@ -1848,7 +2013,8 @@ def config_entry_submit_handler(req):
         elif raw.strip():
             values[field["name"]] = raw.strip()
 
-    ret = openrun_admin.set_config_entry(section, name, values, query_param(req, "version_id"))
+    submit_values = {k: values[k] for k in values.keys() if not k.endswith("_rows")}
+    ret = openrun_admin.set_config_entry(section, name, submit_values, query_param(req, "version_id"))
     if ret.error:
         return config_entry_form_data(req, meta, name, values, is_edit, query_param(req, "source"), ret.error)
     return ace.redirect(req.AppPath + "/config/" + config_page_for_section(section))
@@ -2304,3 +2470,348 @@ def secrets_delete_handler(req):
     # Deleted: the field goes back to accepting a plain value
     data["Value"] = ""
     return data
+
+
+# ---------- Builder ----------
+
+
+def builder_publish_config(session_id=""):
+    # Publish setup (mode, allowed paths, agent profiles). Returns (config,
+    # error); config is None when the builder is not enabled server side.
+    # With session_id the mode/git fields reflect that session's git
+    # destination (its prompt preset may pick a builder_git entry)
+    ret = build.get_publish_config(session_id=session_id)
+    error = ret.error
+    if error:
+        return None, error
+    return ret.value, None
+
+
+def builder_data(req):
+    # Builder sessions list (/builder), filtered by the search query. Other
+    # users' sessions are included when the caller holds builder:read
+    perms = get_perms()
+    query = query_param(req, "query").strip().lower()
+    data = {"Title": "Builder", "Nav": "builder", "Perms": perms, "Query": query_param(req, "query"),
+            "Sessions": [], "Enabled": False, "Flash": "", "FlashError": ""}
+
+    config, error = builder_publish_config()
+    if error:
+        data["FlashError"] = error
+        return data
+    data["Enabled"] = config["enabled"]
+    data["PublishMode"] = config["mode"]
+    if not config["enabled"]:
+        return data
+
+    if perms.get("builder:read"):
+        ret = build.list_sessions(all_users=True)
+    else:
+        ret = build.list_sessions()
+    error = ret.error
+    if error:
+        data["FlashError"] = error
+        return data
+    sessions = ret.value
+    if query:
+        sessions = [s for s in sessions
+                    if query in s["name"].lower() or query in s["status"].lower() or
+                    query in s["preview_path"].lower() or query in s["publish_path"].lower() or
+                    query in s["agent"].lower() or query in s["user_id"].lower()]
+    data["Sessions"] = sessions
+    return data
+
+
+def builder_rows_action(req, action):
+    # Row actions on the sessions list re-render the list with a flash
+    id = query_param(req, "id").strip()
+    if not id:
+        return builder_data(req)
+    if action == "stop":
+        ret = build.stop_session(id)
+    elif action == "resume":
+        ret = build.resume_session(id)
+    else:
+        ret = build.delete_session(id)
+    error = ret.error
+    data = builder_data(req)
+    if error:
+        data["FlashError"] = error
+    else:
+        data["Flash"] = "Session %s %s" % (id, "deleted" if action == "delete" else action + (
+            "ped" if action == "stop" else "d"))
+    return data
+
+
+def builder_create_page_handler(req):
+    # New app form (/builder/create)
+    data = {"Title": "Builder", "Nav": "builder", "Perms": get_perms(),
+            "Specs": [], "Agents": [], "DefaultAgent": "", "Values": {}}
+    config, error = builder_publish_config()
+    if error:
+        data["Error"] = error
+        return data
+    data["Agents"] = config["agents"]
+    data["DefaultAgent"] = config["default_agent"]
+    data["Enabled"] = config["enabled"]
+    data["Prompts"] = config["prompts"]
+
+    ret = openrun.list_specs()
+    error = ret.error
+    if not error:
+        data["Specs"] = [s for s in ret.value if s != "dummy"]
+    return data
+
+
+def builder_create_submit_handler(req):
+    # Create the session and go to its workspace; generation continues
+    # asynchronously and streams into the chat
+    data = builder_create_page_handler(req)
+    name = query_param(req, "name").strip()
+    prompt = query_param(req, "prompt").strip()
+    spec = query_param(req, "spec").strip()
+    agent = query_param(req, "agent").strip()
+    preset = query_param(req, "prompt_preset").strip()
+    data["Values"] = {"name": name, "prompt": prompt, "spec": spec, "agent": agent, "preset": preset}
+    if not name or not prompt:
+        data["Error"] = "Name and app description are required"
+        return data
+
+    ret = build.create_session(name=name, prompt=prompt, spec=spec, agent=agent, prompt_preset=preset)
+    error = ret.error
+    if error:
+        data["Error"] = error
+        return data
+    # Plain form post: a real redirect, not HX-Redirect
+    return ace.redirect("%s/builder/detail?id=%s" % (req.AppPath, ret.value["id"]))
+
+
+def builder_detail_data(req):
+    # Session workspace (/builder/detail?id=...): transcript, preview and
+    # publish state. The chat pane live-updates over the event stream; this
+    # page render is the durable transcript
+    id = query_param(req, "id").strip()
+    data = {"Title": "Builder", "Nav": "builder", "Perms": get_perms(), "Id": id,
+            "Flash": "", "FlashError": "", "PublishResult": None}
+    if not id:
+        data["Error"] = "session id is required"
+        return data
+
+    config, error = builder_publish_config(session_id=id)
+    if error:
+        data["Error"] = error
+        return data
+    data["PublishMode"] = config["mode"]
+    data["PublishPaths"] = config["publish_paths"]
+    data["GitRepo"] = config["git_repo"]
+
+    ret = build.get_session(id)
+    error = ret.error
+    if error:
+        data["Error"] = error
+        return data
+    data["Session"] = ret.value
+
+    ret = build.get_messages(id)
+    error = ret.error
+    if error:
+        data["Error"] = error
+        return data
+    # Fold runs of consecutive tool calls into one line of chips (read ×2,
+    # write, edit ...) and consecutive lifecycle rows into one muted line,
+    # so tool bursts and restart churn do not pad the transcript
+    merged = []
+    for msg in ret.value["messages"]:
+        if msg["kind"] in ("tool_call", "lifecycle") and merged and merged[-1]["kind"] == msg["kind"]:
+            parts = merged[-1]["parts"]
+            if parts[-1]["text"] == msg["content"]:
+                parts[-1]["count"] += 1
+            else:
+                parts.append({"text": msg["content"], "count": 1})
+        else:
+            entry = dict(msg)
+            entry["count"] = 1
+            if msg["kind"] in ("tool_call", "lifecycle"):
+                entry["parts"] = [{"text": msg["content"], "count": 1}]
+            merged.append(entry)
+    data["Messages"] = merged
+    data["IsLive"] = ret.value["is_live"]
+    data["TurnActive"] = ret.value["turn_active"]
+    data["Partial"] = ret.value["partial"]
+
+    ret = build.list_files(id)
+    error = ret.error
+    data["Files"] = [] if error else ret.value
+    data["FileTree"] = build_file_tree(data["Files"])
+
+    # Link the chat header to the sandbox's container detail page (the
+    # builder container list carries the session id in app_path). Needs the
+    # containers screens enabled and a live sandbox
+    data["SandboxContainerId"] = ""
+    if data["IsLive"] and data["Perms"].get("feature:container"):
+        ret = openrun.list_containers(type="agent")
+        error = ret.error
+        if not error:
+            for entry in ret.value:
+                if entry["app_path"] == id:
+                    data["SandboxContainerId"] = entry["id"]
+
+    # Explain a missing preview: no app.star means OpenRun cannot load the
+    # workspace; a failed creation attempt is in the activity log
+    data["HasAppStar"] = "app.star" in data["Files"]
+    data["PreviewError"] = ""
+    if not data["Session"]["preview_path"]:
+        for msg in data["Messages"]:
+            if msg["kind"] == "error" and "preview app" in msg["content"]:
+                data["PreviewError"] = msg["content"]
+    return data
+
+
+def builder_detail_action(req, action):
+    # Session workspace actions re-render the workspace with a flash
+    id = query_param(req, "id").strip()
+    flash = ""
+    error = None
+    if action == "message":
+        message = query_param(req, "message").strip()
+        if message:
+            ret = build.send_message(id, message=message)
+            error = ret.error
+    elif action == "cancel":
+        ret = build.cancel_turn(id)
+        error = ret.error
+        flash = "Stop requested"
+    elif action == "stop":
+        ret = build.stop_session(id)
+        error = ret.error
+        flash = "Sandbox stopped"
+    elif action == "resume":
+        ret = build.resume_session(id)
+        error = ret.error
+        flash = "Sandbox resuming"
+    elif action == "approve":
+        ret = build.get_session(id)
+        error = ret.error
+        if not error and ret.value["preview_path"]:
+            approve_ret = openrun_admin.approve_apps(ret.value["preview_path"])
+            error = approve_ret.error
+            flash = "Preview app permissions approved"
+        elif not error:
+            error = "no preview app yet"
+
+    data = builder_detail_data(req)
+    if error:
+        data["FlashError"] = error
+    elif flash:
+        data["Flash"] = flash
+    return data
+
+
+def builder_delete_handler(req):
+    # Delete the draft (workspace, preview app, sandbox) and go back to the
+    # list. Published entries stay until unpublished; the dialog says so
+    id = query_param(req, "id").strip()
+    ret = build.delete_session(id)
+    error = ret.error
+    if error:
+        data = builder_detail_data(req)
+        data["FlashError"] = error
+        return data
+    data = {"Title": "Builder", "Nav": "builder", "Perms": get_perms()}
+    return ace.response(data, "builder_session.go.html",
+                        redirect=req.AppPath + "/builder")
+
+
+def builder_publish_handler(req):
+    # Publish: a configured destination (its glob's fixed part + the app
+    # name) or a custom domain/path entered free-form
+    id = query_param(req, "id").strip()
+    choice = query_param(req, "publish_choice").strip()
+    commit_msg = query_param(req, "commit_msg").strip()
+
+    if choice == "__custom__" or choice == "":
+        path = query_param(req, "custom_path").strip()
+    elif choice == "__same__":
+        # republish to the current publish path
+        path = query_param(req, "current_path").strip()
+    else:
+        # The choice is a destination glob; its fixed part (up to the first
+        # wildcard) plus the app name forms the path. A glob without
+        # wildcards is used as is
+        suffix = query_param(req, "publish_suffix").strip()
+        fixed = choice.split("*")[0]
+        if "*" in choice:
+            path = fixed.rstrip("/") + "/" + suffix.strip("/")
+        else:
+            path = choice
+    ret = build.publish_app(id, path=path, commit_msg=commit_msg)
+    error = ret.error
+    data = builder_detail_data(req)
+    if error:
+        data["FlashError"] = error
+        return data
+    data["PublishResult"] = ret.value
+    data["Flash"] = "Published to " + ret.value["publish_path"]
+    return data
+
+
+def builder_unpublish_handler(req):
+    id = query_param(req, "id").strip()
+    ret = build.unpublish_app(id)
+    error = ret.error
+    data = builder_detail_data(req)
+    if error:
+        data["FlashError"] = error
+        return data
+    data["Flash"] = "Unpublished " + ret.value["publish_path"]
+    return data
+
+
+def build_file_tree(files):
+    # Flatten the sorted file list into explorer rows: directory header rows
+    # for each new directory prefix, then file rows, both carrying the
+    # nesting depth for indentation
+    rows = []
+    seen_dirs = {}
+    for path in sorted(files):
+        parts = path.split("/")
+        for i in range(1, len(parts)):
+            dir_path = "/".join(parts[:i])
+            if dir_path not in seen_dirs:
+                seen_dirs[dir_path] = True
+                rows.append({"name": parts[i - 1], "path": dir_path, "depth": i - 1, "is_dir": True})
+        rows.append({"name": parts[-1], "path": path, "depth": len(parts) - 1, "is_dir": False})
+    return rows
+
+
+def builder_file_handler(req):
+    # Streaming TEXT route: raw content of one workspace file, rendered by
+    # the <builder-files> viewer (client side syntax highlighting)
+    id = query_param(req, "id").strip()
+    path = query_param(req, "path").strip()
+    ret = build.read_file(id, path)
+    if ret.error:
+        return "error: %s" % ret.error
+    return ret.value
+
+
+def builder_download_handler(req):
+    # Bundle the workspace source into a zip and redirect to the
+    # single-access download url; errors render the session page with a flash
+    ret = build.get_source_zip(query_param(req, "id").strip())
+    error = ret.error
+    if error:
+        data = builder_detail_data(req)
+        data["FlashError"] = "Source download failed: " + error
+        return data
+    return ace.redirect(ret.value["url"])
+
+
+def builder_events_handler(req):
+    # Streaming TEXT route: session events as JSON lines, consumed by the
+    # <builder-chat> element until the sandbox stops or the client leaves
+    id = query_param(req, "id").strip()
+    ret = build.session_events(id)
+    if ret.error:
+        return "error: %s" % ret.error
+    return ret

@@ -11,16 +11,16 @@
       <div class="drawer-content">
         <main class="p-4 lg:p-6 space-y-4 max-w-6xl">
           <!-- Header -->
-          <div class="flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+          <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" }}
             <div>
               {{ template "page_title" "OpenRun Syncs" }}
-              <p class="text-sm text-base-content/70">
+              <p class="page-desc text-sm text-base-content/70">
                 Declarative sources of truth - apps are created and updated
                 from these repos
               </p>
             </div>
-            <div class="ml-auto flex items-center gap-2">
+            <div class="page-actions ml-auto flex items-center gap-2">
               <label
                 class="input input-sm w-48 focus-within:w-60 transition-[width] duration-300 hidden sm:flex">
                 <kbd class="kbd kbd-xs" aria-hidden="true">⌘K</kbd>
@@ -54,12 +54,7 @@
           <!-- Sync source rows -->
           <div
             id="sync-rows"
-            class="space-y-4"
-            hx-get="{{ .AppPath }}/syncs"
-            hx-trigger="every 30s"
-            hx-swap="innerHTML transition:true"
-            hx-include="#page-search"
-            hx-indicator="#page-progress">
+            class="space-y-4">
             {{ block "sync_rows" . }}
               {{ template "flash_alerts" .Data }}
               {{ if .Data.SyncResult }}
@@ -89,9 +84,9 @@
                               <a
                                 href="{{ $.AppPath }}/syncs/detail?id={{ .id }}"
                                 class="btn btn-xs btn-ghost btn-square"
-                                title="{{ .repo }} - details and last run results"
+                                title="Expand: {{ .repo }} - details and last run results"
                                 aria-label="View details for sync {{ .repo }}">
-                                <svg aria-hidden="true" focusable="false" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+                                {{ template "drilldown_icon" }}
                               </a>
                             </td>
                             <td class="whitespace-nowrap">

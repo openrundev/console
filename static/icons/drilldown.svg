@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+  <!-- Drill-down indicator used as the first column of every table: a
+       circled chevron in the OpenRun brand primary green (same value in
+       both themes), so the click-in affordance stands out from plain text -->
+  <circle cx="12" cy="12" r="10" fill="#00c200" fill-opacity="0.14" stroke="#00c200" stroke-opacity="0.45" stroke-width="1.5" />
+  <path d="m10 8 4.5 4L10 16" stroke="#00c200" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+</svg>
