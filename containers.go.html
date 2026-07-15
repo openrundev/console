@@ -308,7 +308,7 @@
                                     <button
                                       class="btn btn-xs btn-ghost text-error"
                                       aria-label="Stop container {{ .name }}"
-                                      {{ if index $.Data.Perms "feature:updates" }}
+                                      {{ if and (index $.Data.Perms "feature:updates") (or (index $.Data.Perms "container:manage") (index $.Data.Perms "admin")) }}
                                         title="Stop container"
                                         hx-post="{{ $.AppPath }}/containers/lifecycle"
                                         hx-vals='{"id": "{{ .id }}", "action": "stop"}'
@@ -318,8 +318,10 @@
                                         hx-include="#page-search, #app-filter-value"
                                         hx-disabled-elt="this"
                                         hx-indicator="#page-progress"
-                                      {{ else }}
+                                      {{ else if not (index $.Data.Perms "feature:updates") }}
                                         disabled title="updates are disabled for this console install"
+                                      {{ else }}
+                                        disabled title="requires the container:manage or admin permission"
                                       {{ end }}>
                                       stop
                                     </button>
@@ -327,7 +329,7 @@
                                     <button
                                       class="btn btn-xs btn-ghost text-primary"
                                       aria-label="Start container {{ .name }}"
-                                      {{ if index $.Data.Perms "feature:updates" }}
+                                      {{ if and (index $.Data.Perms "feature:updates") (or (index $.Data.Perms "container:manage") (index $.Data.Perms "admin")) }}
                                         title="Start container"
                                         hx-post="{{ $.AppPath }}/containers/lifecycle"
                                         hx-vals='{"id": "{{ .id }}", "action": "start"}'
@@ -336,8 +338,10 @@
                                         hx-include="#page-search, #app-filter-value"
                                         hx-disabled-elt="this"
                                         hx-indicator="#page-progress"
-                                      {{ else }}
+                                      {{ else if not (index $.Data.Perms "feature:updates") }}
                                         disabled title="updates are disabled for this console install"
+                                      {{ else }}
+                                        disabled title="requires the container:manage or admin permission"
                                       {{ end }}>
                                       start
                                     </button>

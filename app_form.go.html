@@ -68,8 +68,8 @@
                 type="submit"
                 name="action"
                 value="approve"
-                {{ if not (index .Data.Perms "app:approve") }}
-                  disabled title="requires app:approve"
+                {{ if not (or (index .Data.Perms "app:approve") (index .Data.Perms "admin")) }}
+                  disabled title="requires the app:approve permission"
                 {{ end }}
                 class="btn btn-primary btn-sm transition-transform duration-150 active:scale-95">
                 Approve permissions

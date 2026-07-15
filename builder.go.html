@@ -93,7 +93,12 @@
                                 {{ template "drilldown_icon" }}
                               </a>
                             </td>
-                            <td class="font-medium break-words whitespace-normal" style="min-width: 11rem; max-width: 18rem">{{ .name }}</td>
+                            <td class="font-medium break-words whitespace-normal" style="min-width: 11rem; max-width: 18rem">
+                              {{ .name }}
+                              {{ if .edit_app }}
+                                <span class="block font-mono text-xs text-base-content/70 font-normal">edits {{ .edit_app }}</span>
+                              {{ end }}
+                            </td>
                             <td>{{ template "builder_status_badge" .status }}</td>
                             <td class="hidden md:table-cell">
                               {{ if .preview_path }}

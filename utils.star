@@ -31,6 +31,7 @@ FEATURE_UPDATE_PERMS = [
     "binding:create", "binding:update", "binding:delete",
     "service:create", "service:update", "service:delete",
     "secret:create", "secret:delete",
+    "admin", # super-user; masked here so write-gated buttons disable on view-only installs
 ]
 FEATURE_CONFIG_PERMS = ["config:update"]
 FEATURE_BUILDER_PERMS = ["builder:create", "builder:publish"]
@@ -67,7 +68,20 @@ def get_perms(path=""):
     perms["feature:container"] = flags["container"]
     perms["feature:config"] = flags["config"]
     perms["feature:builder"] = flags["builder"]
+    # feature:system_blocked is set when the caller cannot use the privileged
+    # system plugins (openrun_admin, build): an anonymous user with the default
+    # security.unsafe_allow_system_plugins_anon=false. The layout shows a
+    # prominent banner; management actions would otherwise fail server-side
+    allowed = openrun.system_plugins_allowed()
+    perms["feature:system_blocked"] = (not allowed.error) and (not allowed.value)
     return perms
+
+
+def docs_link(page):
+    # Absolute URL of a documentation page for the page-header help links.
+    # The docs_url install param points the links at another docs location
+    # (e.g. an internal mirror); page is the site-absolute path ("/docs/...")
+    return param.docs_url.strip().rstrip("/") + page
 
 
 def query_param_list(req, key):

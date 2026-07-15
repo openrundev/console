@@ -65,9 +65,6 @@
                     {{ if .Data.Diff.enabled }}
                       enabled flag,
                     {{ end }}
-                    {{ if .Data.Diff.force }}
-                      force RBAC flag,
-                    {{ end }}
                     {{ if .Data.Diff.groups }}
                       groups: {{ range $i, $n := .Data.Diff.groups }}{{ if $i }},
                         {{ end }}<span class="font-mono text-xs">{{ $n }}</span>
@@ -195,7 +192,7 @@
                       {{ if $canEdit }}
                         hx-post="{{ .AppPath }}/config/rbac/action"
                         hx-vals='{"action": "toggle_enabled", "enabled": "{{ if $view.enabled }}false{{ else }}true{{ end }}", "draft_version": "{{ .Data.DraftVersion }}"}'
-                        hx-confirm="{{ if $view.enabled }}Stage disabling RBAC? After publish, API access control stops being enforced.{{ else }}Stage enabling RBAC? After publish, users without grants lose access to apps with rbac: auth. Admin access always works.{{ end }}"
+                        hx-confirm="{{ if $view.enabled }}Stage disabling RBAC? After publish, API access control stops being enforced.{{ else }}Stage enabling RBAC? After publish, RBAC applies to every app and users without grants lose access. Admin access always works.{{ end }}"
                         hx-target="#rbac-content"
                         hx-swap="innerHTML transition:true"
                         hx-disabled-elt="this"
@@ -204,45 +201,6 @@
                         disabled title="{{ $editTitle }}"
                       {{ end }}>
                       {{ if $view.enabled }}
-                        Disable
-                      {{ else }}
-                        Enable
-                      {{ end }}
-                      (staged)
-                    </button>
-                  {{ end }}
-                </div>
-
-                <!-- Force RBAC: with the flag on (default), enabled RBAC
-                     applies to every app; with it off only rbac: prefixed
-                     app auth is enforced -->
-                <div class="flex items-center gap-2 px-4 py-2 border-b border-base-300 flex-wrap">
-                  <h3 class="text-sm font-medium">Force RBAC for all apps</h3>
-                  <span class="text-xs text-base-content/70">
-                    when enabled, RBAC applies to every app as if its auth had
-                    the <span class="font-mono">rbac:</span> prefix; when off,
-                    only <span class="font-mono">rbac:</span> prefixed apps are
-                    enforced
-                  </span>
-                  {{ if $viewLive }}
-                    <span class="text-xs text-base-content/70 ml-auto">
-                      {{ if $view.force }}Enabled{{ else }}Disabled{{ end }}
-                    </span>
-                  {{ else }}
-                    <button
-                      class="btn btn-xs btn-outline ml-auto"
-                      {{ if $canEdit }}
-                        hx-post="{{ .AppPath }}/config/rbac/action"
-                        hx-vals='{"action": "toggle_force", "force": "{{ if $view.force }}false{{ else }}true{{ end }}", "draft_version": "{{ .Data.DraftVersion }}"}'
-                        hx-confirm="{{ if $view.force }}Stage limiting RBAC to rbac: prefixed apps? After publish, apps without the prefix stop being enforced.{{ else }}Stage forcing RBAC for all apps? After publish, every app is enforced regardless of its auth prefix.{{ end }}"
-                        hx-target="#rbac-content"
-                        hx-swap="innerHTML transition:true"
-                        hx-disabled-elt="this"
-                        hx-indicator="#page-progress"
-                      {{ else }}
-                        disabled title="{{ $editTitle }}"
-                      {{ end }}>
-                      {{ if $view.force }}
                         Disable
                       {{ else }}
                         Enable

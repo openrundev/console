@@ -19,11 +19,11 @@
               {{ template "hamburger" }}
               <div>
                 {{ template "page_title" "OpenRun Syncs" }}
-                <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0">
+                <div class="flex items-center gap-2"><nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0">
                   <ul>
                     <li><a href="{{ .AppPath }}/syncs">Syncs</a></li>
                     <li class="font-mono">{{ .Data.Id }}</li>
-                  </ul></nav>
+                  </ul></nav>{{ template "help_link" .Data.HelpUrl }}</div>
                 <h2 class="text-xl font-semibold font-mono break-all">
                   {{ if .Data.Sync }}{{ .Data.Sync.repo }}{{ else }}{{ .Data.Id }}{{ end }}
                 </h2>

@@ -19,7 +19,7 @@
               {{ template "hamburger" }}
               <div>
                 {{ template "page_title" "OpenRun Containers" }}
-                <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0"><ul><li><a href="{{ .AppPath }}/containers">Containers</a></li><li class="font-mono">{{ if .Data.Container }}{{ trunc 24 .Data.Container.name }}…{{ else }}detail{{ end }}</li></ul></nav>
+                <div class="flex items-center gap-2"><nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0"><ul><li><a href="{{ .AppPath }}/containers">Containers</a></li><li class="font-mono">{{ if .Data.Container }}{{ trunc 24 .Data.Container.name }}…{{ else }}detail{{ end }}</li></ul></nav>{{ template "help_link" .Data.HelpUrl }}</div>
                 <h2 class="text-xl font-semibold font-mono break-all">
                   {{ if .Data.Container }}
                     {{ .Data.Container.name }}
@@ -51,7 +51,7 @@
                     {{ if eq .Data.Container.state "running" }}
                       <button
                         class="btn btn-sm btn-outline btn-error transition-transform duration-150 active:scale-95"
-                        {{ if index .Data.Perms "feature:updates" }}
+                        {{ if and (index .Data.Perms "feature:updates") (or (index .Data.Perms "container:manage") (index .Data.Perms "admin")) }}
                           hx-post="{{ .AppPath }}/containers/detail/lifecycle"
                           hx-vals='{"id": "{{ .Data.Id }}", "action": "stop"}'
                           hx-confirm="Stop container {{ .Data.Container.name }}? The app will be unavailable until it is started again."
@@ -59,23 +59,27 @@
                           hx-swap="innerHTML transition:true"
                           hx-disabled-elt="this"
                           hx-indicator="#page-progress"
-                        {{ else }}
+                        {{ else if not (index .Data.Perms "feature:updates") }}
                           disabled title="updates are disabled for this console install"
+                        {{ else }}
+                          disabled title="requires the container:manage or admin permission"
                         {{ end }}>
                         Stop
                       </button>
                     {{ else }}
                       <button
                         class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95"
-                        {{ if index .Data.Perms "feature:updates" }}
+                        {{ if and (index .Data.Perms "feature:updates") (or (index .Data.Perms "container:manage") (index .Data.Perms "admin")) }}
                           hx-post="{{ .AppPath }}/containers/detail/lifecycle"
                           hx-vals='{"id": "{{ .Data.Id }}", "action": "start"}'
                           hx-target="#container-content"
                           hx-swap="innerHTML transition:true"
                           hx-disabled-elt="this"
                           hx-indicator="#page-progress"
-                        {{ else }}
+                        {{ else if not (index .Data.Perms "feature:updates") }}
                           disabled title="updates are disabled for this console install"
+                        {{ else }}
+                          disabled title="requires the container:manage or admin permission"
                         {{ end }}>
                         Start
                       </button>

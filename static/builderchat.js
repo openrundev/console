@@ -151,6 +151,18 @@
 				if (!this.composer || !this.composer.contains(e.target)) return;
 				if (e.target.matches('[data-builder-cancel]')) return;
 				if (!e.detail.successful) return;
+				// A rejected send (agent busy, session still starting) comes
+				// back HTTP 200 with HX-Retarget and the rendered error block;
+				// keep the text in the composer and skip the bubble, or the
+				// chat would sit on a typing indicator that never resolves.
+				// The swap is done here: htmx does not override the form's
+				// hx-swap=none from the HX-Reswap header
+				const errSlot = document.getElementById('bc-send-error');
+				if (e.detail.xhr && e.detail.xhr.getResponseHeader('HX-Retarget')) {
+					if (errSlot) errSlot.innerHTML = e.detail.xhr.responseText;
+					return;
+				}
+				if (errSlot) errSlot.innerHTML = '';
 				const area = this.composer.querySelector('textarea[name=message]');
 				if (area && area.value.trim()) {
 					this.appendBubble('chat-end chat-bubble-primary', area.value.trim());
@@ -194,7 +206,15 @@
 				});
 			}
 
-			this.connect();
+			// Only stream when the session has a running sandbox. A detached
+			// or published session has no live sandbox, so the event stream
+			// would immediately return "no running sandbox" - the transcript
+			// is already rendered and Resume re-establishes the stream
+			if (this.hasAttribute('live')) {
+				this.connect();
+			} else {
+				this.setStatus('Sandbox stopped - resume to continue');
+			}
 			this.scrollToEnd();
 		}
 
@@ -410,7 +430,12 @@
 						buf = buf.slice(idx + 1);
 						if (!line) continue;
 						if (line.startsWith('error:')) {
-							this.setStatus(line);
+							// The sandbox is gone (stopped/reaped between render
+							// and connect). Show a clean resume hint, not the
+							// raw "no running sandbox" error
+							this.setStatus(/no running sandbox/.test(line)
+								? 'Sandbox stopped - resume to continue'
+								: line);
 							return; // session not live; no reconnect
 						}
 						try {

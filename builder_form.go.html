@@ -15,10 +15,15 @@
             <div>
               {{ template "page_title" "OpenRun Builder" }}
               <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0"><ul><li><a href="{{ .AppPath }}/builder">Builder</a></li><li>new app</li></ul></nav>
-              <h2 class="text-xl font-semibold">New app</h2>
+              <h2 class="text-xl font-semibold">{{ if .Data.EditApp }}Edit app{{ else }}New app{{ end }}</h2>
               <p class="page-desc text-sm text-base-content/70">
-                Describe the app; the agent scaffolds it and you refine it in
-                a chat with a live preview
+                {{ if .Data.EditApp }}
+                  Describe the change; the agent modifies the app source and
+                  you refine it in a chat with a live preview
+                {{ else }}
+                  Describe the app; the agent scaffolds it and you refine it in
+                  a chat with a live preview
+                {{ end }}
               </p>
             </div>
           </div>
@@ -30,9 +35,27 @@
             action="{{ .AppPath }}/builder/create"
             class="card bg-base-100 border border-base-300">
             <div class="card-body p-5 gap-5">
-              <div class="space-y-4">
+              <div class="flex flex-col gap-4">
+                {{ if .Data.EditApp }}
+                  <div class="alert py-2 text-sm" role="note">
+                    <span>
+                      {{ if .Data.EditPublished }}
+                        Editing <span class="font-mono">{{ .Data.EditApp }}</span> -
+                        the session starts from the app's current source. Publishing
+                        updates the source only; the app declaration in apps.star is
+                        not changed.
+                      {{ else }}
+                        Editing a copy of <span class="font-mono">{{ .Data.EditApp }}</span>,
+                        which was not published by the app builder. Publishing creates a
+                        NEW app (the original app is not changed); its settings - auth,
+                        params, bindings - are copied over, with fresh auto bindings.
+                      {{ end }}
+                    </span>
+                  </div>
+                  <input type="hidden" name="edit_app" value="{{ .Data.EditApp }}" />
+                {{ end }}
                 <label class="form-control w-full">
-                  <div class="label"><span class="label-text">App name</span></div>
+                  <div class="label"><span class="label-text">{{ if .Data.EditApp }}Session name{{ else }}App name{{ end }}</span></div>
                   <input
                     type="text"
                     name="name"
@@ -44,7 +67,7 @@
 
                 <label class="form-control w-full">
                   <div class="label">
-                    <span class="label-text">What should the app do?</span>
+                    <span class="label-text">{{ if .Data.EditApp }}What should be changed?{{ else }}What should the app do?{{ end }}</span>
                   </div>
                   <textarea
                     name="prompt"
@@ -60,6 +83,7 @@
                   </div>
                 </label>
 
+                {{ if not .Data.EditApp }}
                 <label class="form-control w-full">
                   <div class="label"><span class="label-text">Framework</span></div>
                   <select name="spec" class="select select-bordered w-full">
@@ -69,8 +93,9 @@
                     {{ end }}
                   </select>
                 </label>
+                {{ end }}
 
-                {{ if .Data.Prompts }}
+                {{ if and .Data.Prompts (not .Data.EditApp) }}
                   <label class="form-control w-full">
                     <div class="label"><span class="label-text">Prompt preset</span></div>
                     <select name="prompt_preset" class="select select-bordered w-full">

@@ -109,7 +109,7 @@
             {{ template "hamburger" }}
             <div>
               {{ template "page_title" "OpenRun Apps" }}
-              <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0"><ul class="flex-wrap whitespace-normal"><li><a href="{{ .AppPath }}/apps">Apps</a></li><li class="font-mono break-all">{{ .Data.Path }}</li></ul></nav>
+              <div class="flex items-center gap-2"><nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0"><ul class="flex-wrap whitespace-normal"><li><a href="{{ .AppPath }}/apps">Apps</a></li><li class="font-mono break-all">{{ .Data.Path }}</li></ul></nav>{{ template "help_link" .Data.HelpUrl }}</div>
               <h2 class="text-xl font-semibold font-mono break-all">{{ .Data.Path }}</h2>
               <p class="page-desc text-sm text-base-content/70">
                 {{ if .Data.App }}
@@ -132,71 +132,111 @@
             <div class="page-actions ml-auto flex items-center gap-2">
               {{ if .Data.App }}
                 <a
-                  href="{{ .Data.App.url }}"
-                  target="_blank"
-                  rel="noopener"
-                  title="Opens the app in a new tab"
-                  class="btn btn-sm btn-outline transition-transform duration-150 active:scale-95">
-                  Open app {{ template "globe_icon" }}
-                </a>
-                <button
-                  class="btn btn-sm btn-outline transition-transform duration-150 active:scale-95"
-                  {{ if index .Data.Perms "app:reload" }}
-                    title="Reload staging from {{ if .Data.App.git_branch }}git{{ else }}source{{ end }}"
-                    hx-post="{{ .AppPath }}/apps/detail/reload"
-                    hx-vals='{"path": "{{ .Data.Path }}"}'
-                    hx-confirm="Reload {{ .Data.Path }} staging from its source?"
-                    hx-target="#detail-content"
-                    hx-swap="innerHTML transition:true"
-                    hx-disabled-elt="this"
-                    hx-indicator="#page-progress"
-                  {{ else }}
-                    disabled title="requires app:reload"
-                  {{ end }}>
-                  Reload
-                </button>
-                {{ if not .Data.App.is_dev }}
-                  <button
-                    class="btn btn-sm btn-outline btn-primary transition-transform duration-150 active:scale-95"
-                    {{ if index .Data.Perms "app:promote" }}
-                      title="Push the staging version to prod"
-                      hx-post="{{ .AppPath }}/apps/detail/promote"
-                      hx-vals='{"path": "{{ .Data.Path }}"}'
-                      hx-confirm="Promote staged changes of {{ .Data.Path }} to prod?"
-                      hx-target="#detail-content"
-                      hx-swap="innerHTML transition:true"
-                      hx-disabled-elt="this"
-                      hx-indicator="#page-progress"
-                    {{ else }}
-                      disabled title="requires app:promote"
-                    {{ end }}>
-                    Promote
-                  </button>
-                {{ end }}
-                <a
                   href="{{ .AppPath }}/apps/update?path={{ .Data.Path }}"
-                  class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "app:update") }}btn-disabled{{ end }}"
-                  {{ if not (index .Data.Perms "app:update") }}
-                    title="requires app:update" aria-disabled="true" tabindex="-1"
-                  {{ end }}>
-                  Edit
-                </a>
-                <button
-                  class="btn btn-sm btn-ghost text-error transition-transform duration-150 active:scale-95"
-                  {{ if index .Data.Perms "app:delete" }}
-                    title="Delete app"
-                    hx-post="{{ .AppPath }}/apps/detail/delete"
-                    hx-vals='{"path": "{{ .Data.Path }}"}'
-                    hx-confirm="Delete {{ .Data.Path }}? This deletes the prod, staging and preview apps."
-                    hx-target="#detail-content"
-                    hx-swap="innerHTML transition:true"
-                    hx-disabled-elt="this"
-                    hx-indicator="#page-progress"
+                  class="btn btn-sm btn-outline transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "app:update") }}
+                    btn-disabled
+                  {{ end }}"
+                  {{ if index .Data.Perms "app:update" }}
+                    title="Edit auth and parameters"
                   {{ else }}
-                    disabled title="requires app:delete"
+                    aria-disabled="true" tabindex="-1" title="requires app:update"
                   {{ end }}>
-                  Delete
-                </button>
+                  Edit app
+                </a>
+                <details class="dropdown dropdown-end">
+                  <summary
+                    class="btn btn-sm btn-outline transition-transform duration-150 active:scale-95"
+                    aria-label="App actions">
+                    Actions
+                    <svg aria-hidden="true" focusable="false" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                  </summary>
+                  <ul
+                    class="dropdown-content menu bg-base-100 border border-base-300 rounded-box shadow-lg z-10 w-60 p-1"
+                    onclick="const d=this.closest('details'); if(d && !event.target.closest('[disabled]')) d.removeAttribute('open')">
+                    <li {{ if not (index .Data.Perms "app:reload") }}class="menu-disabled"{{ end }}>
+                      <button
+                        {{ if index .Data.Perms "app:reload" }}
+                          title="Reload staging from {{ if .Data.App.git_branch }}git{{ else }}source{{ end }}"
+                          hx-post="{{ .AppPath }}/apps/detail/reload"
+                          hx-vals='{"path": "{{ .Data.Path }}"}'
+                          hx-confirm="Reload {{ .Data.Path }} staging from its source?"
+                          hx-target="#detail-content"
+                          hx-swap="innerHTML transition:true"
+                          hx-indicator="#page-progress"
+                        {{ else }}
+                          disabled title="requires app:reload"
+                        {{ end }}>
+                        <svg aria-hidden="true" focusable="false" class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><path d="M8 16H3v5" /></svg>
+                        Reload
+                      </button>
+                    </li>
+                    {{ if not .Data.App.is_dev }}
+                      <li {{ if not (index .Data.Perms "app:promote") }}class="menu-disabled"{{ end }}>
+                        <button
+                          {{ if index .Data.Perms "app:promote" }}
+                            title="Push the staging version to prod"
+                            hx-post="{{ .AppPath }}/apps/detail/promote"
+                            hx-vals='{"path": "{{ .Data.Path }}"}'
+                            hx-confirm="Promote staged changes of {{ .Data.Path }} to prod?"
+                            hx-target="#detail-content"
+                            hx-swap="innerHTML transition:true"
+                            hx-indicator="#page-progress"
+                          {{ else }}
+                            disabled title="requires app:promote"
+                          {{ end }}>
+                          <svg aria-hidden="true" focusable="false" class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 7-7 7 7" /><path d="M12 19V5" /></svg>
+                          Promote
+                        </button>
+                      </li>
+                    {{ end }}
+                    {{ if and (not .Data.App.is_dev) (index .Data.Perms "feature:builder") }}
+                      <li {{ if not (index .Data.Perms "builder:create") }}class="menu-disabled"{{ end }}>
+                        <a
+                          href="{{ .AppPath }}/builder/create?edit={{ .Data.Path }}"
+                          {{ if not (index .Data.Perms "builder:create") }}
+                            title="requires builder:create" aria-disabled="true" tabindex="-1"
+                          {{ else if .Data.App.builder_published }}
+                            title="Modify this app's source with the AI agent"
+                          {{ else }}
+                            title="Edit a copy with the AI agent; publish creates a new app"
+                          {{ end }}>
+                          <svg aria-hidden="true" focusable="false" class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" /><path d="M20 3v4" /><path d="M22 5h-4" /><path d="M4 17v2" /><path d="M5 18H3" /></svg>
+                          {{ if .Data.App.builder_published }}Update with Agent{{ else }}Rebuild with Agent{{ end }}
+                        </a>
+                      </li>
+                    {{ end }}
+                    <li {{ if not (index .Data.Perms "app:update") }}class="menu-disabled"{{ end }}>
+                      <a
+                        href="{{ .AppPath }}/apps/update?path={{ .Data.Path }}"
+                        {{ if not (index .Data.Perms "app:update") }}
+                          title="requires app:update" aria-disabled="true" tabindex="-1"
+                        {{ else }}
+                          title="Edit the app settings and params"
+                        {{ end }}>
+                        <svg aria-hidden="true" focusable="false" class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" /></svg>
+                        Edit
+                      </a>
+                    </li>
+                    <li {{ if not (index .Data.Perms "app:delete") }}class="menu-disabled"{{ end }}>
+                      <button
+                        class="text-error"
+                        {{ if index .Data.Perms "app:delete" }}
+                          title="Delete app"
+                          hx-post="{{ .AppPath }}/apps/detail/delete"
+                          hx-vals='{"path": "{{ .Data.Path }}"}'
+                          hx-confirm="Delete {{ .Data.Path }}? This deletes the prod, staging and preview apps."
+                          hx-target="#detail-content"
+                          hx-swap="innerHTML transition:true"
+                          hx-indicator="#page-progress"
+                        {{ else }}
+                          disabled title="requires app:delete"
+                        {{ end }}>
+                        <svg aria-hidden="true" focusable="false" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
+                        Delete
+                      </button>
+                    </li>
+                  </ul>
+                </details>
               {{ end }}
             </div>
           </div>
@@ -206,44 +246,24 @@
           {{ template "error_alert" .Data.Error }}
           {{ template "flash_alerts" .Data }}
 
-          {{ if and .Data.AskPromote .Data.App }}
-            <!-- Staging was updated, ask about promotion -->
-            <div
-              role="alert"
-              class="alert alert-info alert-soft py-2 text-sm flex-wrap">
-              <span aria-hidden="true">✓</span>
-              <span>
-                {{ if eq .Data.AskPromote "reload" }}
-                  Staging was reloaded from source.
-                {{ else if eq .Data.AskPromote "approve" }}
-                  Permissions were approved on the staging app.
-                {{ else }}
-                  Changes were applied to the staging app.
-                {{ end }}
-                Promote to make them live on prod?
-              </span>
-              <div class="ml-auto flex items-center gap-2">
-                <a
-                  href="{{ .AppPath }}/apps/detail?path={{ .Data.Path }}"
-                  class="btn btn-xs btn-ghost">
-                  Keep in staging
-                </a>
-                <button
-                  class="btn btn-xs btn-primary transition-transform duration-150 active:scale-95"
-                  {{ if index .Data.Perms "app:promote" }}
-                    hx-post="{{ .AppPath }}/apps/detail/promote"
-                    hx-vals='{"path": "{{ .Data.Path }}"}'
-                    hx-target="#detail-content"
-                    hx-swap="innerHTML transition:true"
-                    hx-disabled-elt="this"
-                    hx-indicator="#page-progress"
-                  {{ else }}
-                    disabled title="requires app:promote"
-                  {{ end }}>
-                  Promote now
-                </button>
-              </div>
-            </div>
+          {{ if and .Data.AskPromote .Data.App (not .Data.App.is_dev) }}
+            <!-- Staging was updated, ask about promotion (dev apps serve
+                 directly from source, nothing to promote) -->
+            {{ $msg := "Changes were applied to the staging app." }}
+            {{ if eq .Data.AskPromote "reload" }}
+              {{ $msg = "Staging was reloaded from source." }}
+            {{ else if eq .Data.AskPromote "approve" }}
+              {{ $msg = "Permissions were approved on the staging app." }}
+            {{ end }}
+            {{ template "promote_prompt" (dict
+                "Message" (print $msg " Promote to make them live on prod?")
+                "Path" .Data.Path
+                "PostUrl" (print .AppPath "/apps/detail/promote")
+                "Target" "#detail-content"
+                "StageUrl" .Data.App.stage_url
+                "KeepHref" (print .AppPath "/apps/detail?path=" .Data.Path)
+                "Perms" .Data.Perms)
+            }}
           {{ end }}
 
           {{ if .Data.App }}
@@ -407,7 +427,7 @@
                   >
                   <button
                     class="btn btn-xs btn-warning ml-auto transition-transform duration-150 active:scale-95"
-                    {{ if index .Data.Perms "app:approve" }}
+                    {{ if or (index .Data.Perms "app:approve") (index .Data.Perms "admin") }}
                       hx-post="{{ .AppPath }}/apps/detail/approve"
                       hx-vals='{"path": "{{ .Data.Path }}"}'
                       hx-confirm="Approve the requested plugin permissions for {{ .Data.Path }}?"
@@ -416,7 +436,7 @@
                       hx-disabled-elt="this"
                       hx-indicator="#page-progress"
                     {{ else }}
-                      disabled title="requires app:approve"
+                      disabled title="requires the app:approve permission"
                     {{ end }}>
                     Approve permissions
                   </button>
@@ -433,14 +453,39 @@
                 </p>
               </div>
             {{ else }}
+              {{ if and .Data.App.staged_changes (not .Data.AskPromote) }}
+                <!-- Pending promotion notice; the AskPromote banner at the
+                     top covers this right after a staged action -->
+                {{ template "promote_prompt" (dict
+                    "Warning" true
+                    "Message" "Staging has changes which are not promoted yet - prod keeps serving the previous version until they are promoted"
+                    "Path" .Data.Path
+                    "PostUrl" (print .AppPath "/apps/detail/promote")
+                    "Confirm" (print "Promote staging to prod for " .Data.Path "?")
+                    "Target" "#detail-content"
+                    "StageUrl" .Data.App.stage_url
+                    "Perms" .Data.Perms)
+                }}
+              {{ end }}
               <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
                 <div class="card bg-base-100 border border-base-300">
                   <div
                     class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2">
-                    <h2 class="text-sm font-medium">Staging versions</h2>
+                    <h2
+                      class="text-sm font-medium {{ if .Data.App.staged_changes }}
+                        text-warning
+                      {{ end }}"
+                      {{ if .Data.App.staged_changes }}
+                        title="staging is not promoted to prod yet"
+                      {{ end }}>
+                      Staging versions
+                    </h2>
                     <span class="text-xs text-base-content/70"
                       >{{ len .Data.StageVersions }} versions</span
                     >
+                    {{ if .Data.App.stage_url }}
+                      {{ template "open_app_link" (dict "Href" .Data.App.stage_url "Label" "Open staging" "What" "staging app") }}
+                    {{ end }}
                   </div>
                   {{ template "version_table" (dict "Versions" .Data.StageVersions "Error" .Data.StageVersionsError "Env" "stage" "Path" .Data.Path "AppPath" .AppPath "Perms" .Data.Perms) }}
                 </div>
@@ -451,6 +496,7 @@
                     <span class="text-xs text-base-content/70"
                       >{{ len .Data.ProdVersions }} versions</span
                     >
+                    {{ template "open_app_link" (dict "Href" .Data.App.url "Label" "Open app" "What" "app") }}
                   </div>
                   {{ template "version_table" (dict "Versions" .Data.ProdVersions "Error" .Data.ProdVersionsError "Env" "prod" "Path" .Data.Path "AppPath" .AppPath "Perms" .Data.Perms) }}
                 </div>

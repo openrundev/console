@@ -34,8 +34,19 @@
                 {{ len .Data.Files }} files · {{ .Data.TotalSize }}
               </p>
             </div>
+            <div class="page-actions ml-auto flex items-center gap-2">
+              {{ if not .Data.Error }}
+                <a
+                  href="{{ .AppPath }}/apps/files/download?path={{ .Data.Path }}&version={{ .Data.Version }}&env={{ .Data.Env }}"
+                  title="Download the version files as a zip"
+                  class="btn btn-sm btn-outline transition-transform duration-150 active:scale-95">
+                  Download zip
+                </a>
+              {{ end }}
+            </div>
           </div>
 
+          {{ template "flash_alerts" .Data }}
           {{ if .Data.Error }}
             {{ template "error_alert" .Data.Error }}
           {{ else }}

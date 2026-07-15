@@ -228,8 +228,9 @@
                     placeholder="/myteam/*&#10;example.com:/**"
                     class="textarea w-full font-mono text-sm leading-relaxed">{{ .Data.Values.targets_text }}</textarea>
                   <p class="text-xs text-base-content/70 mt-1">
-                    One app path glob per line. Empty means the grant applies
-                    to global (non app) permissions only
+                    One app path glob per line, scoping the app:* and builder:*
+                    permissions in the roles. All other permissions are global
+                    and apply regardless of the targets.
                   </p>
                 </div>
               {{ end }}

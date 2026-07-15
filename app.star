@@ -1,9 +1,11 @@
 load("handler.star",
      "apps_data", "apps_detail_data", "apps_switch_handler", "apps_promote_handler",
      "apps_approve_handler", "apps_detail_reload_handler", "apps_detail_delete_handler",
-     "apps_files_handler", "apps_create_page_handler", "apps_create_submit_handler",
+     "apps_files_handler", "apps_files_download_handler",
+     "apps_create_page_handler", "apps_create_submit_handler",
      "apps_update_page_handler", "apps_update_submit_handler", "apps_delete_handler",
      "apps_reload_handler", "apps_sync_handler",
+     "apps_list_promote_handler", "apps_list_approve_handler",
      "syncs_data", "syncs_detail_data", "syncs_detail_run_handler",
      "syncs_detail_delete_handler", "syncs_create_page_handler",
      "syncs_create_submit_handler", "syncs_run_handler", "syncs_delete_handler",
@@ -30,7 +32,7 @@ load("handler.star",
      "secrets_store_handler", "secrets_delete_handler",
      "builder_data", "builder_create_page_handler", "builder_create_submit_handler",
      "builder_detail_data", "builder_detail_action", "builder_delete_handler",
-     "builder_publish_handler", "builder_unpublish_handler",
+     "builder_publish_handler", "builder_unpublish_handler", "builder_promote_handler",
      "builder_events_handler", "builder_file_handler", "builder_rows_action",
      "builder_download_handler")
 
@@ -156,6 +158,9 @@ def build_routes():
                      ace.fragment("delete", method="POST", handler=apps_delete_handler),
                      ace.fragment("reload", method="POST", handler=apps_reload_handler),
                      ace.fragment("sync", method="POST", handler=apps_sync_handler),
+                     # Row actions of the pending promotion / needs approval tabs
+                     ace.fragment("promote", method="POST", handler=apps_list_promote_handler),
+                     ace.fragment("approve", method="POST", handler=apps_list_approve_handler),
                  ] if ENABLE_UPDATES else []),
         # App detail, with the version/lifecycle actions re-rendering the
         # detail content
@@ -167,7 +172,12 @@ def build_routes():
                      ace.fragment("reload", method="POST", handler=apps_detail_reload_handler),
                      ace.fragment("delete", method="POST", handler=apps_detail_delete_handler),
                  ] if ENABLE_UPDATES else []),
-        ace.html("/apps/files", full="app_files.go.html", handler=apps_files_handler),
+        ace.html("/apps/files", full="app_files.go.html", handler=apps_files_handler,
+                 fragments=[
+                     # Zip download of the version files (redirects to a
+                     # single-access temp file url)
+                     ace.fragment("download", handler=apps_files_download_handler),
+                 ]),
         ace.html("/syncs", full="syncs.go.html", partial="sync_rows", handler=syncs_data,
                  fragments=[
                      ace.fragment("run", method="POST", handler=syncs_run_handler),
@@ -294,6 +304,8 @@ def build_routes():
                          ace.fragment("delete", method="POST", handler=builder_delete_handler),
                          ace.fragment("publish", method="POST", handler=builder_publish_handler),
                          ace.fragment("unpublish", method="POST", handler=builder_unpublish_handler),
+                         # Promote the staging app after a local-mode publish
+                         ace.fragment("promote", method="POST", handler=builder_promote_handler),
                      ] if ENABLE_UPDATES else []),
             # Event stream consumed by the <builder-chat> element
             ace.api("/builder/events", handler=builder_events_handler, type="TEXT"),
@@ -361,10 +373,12 @@ def build_permissions():
         ace.permission("openrun.in", "list_specs"),
         ace.permission("openrun.in", "get_app"),
         ace.permission("openrun.in", "get_permissions"),
+        ace.permission("openrun.in", "system_plugins_allowed"),
         ace.permission("openrun.in", "list_auths"),
         ace.permission("openrun.in", "list_git_auths"),
         ace.permission("openrun.in", "list_versions"),
         ace.permission("openrun.in", "list_version_files"),
+        ace.permission("openrun.in", "get_version_zip"),
         ace.permission("openrun.in", "audit_app"),
         ace.permission("openrun.in", "list_services"),
     ]
@@ -403,7 +417,6 @@ def build_permissions():
         # Config changes are writes: need both flags
         permissions += [
             ace.permission("openrun_admin.in", "update_rbac_enabled"),
-            ace.permission("openrun_admin.in", "update_rbac_force"),
             ace.permission("openrun_admin.in", "set_rbac_group"),
             ace.permission("openrun_admin.in", "delete_rbac_group"),
             ace.permission("openrun_admin.in", "set_rbac_role"),

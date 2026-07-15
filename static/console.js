@@ -202,8 +202,9 @@ class SecretInput extends HTMLElement {
 			}
 		}
 		showSecretDescriptionDialog(this.getAttribute('description') || '',
-			(description) => {
-				this.pendingDescription = description;
+			this.getAttribute('prefix') || '',
+			(store) => {
+				this.pendingStore = store;
 				fire();
 			},
 			() => {
@@ -319,11 +320,18 @@ class SecretInput extends HTMLElement {
 			set('source_file', file.name);
 		}
 		this.echoRenderAttrs(set);
-		if (this.pendingDescription !== undefined && this.pendingDescription !== null) {
-			// Description entered in the store dialog; wins over the preset
-			// description attribute echoed above
-			set('description', this.pendingDescription);
-			this.pendingDescription = null;
+		const store = this.pendingStore;
+		if (store) {
+			this.pendingStore = null;
+			// Dialog values win over the preset attributes echoed above. The
+			// store_* keys drive only this store; the element's own prefix
+			// attribute is untouched for later stores
+			set('description', store.description);
+			if (store.key) {
+				set('store_key', store.key);
+			} else if (store.prefix) {
+				set('store_prefix', store.prefix);
+			}
 		}
 	}
 
@@ -406,10 +414,11 @@ function showSecretUnlockDialog(name, onKeep, onDelete) {
 	dialog.querySelector('#secret-unlock-cancel').focus();
 }
 
-// Dialog shown when the lock button is clicked: asks for an optional
-// description recorded on the stored secret. Store proceeds (with or
-// without a description); Cancel/Escape/backdrop leaves the field untouched
-function showSecretDescriptionDialog(initial, onStore, onCancel) {
+// Dialog shown when the lock button is clicked: how the secret is named
+// (a generated name from an editable prefix - the default - or an exact
+// name typed by the user) plus an optional description recorded on the
+// secret. Store proceeds; Cancel/Escape/backdrop leaves the field untouched
+function showSecretDescriptionDialog(initialDesc, prefix, onStore, onCancel) {
 	let dialog = document.getElementById('secret-desc-dialog');
 	if (!dialog) {
 		dialog = document.createElement('dialog');
@@ -421,6 +430,23 @@ function showSecretDescriptionDialog(initial, onStore, onCancel) {
 			'<h3 id="secret-desc-title" class="text-base font-semibold mb-2">Store as a secret</h3>' +
 			'<p class="text-sm text-base-content/70 mb-3">The value is encrypted into the secret store ' +
 			'and the field keeps a reference to it.</p>' +
+			'<fieldset class="mb-3">' +
+			'<legend class="block text-sm font-medium mb-1">Secret name</legend>' +
+			'<label class="flex items-center gap-2 text-sm cursor-pointer mb-1">' +
+			'<input type="radio" name="secret-desc-mode" id="secret-desc-mode-prefix" class="radio radio-xs radio-primary" checked />' +
+			'Generated, from a name prefix</label>' +
+			'<div class="flex items-center gap-2 mb-2 pl-6">' +
+			'<input id="secret-desc-prefix" type="text" autocomplete="off" spellcheck="false" ' +
+			'aria-label="secret name prefix" class="input input-sm w-full font-mono text-xs" />' +
+			'<span class="text-xs text-base-content/70 whitespace-nowrap">+ random suffix</span></div>' +
+			'<label class="flex items-center gap-2 text-sm cursor-pointer mb-1">' +
+			'<input type="radio" name="secret-desc-mode" id="secret-desc-mode-key" class="radio radio-xs radio-primary" />' +
+			'Exact name</label>' +
+			'<div class="pl-6">' +
+			'<input id="secret-desc-key" type="text" autocomplete="off" spellcheck="false" disabled ' +
+			'placeholder="my_secret_name" aria-label="exact secret name" class="input input-sm w-full font-mono text-xs" /></div>' +
+			'<p id="secret-desc-error" class="text-xs text-error mt-1" hidden></p>' +
+			'</fieldset>' +
 			'<label class="block text-sm font-medium mb-1" for="secret-desc-input">Description (optional)</label>' +
 			'<input id="secret-desc-input" type="text" autocomplete="off" ' +
 			'placeholder="what this secret is for" class="input w-full text-sm" />' +
@@ -431,22 +457,49 @@ function showSecretDescriptionDialog(initial, onStore, onCancel) {
 			'<form method="dialog" class="modal-backdrop"><button>close</button></form>';
 		document.body.appendChild(dialog);
 		const input = dialog.querySelector('#secret-desc-input');
+		const prefixRadio = dialog.querySelector('#secret-desc-mode-prefix');
+		const keyRadio = dialog.querySelector('#secret-desc-mode-key');
+		const prefixInput = dialog.querySelector('#secret-desc-prefix');
+		const keyInput = dialog.querySelector('#secret-desc-key');
+		const errorLine = dialog.querySelector('#secret-desc-error');
+		const syncMode = () => {
+			prefixInput.disabled = keyRadio.checked;
+			keyInput.disabled = prefixRadio.checked;
+			errorLine.hidden = true;
+		};
+		prefixRadio.addEventListener('change', syncMode);
+		keyRadio.addEventListener('change', syncMode);
 		const store = () => {
+			const exact = keyRadio.checked;
+			const prefixVal = prefixInput.value.trim();
+			const keyVal = keyInput.value.trim();
+			if (exact ? !keyVal : !prefixVal) {
+				errorLine.textContent = exact ? 'enter the secret name' : 'enter a name prefix';
+				errorLine.hidden = false;
+				(exact ? keyInput : prefixInput).focus();
+				return;
+			}
 			const actions = dialog.pendingActions;
 			dialog.pendingActions = null;
 			dialog.close();
 			if (actions && actions.store) {
-				actions.store(input.value.trim());
+				actions.store({
+					description: input.value.trim(),
+					prefix: exact ? '' : prefixVal,
+					key: exact ? keyVal : '',
+				});
 			}
 		};
 		dialog.querySelector('#secret-desc-store').addEventListener('click', store);
 		dialog.querySelector('#secret-desc-cancel').addEventListener('click', () => dialog.close());
-		input.addEventListener('keydown', (event) => {
-			if (event.key === 'Enter') {
-				event.preventDefault();
-				store();
-			}
-		});
+		for (const el of [input, prefixInput, keyInput]) {
+			el.addEventListener('keydown', (event) => {
+				if (event.key === 'Enter') {
+					event.preventDefault();
+					store();
+				}
+			});
+		}
 		// Fires on every close path (cancel button, Escape, backdrop); the
 		// store path clears pendingActions first so this is cancel-only
 		dialog.addEventListener('close', () => {
@@ -458,7 +511,14 @@ function showSecretDescriptionDialog(initial, onStore, onCancel) {
 		});
 	}
 
-	dialog.querySelector('#secret-desc-input').value = initial || '';
+	dialog.querySelector('#secret-desc-input').value = initialDesc || '';
+	dialog.querySelector('#secret-desc-prefix').value = prefix || '';
+	dialog.querySelector('#secret-desc-key').value = '';
+	dialog.querySelector('#secret-desc-mode-prefix').checked = true;
+	dialog.querySelector('#secret-desc-mode-key').checked = false;
+	dialog.querySelector('#secret-desc-prefix').disabled = false;
+	dialog.querySelector('#secret-desc-key').disabled = true;
+	dialog.querySelector('#secret-desc-error').hidden = true;
 	dialog.pendingActions = { store: onStore, cancel: onCancel };
 	dialog.showModal();
 	dialog.querySelector('#secret-desc-input').focus();
@@ -499,6 +559,17 @@ function removeKvRow(btn) {
 	}
 	row.remove();
 }
+
+// Close any open <details class="dropdown"> when clicking outside it
+// (native details elements stay open otherwise). Capture phase so a click
+// that opens one dropdown still closes the others
+document.addEventListener('click', (event) => {
+	for (const details of document.querySelectorAll('details.dropdown[open]')) {
+		if (!details.contains(event.target)) {
+			details.removeAttribute('open');
+		}
+	}
+});
 
 // Open/close the nav drawer from the hamburger button. The daisyui drawer is
 // driven by the hidden #nav-drawer checkbox; the button keeps aria-expanded

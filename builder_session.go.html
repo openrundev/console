@@ -21,7 +21,7 @@
             {{ template "hamburger" }}
             <div>
               {{ template "page_title" "OpenRun Builder" }}
-              <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0"><ul><li><a href="{{ .AppPath }}/builder">Builder</a></li><li>{{ if .Data.Session }}{{ .Data.Session.name }}{{ else }}session{{ end }}</li></ul></nav>
+              <div class="flex items-center gap-2"><nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0"><ul><li><a href="{{ .AppPath }}/builder">Builder</a></li><li>{{ if .Data.Session }}{{ .Data.Session.name }}{{ else }}session{{ end }}</li></ul></nav>{{ template "help_link" .Data.HelpUrl }}</div>
               <h2 class="text-xl font-semibold">{{ if .Data.Session }}{{ .Data.Session.name }}{{ else }}Session{{ end }}</h2>
               <p class="page-desc text-sm text-base-content/70">
                 Chat with the agent on the left, the app preview updates on
@@ -50,21 +50,33 @@
                 <!-- Status + actions row -->
                 <div class="flex items-center gap-2 flex-wrap mb-4">
                   {{ template "builder_status_badge" $s.status }}
+                  {{ if $s.edit_app }}
+                    <a
+                      href="{{ .AppPath }}/apps/detail?path={{ $s.edit_app }}"
+                      class="badge badge-sm badge-info badge-soft font-mono"
+                      title="This session edits the app {{ $s.edit_app }}"
+                      >editing {{ $s.edit_app }}</a
+                    >
+                  {{ end }}
                   <span class="text-xs text-base-content/70">agent: {{ $s.agent }}{{ if $s.spec }} · spec: {{ $s.spec }}{{ end }}</span>
                   <div class="page-actions ml-auto flex items-center gap-2 flex-wrap">
                     {{ if $s.preview_path }}
                       <button
                         class="btn btn-ghost btn-sm"
-                        {{ if index .Data.Perms "app:approve" }}
+                        {{ if or (index .Data.Perms "app:approve") (index .Data.Perms "admin") }}
                           hx-post="{{ .AppPath }}/builder/detail/approve?id={{ $s.id }}"
                           hx-disabled-elt="this"
                         {{ else }}
-                          disabled title="requires app:approve"
+                          disabled title="requires the app:approve permission"
                         {{ end }}>
                         Approve permissions
                       </button>
                     {{ end }}
-                    {{ if or (eq $s.status "detached") (eq $s.status "error") }}
+                    {{/* Key off IsLive, not status: a published session keeps
+                         its "published" status after the sandbox is reaped, so
+                         status alone would hide Resume and offer a Stop with
+                         nothing to stop */}}
+                    {{ if not .Data.IsLive }}
                       <button
                         class="btn btn-ghost btn-sm"
                         {{ if $canWrite }}
@@ -106,17 +118,35 @@
                         {{ else if not $s.preview_path }}
                           title="the app must load in preview before publishing"
                         {{ end }}>
-                        {{ if $s.publish_path }}Republish{{ else }}Publish{{ end }}
+                        {{ if and $s.edit_app $s.publish_path }}Publish update{{ else if $s.publish_path }}Republish{{ else }}Publish{{ end }}
                       </summary>
-                      <div class="dropdown-content z-10 card bg-base-100 border border-base-300 w-[26rem] max-w-[90vw] shadow-lg">
+                      <div
+                        class="dropdown-content z-10 card bg-base-100 border border-base-300 w-[26rem] max-w-[90vw] max-h-[calc(100vh-8rem)] overflow-y-auto shadow-lg"
+                        onclick="const d=this.closest('details'); if(d && event.target.closest('button[type=submit]:not([disabled])')) d.removeAttribute('open')">
                         <form
                           class="card-body p-4 gap-3"
                           hx-post="{{ .AppPath }}/builder/detail/publish?id={{ $s.id }}"
+                          hx-target="#session-content"
+                          hx-swap="innerHTML transition:true"
                           hx-disabled-elt="find button[type=submit]"
                           data-builder-publish>
                           <h3 class="font-semibold text-sm">
-                            Publish {{ if eq .Data.PublishMode "git" }}to {{ .Data.GitRepo }}{{ else }}on this server{{ end }}
+                            {{ if $s.edit_app }}Update{{ else }}Publish{{ end }}
+                            {{ if eq .Data.PublishMode "git" }}to {{ .Data.GitRepo }}{{ else }}on this server{{ end }}
                           </h3>
+                          {{ if and $s.edit_app $s.publish_path }}
+                            <p class="text-xs text-base-content/70">
+                              The app source is updated in place; the app
+                              declaration in apps.star is not changed.
+                            </p>
+                          {{ else if $s.edit_app }}
+                            <p class="text-xs text-base-content/70">
+                              Publishes a new app copied from
+                              <span class="font-mono">{{ $s.edit_app }}</span> (settings
+                              carried over, fresh auto bindings); the original app is
+                              not changed and cannot be the destination.
+                            </p>
+                          {{ end }}
                           {{ if $s.publish_path }}
                             {{/* Republish targets the same path */}}
                             <input type="hidden" name="publish_choice" value="__same__" />
@@ -201,10 +231,10 @@
                 </div>
 
                 {{ if .Data.PublishResult }}
-                  <div class="alert alert-success mb-4" role="status">
-                    <div>
+                  <div class="alert alert-success alert-soft py-2 text-sm mb-4 min-w-0" role="status" aria-live="polite">
+                    <div class="min-w-0 break-words">
                       <div>
-                        Published <span class="font-mono">{{ .Data.PublishResult.publish_path }}</span>
+                        Published <span class="font-mono break-all">{{ .Data.PublishResult.publish_path }}</span>
                         ({{ .Data.PublishResult.mode }} mode)
                         {{ if .Data.PublishResult.commit_sha }}
                           - commit <span class="font-mono">{{ .Data.PublishResult.commit_sha | trunc 12 }}</span>
@@ -214,6 +244,19 @@
                         <div class="text-xs">Apps go live when the prod sync runs</div>
                       {{ end }}
                     </div>
+                  </div>
+                {{ end }}
+                {{ if .Data.AskPromotePath }}
+                  <!-- The publish landed on staging, ask about promotion -->
+                  <div class="mb-4">
+                    {{ template "promote_prompt" (dict
+                        "Message" "The changes were applied to the staging app. Promote to make them live on prod?"
+                        "Path" .Data.AskPromotePath
+                        "PostUrl" (print .AppPath "/builder/detail/promote?id=" .Data.Id)
+                        "Target" "#session-content"
+                        "KeepHref" (print .AppPath "/apps/detail?path=" .Data.AskPromotePath)
+                        "Perms" .Data.Perms)
+                    }}
                   </div>
                 {{ end }}
 
@@ -227,6 +270,7 @@
                       class="inline-block text-primary ml-1"
                       >app detail <span aria-hidden="true">↗</span></a
                     >
+                    {{ if not $s.edit_app }}
                     <button
                       class="btn btn-ghost btn-xs text-error ml-2"
                       {{ if $canPublish }}
@@ -238,6 +282,7 @@
                       {{ end }}>
                       Unpublish
                     </button>
+                    {{ end }}
                   </div>
                 {{ end }}
 
@@ -279,6 +324,7 @@
                         class="flex-1 min-h-0 flex flex-col"
                         stream="{{ .AppPath }}/builder/events?id={{ $s.id }}"
                         session="{{ $s.id }}"
+                        {{ if .Data.IsLive }}live{{ end }}
                         {{ if .Data.TurnActive }}turn-active{{ end }}>
                         <div
                           class="bc-transcript flex-1 min-h-0 space-y-1.5 overflow-y-auto px-3 py-2"
@@ -319,6 +365,13 @@
                             </div>
                           {{ end }}
                         </div>
+
+                        {{/* Failed sends land here via HX-Retarget: the
+                             composer posts with hx-swap=none (the chat
+                             renders from SSE events), so without this slot a
+                             rejected message (agent busy, session still
+                             starting) would be invisible */}}
+                        <div id="bc-send-error" class="px-3">{{ template "bc_send_error" . }}</div>
 
                         <form
                           class="flex items-end gap-2 px-2.5 py-2 border-t border-base-300 bg-base-200/30"

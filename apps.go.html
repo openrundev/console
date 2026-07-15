@@ -37,7 +37,7 @@
                   hx-push-url="true"
                   hx-target="#app-groups"
                   hx-swap="innerHTML transition:true"
-                  hx-include="#app-filter-value"
+                  hx-include="#app-filter-value, #app-tab-value"
                   hx-indicator="#page-progress" />
               </label>
               <a
@@ -63,7 +63,7 @@
               hx-trigger="change"
               hx-target="#app-groups"
               hx-swap="innerHTML transition:true"
-              hx-include="#page-search"
+              hx-include="#page-search, #app-tab-value"
               hx-indicator="#page-progress" />
             <!-- Count stats double as the source filter -->
             <div
@@ -114,11 +114,138 @@
             class="space-y-4"
 >
             {{ block "app_groups" . }}
+              <!-- Current tab, included by the search/filter/action requests
+                   so partial refreshes stay on the active tab -->
+              <input
+                type="hidden"
+                id="app-tab-value"
+                name="tab"
+                value="{{ .Data.Tab }}" />
+              <!-- Tabs: the full list vs the apps waiting on promote/approve.
+                   Inside the partial so the active state and counts refresh
+                   with every swap -->
+              <div
+                role="group"
+                aria-label="App list views"
+                class="tabs tabs-border">
+                <button
+                  class="tab {{ if eq .Data.Tab "" }}tab-active{{ end }}"
+                  data-tab=""
+                  aria-pressed="{{ if eq .Data.Tab "" }}true{{ else }}false{{ end }}"
+                  hx-get="{{ .AppPath }}/apps"
+                  hx-vals='{"tab": ""}'
+                  hx-target="#app-groups"
+                  hx-swap="innerHTML transition:true"
+                  hx-include="#page-search, #app-filter-value"
+                  hx-push-url="true"
+                  hx-indicator="#page-progress">
+                  All apps
+                </button>
+                <button
+                  class="tab {{ if eq .Data.Tab "promote" }}tab-active{{ end }}"
+                  data-tab="promote"
+                  aria-pressed="{{ if eq .Data.Tab "promote" }}true{{ else }}false{{ end }}"
+                  title="Apps where staging has changes not promoted to prod yet"
+                  hx-get="{{ .AppPath }}/apps"
+                  hx-vals='{"tab": "promote"}'
+                  hx-target="#app-groups"
+                  hx-swap="innerHTML transition:true"
+                  hx-include="#page-search, #app-filter-value"
+                  hx-push-url="true"
+                  hx-indicator="#page-progress">
+                  Pending promotion
+                  <span
+                    class="badge badge-xs tabular-nums ml-1 {{ if .Data.PromoteCount }}
+                      badge-warning badge-soft
+                    {{ else }}
+                      badge-ghost
+                    {{ end }}"
+                    >{{ .Data.PromoteCount }}</span
+                  >
+                </button>
+                <button
+                  class="tab {{ if eq .Data.Tab "approval" }}tab-active{{ end }}"
+                  data-tab="approval"
+                  aria-pressed="{{ if eq .Data.Tab "approval" }}true{{ else }}false{{ end }}"
+                  title="Apps requesting plugin permissions which are not approved yet"
+                  hx-get="{{ .AppPath }}/apps"
+                  hx-vals='{"tab": "approval"}'
+                  hx-target="#app-groups"
+                  hx-swap="innerHTML transition:true"
+                  hx-include="#page-search, #app-filter-value"
+                  hx-push-url="true"
+                  hx-indicator="#page-progress">
+                  Needs approval
+                  <span
+                    class="badge badge-xs tabular-nums ml-1 {{ if .Data.ApprovalCount }}
+                      badge-error badge-soft
+                    {{ else }}
+                      badge-ghost
+                    {{ end }}"
+                    >{{ .Data.ApprovalCount }}</span
+                  >
+                </button>
+              </div>
+
               {{ template "flash_alerts" .Data }}
               {{ if .Data.SyncResult }}
                 {{ template "sync_result" .Data.SyncResult }}
               {{ end }}
 
+              {{ if eq .Data.Tab "promote" }}
+                <!-- Pending promotion tab: flat list, row action promotes -->
+                <div class="card bg-base-100 border border-base-300">
+                  <div
+                    class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
+                    <h2 class="text-sm font-medium">Pending promotion</h2>
+                    <span class="text-xs text-base-content/70"
+                      >staging has changes which are not promoted to prod yet</span
+                    >
+                  </div>
+                  {{ if .Data.TabApps }}
+                    {{ template "app_table" (dict "Apps" .Data.TabApps "AppPath" .AppPath "Perms" .Data.Perms "ShowActions" true "RowAction" "promote") }}
+                  {{ else }}
+                    <div
+                      class="flex flex-col items-center gap-2 py-10 text-center text-sm text-base-content/70">
+                      <span class="text-xl" aria-hidden="true">✅</span>
+                      <p>
+                        {{ if or .Data.Query .Data.Filter }}
+                          No matching apps are pending promotion
+                        {{ else }}
+                          Nothing to promote - prod matches staging for all apps
+                        {{ end }}
+                      </p>
+                    </div>
+                  {{ end }}
+                </div>
+              {{ else if eq .Data.Tab "approval" }}
+                <!-- Needs approval tab: flat list, row action approves -->
+                <div class="card bg-base-100 border border-base-300">
+                  <div
+                    class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
+                    <h2 class="text-sm font-medium">Needs approval</h2>
+                    <span class="text-xs text-base-content/70"
+                      >apps requesting plugin permissions which are not
+                      approved yet</span
+                    >
+                  </div>
+                  {{ if .Data.TabApps }}
+                    {{ template "app_table" (dict "Apps" .Data.TabApps "AppPath" .AppPath "Perms" .Data.Perms "ShowActions" true "RowAction" "approve") }}
+                  {{ else }}
+                    <div
+                      class="flex flex-col items-center gap-2 py-10 text-center text-sm text-base-content/70">
+                      <span class="text-xl" aria-hidden="true">✅</span>
+                      <p>
+                        {{ if or .Data.Query .Data.Filter }}
+                          No matching apps are waiting on permission approval
+                        {{ else }}
+                          No apps are waiting on permission approval
+                        {{ end }}
+                      </p>
+                    </div>
+                  {{ end }}
+                </div>
+              {{ else }}
               {{ range .Data.Groups }}
                 <div class="card bg-base-100 border border-base-300">
                   <div
@@ -158,7 +285,7 @@
                           hx-vals='{"sync_id": "{{ .sync.id }}"}'
                           hx-target="#app-groups"
                           hx-swap="innerHTML transition:true"
-                          hx-include="#page-search, #app-filter-value"
+                          hx-include="#page-search, #app-filter-value, #app-tab-value"
                           hx-indicator="#page-progress"
                         {{ else }}
                           disabled title="requires sync:run"
@@ -218,6 +345,8 @@
                   </div>
                 </div>
               {{ end }}
+              {{ end }}
+              <!-- End of tab content branches -->
             {{ end }}
             <!-- End of "app_groups" block -->
           </div>

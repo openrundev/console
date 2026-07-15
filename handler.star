@@ -5,7 +5,7 @@ load("utils.star", "query_param", "get_perms", "params_to_text",
      "parse_lines", "short_sha", "short_age", "human_size", "pct_num", "nonzero_time", "sort_recent",
      "flash_result", "parse_kv_rows", "kv_rows", "raw_kv_rows",
      "path_domain_str", "sync_flags", "sync_result_summary", "review_from_dryrun",
-     "needs_approval")
+     "needs_approval", "docs_link")
 
 # Route handlers for the console. Each screen has a *_data function which
 # builds the full page context; action handlers run the mutation and re-render
@@ -54,6 +54,9 @@ def build_app_rows(all_apps):
             "url": entry["url"],
             "auth": entry["auth"],
             "is_dev": entry.get("is_dev") or False,
+            # Only set when list_apps ran with check_approval=True (apps page);
+            # the backend mirrors the staging app's audit onto the main app
+            "needs_approval": entry.get("needs_approval") or False,
             "is_git": bool(entry["git_branch"]),
             # Declarative means a sync source last applied the app. Git
             # presence is not the signal: image/proxy spec apps have no git
@@ -77,13 +80,18 @@ def build_app_rows(all_apps):
 
 
 def apps_data(req):
-    # Apps list page: apps grouped by their managing sync, plus unmanaged
+    # Apps list page: apps grouped by their managing sync, plus unmanaged.
+    # The promote/approval tabs show the apps waiting on that action as a
+    # flat list, with the row action switched to Promote/Approve
     query = query_param(req, "query")
     filter = query_param(req, "filter")  # "", "declarative" or "imperative"
+    tab = query_param(req, "tab")  # "", "promote" or "approval"
 
     # include_internal picks up staging/preview apps; staging entries are
-    # folded into their main app's row instead of being listed separately
-    all_apps = openrun.list_apps(query=query, include_internal=True).value
+    # folded into their main app's row instead of being listed separately.
+    # check_approval adds the needs_approval flag (cached server-side)
+    all_apps = openrun.list_apps(query=query, include_internal=True,
+                                 check_approval=True).value
 
     # Sync entries the user can read. Apps whose sync entry is not visible
     # (no sync:read) are shown in the unmanaged section instead
@@ -100,8 +108,11 @@ def apps_data(req):
 
     grouped = {}  # sync id -> app rows, for apps last applied by a live sync
     unmanaged = []  # created/last updated imperatively
+    tab_apps = []  # rows for the active promote/approval tab
     total = 0
     declarative_count = 0
+    promote_count = 0
+    approval_count = 0
     for app in build_app_rows(all_apps):
         total += 1
         if app["is_declarative"]:
@@ -109,6 +120,18 @@ def apps_data(req):
         if (filter == "declarative" and not app["is_declarative"]) or \
            (filter == "imperative" and app["is_declarative"]):
             continue
+
+        # The tab badge counts follow the active declarative/imperative
+        # filter, matching what the tab tables list
+        if app["staging"] and app["staging"]["ahead"]:
+            promote_count += 1
+        if app["needs_approval"]:
+            approval_count += 1
+
+        if tab == "promote" and app["staging"] and app["staging"]["ahead"]:
+            tab_apps.append(app)
+        elif tab == "approval" and app["needs_approval"]:
+            tab_apps.append(app)
 
         if app["sync_id"] and app["sync_id"] in syncs:
             grouped.setdefault(app["sync_id"], []).append(app)
@@ -132,11 +155,15 @@ def apps_data(req):
         "Nav": "apps",
         "Query": query,
         "Filter": filter,
+        "Tab": tab,
+        "TabApps": sort_recent(tab_apps, "update_time", "path"),
         "Groups": sort_recent(groups, "newest", "repo"),
         "Unmanaged": sort_recent(unmanaged, "update_time", "path"),
         "Total": total,
         "DeclarativeCount": declarative_count,
         "ImperativeCount": total - declarative_count,
+        "PromoteCount": promote_count,
+        "ApprovalCount": approval_count,
         "Perms": get_perms(),
     }
 
@@ -196,6 +223,7 @@ def apps_detail_data(req):
         "AskPromote": query_param(req, "staged"),
         # App permissions evaluated against this app, including the owner rule
         "Perms": get_perms(path),
+        "HelpUrl": docs_link("/docs/applications/lifecycle/"),
     }
 
     ret = openrun.get_app(path)
@@ -271,36 +299,51 @@ def require_app_path(req, data_fn):
     return path, None
 
 
-def apps_promote_handler(req):
-    # POST: promote the staging app to prod
-    path, error_data = require_app_path(req, apps_detail_data)
-    if error_data:
-        return error_data
+def promote_app_result(req, data_fn, path):
+    # Promote the staging app to prod and re-render the page via data_fn
+    # with the result flash. Shared by the detail page, the apps list
+    # pending-promotion tab and the builder session page
     ret = openrun_admin.promote_apps(path)
     error = ret.error
-    data = apps_detail_data(req)
+    data = data_fn(req)
     if error:
         data["FlashError"] = "Promote failed: %s" % error
     elif not ret.value.get("promote_results"):
         data["Flash"] = "Nothing to promote, prod matches staging"
     else:
-        data["Flash"] = "Promoted staging to prod"
+        data["Flash"] = "Promoted %s to prod" % path
+    return data
+
+
+def apps_promote_handler(req):
+    # POST: promote the staging app to prod
+    path, error_data = require_app_path(req, apps_detail_data)
+    if error_data:
+        return error_data
+    return promote_app_result(req, apps_detail_data, path)
+
+
+def approve_app_result(req, data_fn, path):
+    # Approve the pending plugin permissions (applies to the staging app, or
+    # directly for dev apps) and re-render the page via data_fn
+    ret = openrun_admin.approve_apps(path, promote=False)
+    error = ret.error
+    data = data_fn(req)
+    if error:
+        data["FlashError"] = "Approve failed: %s" % error
+    else:
+        data["Flash"] = "Approved pending permissions for %s" % path
     return data
 
 
 def apps_approve_handler(req):
-    # POST: approve the requested plugin permissions
+    # POST: approve the requested plugin permissions; promotion is asked as
+    # the next step
     path, error_data = require_app_path(req, apps_detail_data)
     if error_data:
         return error_data
-    # Approval applies to the staging app; promotion is asked as a next step
-    ret = openrun_admin.approve_apps(path, promote=False)
-    error = ret.error
-    data = apps_detail_data(req)
-    if error:
-        data["FlashError"] = "Approve failed: %s" % error
-    else:
-        data["Flash"] = "Permissions approved on staging"
+    data = approve_app_result(req, apps_detail_data, path)
+    if not data.get("FlashError"):
         data["AskPromote"] = "approve"
     return data
 
@@ -309,7 +352,7 @@ def reload_app_staging(path):
     # Staging-first reload: approval is requested only when the user holds
     # it (the approve flag hard-fails otherwise), promotion is a next step
     perms = get_perms(path)
-    return openrun_admin.reload_apps(path, approve=bool(perms.get("app:approve")), promote=False)
+    return openrun_admin.reload_apps(path, approve=bool(perms.get("app:approve") or perms.get("admin")), promote=False)
 
 
 def apps_detail_reload_handler(req):
@@ -381,6 +424,21 @@ def apps_files_handler(req):
     return data
 
 
+def apps_files_download_handler(req):
+    # GET: bundle the version's files into a zip and redirect to the
+    # single-access download url; errors re-render the files page
+    path = query_param(req, "path")
+    version = query_param(req, "version")
+    env = query_param(req, "env") or "prod"
+
+    ret = openrun.get_version_zip(resolve_env_path(path, env), version=version)
+    if ret.error:
+        data = apps_files_handler(req)
+        data["FlashError"] = "Download failed: %s" % ret.error
+        return data
+    return ace.redirect(ret.value["url"])
+
+
 def apps_delete_handler(req):
     # POST: delete an app from the apps list
     path, error_data = require_app_path(req, apps_data)
@@ -410,6 +468,23 @@ def apps_reload_handler(req):
     # Staging reloaded; continue on the detail page to review and promote
     return ace.response(apps_data(req), block="app_groups",
                         redirect="%s/apps/detail?path=%s&staged=reload" % (req.AppPath, path))
+
+
+def apps_list_promote_handler(req):
+    # POST: promote staging to prod from the pending-promotion tab
+    path, error_data = require_app_path(req, apps_data)
+    if error_data:
+        return error_data
+    return promote_app_result(req, apps_data, path)
+
+
+def apps_list_approve_handler(req):
+    # POST: approve the pending plugin permissions from the approval tab; a
+    # prod app then shows under pending promotion as the next step
+    path, error_data = require_app_path(req, apps_data)
+    if error_data:
+        return error_data
+    return approve_app_result(req, apps_data, path)
 
 
 def run_sync_action(req, data_fn):
@@ -608,7 +683,9 @@ def apps_update_submit_handler(req):
         if result.error:
             return update_form_data(req, app, values, result.error)
 
-    if params_changed:
+    if params_changed and not app.get("is_dev"):
+        # Ask about promoting the staged change; dev apps apply directly
+        # (they have no staging), so there is nothing to promote
         return ace.redirect("%s/apps/detail?path=%s&staged=update" % (req.AppPath, path))
     return ace.redirect("%s/apps/detail?path=%s" % (req.AppPath, path))
 
@@ -1000,6 +1077,7 @@ def containers_detail_data(req):
         "Error": "",
         "Container": None,
         "Perms": get_perms(),
+        "HelpUrl": docs_link("/docs/container/overview/"),
     }
 
     ret = openrun.get_container(id, stats=False)
@@ -1470,20 +1548,12 @@ def rbac_section(rbac):
             "roles": grant.get("roles") or [],
             "targets": grant.get("targets") or [],
         })
-    force = rbac.get("force_rbac_when_enabled")
     return {
         "enabled": rbac.get("enabled") or False,
-        "force": True if force == None else force,
         "groups": groups,
         "roles": roles,
         "grants": grants,
     }
-
-
-def rbac_force_value(rbac):
-    # force_rbac_when_enabled with its absent-means-true default
-    force = rbac.get("force_rbac_when_enabled")
-    return True if force == None else force
 
 
 def rbac_diff(live, draft):
@@ -1501,9 +1571,8 @@ def rbac_diff(live, draft):
         "grants": len(draft.get("grants") or []) != len(live.get("grants") or []) or
                   (live.get("grants") or []) != (draft.get("grants") or []),
         "enabled": (live.get("enabled") or False) != (draft.get("enabled") or False),
-        "force": rbac_force_value(live) != rbac_force_value(draft),
     }
-    diff["any"] = bool(diff["groups"] or diff["roles"] or diff["grants"] or diff["enabled"] or diff["force"])
+    diff["any"] = bool(diff["groups"] or diff["roles"] or diff["grants"] or diff["enabled"])
     return diff
 
 
@@ -1882,10 +1951,6 @@ def config_rbac_action_handler(req):
         enabled = query_param(req, "enabled") == "true"
         ret = openrun_admin.update_rbac_enabled(enabled, draft_version)
         ok = "RBAC %s in the staged config - publish to apply" % ("enabled" if enabled else "disabled")
-    elif action == "toggle_force":
-        force = query_param(req, "force") == "true"
-        ret = openrun_admin.update_rbac_force(force, draft_version)
-        ok = "Force RBAC %s in the staged config - publish to apply" % ("enabled" if force else "disabled")
     elif action == "delete_group":
         ret = openrun_admin.delete_rbac_group(query_param(req, "name"), draft_version)
         ok = "Deleted group %s from the staged config" % query_param(req, "name")
@@ -1904,6 +1969,16 @@ def config_rbac_action_handler(req):
     return flash_result(config_rbac_data(req), error, ok)
 
 
+# Documentation page per config section, for the entry form help link;
+# sections without an entry link the configuration overview
+CONFIG_SECTION_DOCS = {
+    "auth": "/docs/configuration/authentication/",
+    "saml": "/docs/configuration/authentication/",
+    "git_auth": "/docs/configuration/security/",
+    "secret": "/docs/configuration/secrets/",
+}
+
+
 def config_entry_form_data(req, meta, name, values, is_edit, source, error):
     # Page context for the generic config entry form
     ret = openrun.get_rbac_config()
@@ -1920,6 +1995,7 @@ def config_entry_form_data(req, meta, name, values, is_edit, source, error):
         "VersionId": version_id,
         "Perms": get_perms(),
         "ReturnPath": "/config/" + config_page_for_section(meta["section"]),
+        "HelpUrl": docs_link(CONFIG_SECTION_DOCS.get(meta["section"], "/docs/configuration/overview/")),
     }
 
 
@@ -2030,6 +2106,7 @@ def load_rbac_config():
         "error": "",
         "rbac": cfg["staged"] if cfg["has_staged"] else cfg["rbac"],
         "draft_version": cfg["draft"]["draft_version"] if cfg["has_staged"] else "",
+        "builtin_roles": cfg.get("builtin_roles") or [],
     }
 
 
@@ -2046,7 +2123,8 @@ def config_form_data(req, kind, values, error, cfg=None):
         "Perms": get_perms(),
         "PermGroups": rbac_permission_groups(),
         "DraftVersion": cfg["draft_version"],
-        "RoleNames": sorted((rbac.get("roles") or {}).keys()),
+        # Built-in roles (admin + openrun-*) are selectable in grants too
+        "RoleNames": sorted((rbac.get("roles") or {}).keys()) + cfg.get("builtin_roles", []),
         "GroupNames": sorted((rbac.get("groups") or {}).keys()),
     }
 
@@ -2314,6 +2392,7 @@ def syncs_detail_data(req):
         "Error": "",
         "Sync": None,
         "Perms": get_perms(),
+        "HelpUrl": docs_link("/docs/applications/overview/"),
     }
 
     ret = openrun.list_sync()
@@ -2421,12 +2500,17 @@ def secret_input_data(req):
 def secrets_store_handler(req):
     # POST from the secret-input component (console.js): encrypt the value
     # (or uploaded file content) into the db secrets provider and re-render
-    # the component with the generated {{secret ...}} reference as its value
+    # the component with the {{secret ...}} reference as its value. The
+    # store dialog names the secret: store_key is an exact name (fails if it
+    # already exists), else store_prefix (the dialog's edited prefix,
+    # falling back to the field's default) generates the name
     data = secret_input_data(req)
 
     value = query_param(req, "value").strip()
     value_b64 = query_param(req, "value_b64")
-    if not data["Prefix"]:
+    store_key = query_param(req, "store_key").strip()
+    store_prefix = query_param(req, "store_prefix").strip() or data["Prefix"]
+    if not store_key and not store_prefix:
         data["Error"] = "no secret name prefix is configured for this field"
         data["Value"] = value
         return data
@@ -2434,13 +2518,23 @@ def secrets_store_handler(req):
         data["Error"] = "enter a value to store as a secret"
         return data
 
-    ret = openrun_admin.create_secret(
-        value=value_b64 if value_b64 else value,
-        prefix=data["Prefix"],
-        encoding="base64" if value_b64 else "",
-        description=data["Description"],
-        source_file=query_param(req, "source_file"))
+    if store_key:
+        ret = openrun_admin.create_secret(
+            value=value_b64 if value_b64 else value,
+            name=store_key,
+            encoding="base64" if value_b64 else "",
+            description=data["Description"],
+            source_file=query_param(req, "source_file"))
+    else:
+        ret = openrun_admin.create_secret(
+            value=value_b64 if value_b64 else value,
+            prefix=store_prefix,
+            encoding="base64" if value_b64 else "",
+            description=data["Description"],
+            source_file=query_param(req, "source_file"))
     if ret.error:
+        # The field goes back to the plain (unencrypted) value with the
+        # error shown inline, e.g. when the exact name already exists
         data["Error"] = ret.error
         data["Value"] = value
         return data
@@ -2489,11 +2583,21 @@ def builder_publish_config(session_id=""):
 
 def builder_data(req):
     # Builder sessions list (/builder), filtered by the search query. Other
-    # users' sessions are included when the caller holds builder:read
+    # users' sessions are included when the caller holds the admin permission
+    # (the backend enforces this; the perms map only picks the request shape)
     perms = get_perms()
     query = query_param(req, "query").strip().lower()
     data = {"Title": "Builder", "Nav": "builder", "Perms": perms, "Query": query_param(req, "query"),
             "Sessions": [], "Enabled": False, "Flash": "", "FlashError": ""}
+
+    if perms.get("feature:system_blocked"):
+        # The build plugin rejects anonymous callers with a hard error (not
+        # a ret.error), which would crash the handler into the error page -
+        # losing the sidebar (and its sign-in notice), which then jumps
+        # between pages. Render the page shell instead; the sidebar notice
+        # explains the blocked state
+        data["FlashError"] = "The builder is unavailable: management operations are disabled for anonymous users"
+        return data
 
     config, error = builder_publish_config()
     if error:
@@ -2504,7 +2608,7 @@ def builder_data(req):
     if not config["enabled"]:
         return data
 
-    if perms.get("builder:read"):
+    if perms.get("admin"):
         ret = build.list_sessions(all_users=True)
     else:
         ret = build.list_sessions()
@@ -2544,9 +2648,11 @@ def builder_rows_action(req, action):
 
 
 def builder_create_page_handler(req):
-    # New app form (/builder/create)
+    # New app form (/builder/create); with ?edit=<path> the session modifies
+    # an existing builder-published app (source only, no declaration change)
     data = {"Title": "Builder", "Nav": "builder", "Perms": get_perms(),
-            "Specs": [], "Agents": [], "DefaultAgent": "", "Values": {}}
+            "Specs": [], "Agents": [], "DefaultAgent": "", "Values": {},
+            "EditApp": query_param(req, "edit").strip()}
     config, error = builder_publish_config()
     if error:
         data["Error"] = error
@@ -2555,6 +2661,18 @@ def builder_create_page_handler(req):
     data["DefaultAgent"] = config["default_agent"]
     data["Enabled"] = config["enabled"]
     data["Prompts"] = config["prompts"]
+
+    if data["EditApp"]:
+        # Spec does not apply: the workspace is seeded from the app. Apps
+        # published by the builder are edited in place; other apps fork -
+        # publish creates a new app with the original's settings copied
+        ret = openrun.get_app(data["EditApp"])
+        error = ret.error
+        if error:
+            data["Error"] = error
+        else:
+            data["EditPublished"] = ret.value.get("builder_published")
+        return data
 
     ret = openrun.list_specs()
     error = ret.error
@@ -2572,12 +2690,15 @@ def builder_create_submit_handler(req):
     spec = query_param(req, "spec").strip()
     agent = query_param(req, "agent").strip()
     preset = query_param(req, "prompt_preset").strip()
+    edit_app = query_param(req, "edit_app").strip()
+    data["EditApp"] = edit_app
     data["Values"] = {"name": name, "prompt": prompt, "spec": spec, "agent": agent, "preset": preset}
     if not name or not prompt:
         data["Error"] = "Name and app description are required"
         return data
 
-    ret = build.create_session(name=name, prompt=prompt, spec=spec, agent=agent, prompt_preset=preset)
+    ret = build.create_session(name=name, prompt=prompt, spec=spec, agent=agent, prompt_preset=preset,
+                               edit_app=edit_app)
     error = ret.error
     if error:
         data["Error"] = error
@@ -2592,9 +2713,15 @@ def builder_detail_data(req):
     # page render is the durable transcript
     id = query_param(req, "id").strip()
     data = {"Title": "Builder", "Nav": "builder", "Perms": get_perms(), "Id": id,
-            "Flash": "", "FlashError": "", "PublishResult": None}
+            "Flash": "", "FlashError": "", "PublishResult": None,
+            # No dedicated builder docs page yet, link the docs root
+            "HelpUrl": docs_link("/docs/")}
     if not id:
         data["Error"] = "session id is required"
+        return data
+    if data["Perms"].get("feature:system_blocked"):
+        # See builder_data: the gated build plugin would crash the handler
+        data["Error"] = "The builder is unavailable: management operations are disabled for anonymous users"
         return data
 
     config, error = builder_publish_config(session_id=id)
@@ -2676,7 +2803,12 @@ def builder_detail_action(req, action):
         message = query_param(req, "message").strip()
         if message:
             ret = build.send_message(id, message=message)
-            error = ret.error
+            if ret.error:
+                # The composer posts with hx-swap=none (the transcript is
+                # SSE-driven), so a discarded error looks like a hang.
+                # Retarget the error into the chat's error slot instead
+                return ace.response({"SendError": ret.error}, block="bc_send_error",
+                                    retarget="#bc-send-error", reswap="innerHTML")
     elif action == "cancel":
         ret = build.cancel_turn(id)
         error = ret.error
@@ -2750,9 +2882,24 @@ def builder_publish_handler(req):
     if error:
         data["FlashError"] = error
         return data
+    # PublishResult renders its own success alert (with mode + commit); a
+    # Flash here would be a redundant second success message
     data["PublishResult"] = ret.value
-    data["Flash"] = "Published to " + ret.value["publish_path"]
+    # Local publishes land on staging (except a first publish, whose initial
+    # version is live on create): offer promotion as the next step
+    if ret.value.get("mode") == "local":
+        app_ret = openrun.get_app(ret.value.get("publish_path"))
+        if not app_ret.error and app_ret.value.get("staged_changes"):
+            data["AskPromotePath"] = ret.value.get("publish_path")
     return data
+
+
+def builder_promote_handler(req):
+    # POST: promote the just-published staging app to prod
+    path, error_data = require_app_path(req, builder_detail_data)
+    if error_data:
+        return error_data
+    return promote_app_result(req, builder_detail_data, path)
 
 
 def builder_unpublish_handler(req):

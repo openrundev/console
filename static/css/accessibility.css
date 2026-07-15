@@ -219,6 +219,29 @@ a.btn-disabled {
     view-transition-name: console-actions;
     view-transition-class: console-pair;
   }
+
+  /* THE STACKING INVARIANT — read before adding a view-transition-name.
+     A view-transition-name creates a stacking context on the element even
+     when no transition is running. An element in its own stacking context at
+     z-index:auto is painted at the level of normal page content, so any
+     popup opened from inside it (a daisyUI dropdown, a menu) is painted
+     UNDER the content that follows it in the DOM - the menu opens but is
+     hidden behind later cards. This bit .page-header (app detail Actions)
+     and .page-actions (builder Publish) separately.
+
+     Fix, in ONE place: every console chrome element that carries a
+     view-transition-name is lifted above page content here. When you add a
+     new view-transition-name to a chrome element that can host a popup, add
+     its selector to this list - do not scatter per-element z-index. Chrome
+     legitimately sits above page content, so an always-on lift is correct;
+     it stays below the fixed overlays (.nav-progress z-index:100,
+     .skip-link z-index:200). The names are only set for non-reduced-motion,
+     so this rule lives in the same block. */
+  .page-header,
+  .page-actions {
+    position: relative;
+    z-index: 20;
+  }
   /* No geometry tween and no snapshot scaling: the group box snaps (the
      titles are left-anchored transparent text, a width snap is invisible)
      and old/new keep their natural size, so differing title widths

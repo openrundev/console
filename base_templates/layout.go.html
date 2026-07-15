@@ -45,7 +45,8 @@
       the outgoing and incoming pages; block rendering until the sidebar
       nav - the last element in the body - is parsed, so the incoming
       snapshot is never a partially rendered page (Chrome 124+, ignored
-      elsewhere) */}}
+      elsewhere)
+    */}}
     <link rel="expect" href="#main-nav" blocking="render" />
 
     {{ template "openrun_gen_import" . }}
@@ -67,7 +68,20 @@
     aria-controls="main-nav"
     aria-expanded="false"
     onclick="toggleNavDrawer(this)">
-    <span aria-hidden="true">☰</span>
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      class="w-7 h-7"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round">
+      <path d="M4 6h16" />
+      <path d="M4 12h16" />
+      <path d="M4 18h16" />
+    </svg>
   </button>
 {{ end }}
 
@@ -107,6 +121,109 @@
     class="page-title text-2xl md:text-3xl font-extrabold italic tracking-tight">
     {{ . }}
   </h1>
+{{ end }}
+
+{{/* help_link renders a page's documentation link, next to its breadcrumbs.
+  Context: the absolute docs URL (built by utils.star docs_link from the
+  docs_url install param); empty renders nothing
+*/}}
+{{ define "help_link" }}
+  {{ if . }}
+    <a
+      href="{{ . }}"
+      target="_blank"
+      rel="noopener"
+      class="btn btn-xs btn-ghost btn-square text-primary"
+      title="Open the documentation in a new tab"
+      aria-label="Open the documentation in a new tab">
+      <svg
+        aria-hidden="true"
+        focusable="false"
+        class="w-4 h-4"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+        <path d="M12 17h.01" />
+      </svg>
+    </a>
+  {{ end }}
+{{ end }}
+
+{{/* open_app_link renders a right-aligned open-in-new-tab link for a
+  running app. Context: dict with Href, Label ("Open app"/"Open staging")
+  and What ("app"/"staging app", used in the tooltip)
+*/}}
+{{ define "open_app_link" }}
+  <a
+    href="{{ .Href }}"
+    target="_blank"
+    rel="noopener"
+    title="Opens the {{ .What }} in a new tab"
+    aria-label="Open the {{ .What }} in a new tab"
+    class="link link-hover text-xs text-primary ml-auto whitespace-nowrap">
+    {{ .Label }} {{ template "globe_icon" }}
+  </a>
+{{ end }}
+
+{{/* promote_prompt renders a staged-changes promotion alert: the message,
+  optional open-staging / keep-in-staging links and the Promote now button
+  (gated on app:promote). Context: dict with Message, Path (the app the
+  promote posts for), PostUrl, Target (hx-target selector), Perms and
+  optional Warning (renders alert-warning instead of alert-info), Confirm
+  (hx-confirm text), StageUrl, KeepHref
+*/}}
+{{ define "promote_prompt" }}
+  <div
+    role="alert"
+    class="alert {{ if .Warning }}
+      alert-warning
+    {{ else }}
+      alert-info
+    {{ end }} alert-soft py-2 text-sm flex-wrap">
+    <span aria-hidden="true">{{ if .Warning }}⚠{{ else }}✓{{ end }}</span>
+    <span>{{ .Message }}</span>
+    <div class="ml-auto flex items-center gap-2">
+      {{ if .StageUrl }}
+        <a
+          href="{{ .StageUrl }}"
+          target="_blank"
+          rel="noopener"
+          title="Opens the staging app in a new tab"
+          class="btn btn-xs btn-ghost">
+          Open staging {{ template "globe_icon" }}
+        </a>
+      {{ end }}
+      {{ if .KeepHref }}
+        <a href="{{ .KeepHref }}" class="btn btn-xs btn-ghost">
+          Keep in staging
+        </a>
+      {{ end }}
+      <button
+        class="btn btn-xs {{ if .Warning }}
+          btn-warning
+        {{ else }}
+          btn-primary
+        {{ end }} transition-transform duration-150 active:scale-95"
+        {{ if index .Perms "app:promote" }}
+          hx-post="{{ .PostUrl }}"
+          hx-vals='{"path": "{{ .Path }}"}'
+          {{ if .Confirm }}hx-confirm="{{ .Confirm }}"{{ end }}
+          hx-target="{{ .Target }}"
+          hx-swap="innerHTML transition:true"
+          hx-disabled-elt="this"
+          hx-indicator="#page-progress"
+        {{ else }}
+          disabled title="requires app:promote"
+        {{ end }}>
+        Promote now
+      </button>
+    </div>
+  </div>
 {{ end }}
 
 {{/* page_progress renders the branded progress line shown while HTMX
@@ -153,7 +270,7 @@
       <span aria-hidden="true">✓</span>
       <span
         >Validation succeeded -
-        <span class="font-mono{{ if .BreakAll }} break-all{{ end }}"
+        <span class="font-mono{{ if .BreakAll }}break-all{{ end }}"
           >{{ .Value }}</span
         >
         {{ .Suffix }}</span
@@ -284,7 +401,12 @@ InputId, Placeholder, Masked, File, Description, Error */}}
   explicit size, wrapping <a> must be btn-square)
 */}}
 {{ define "drilldown_icon" }}
-  <img src="{{ static "icons/drilldown.svg" }}" width="20" height="20" style="width:20px;height:20px" alt="" />
+  <img
+    src="{{ static "icons/drilldown.svg" }}"
+    width="20"
+    height="20"
+    style="width:20px;height:20px"
+    alt="" />
 {{ end }}
 
 {{/* builder_status_badge renders a builder session status as a colored
@@ -292,10 +414,24 @@ InputId, Placeholder, Masked, File, Description, Error */}}
 */}}
 {{ define "builder_status_badge" }}
   <span
-    class="badge badge-sm gap-1 {{ if eq . "error" }}badge-error{{ else if eq . "published" }}badge-success{{ else if eq . "running" }}badge-info{{ else if eq . "detached" }}badge-ghost{{ else if eq . "starting" }}badge-warning badge-soft{{ else }}badge-success badge-soft{{ end }}">
+    class="badge badge-sm gap-1 {{ if eq . "error" }}
+      badge-error
+    {{ else if eq . "published" }}
+      badge-success
+    {{ else if eq . "running" }}
+      badge-info
+    {{ else if eq . "detached" }}
+      badge-ghost
+    {{ else if eq . "starting" }}
+      badge-warning badge-soft
+    {{ else }}
+      badge-success badge-soft
+    {{ end }}">
     <span
       aria-hidden="true"
-      class="w-1.5 h-1.5 rounded-full bg-current {{ if or (eq . "running") (eq . "starting") }}animate-pulse{{ end }}"></span>
+      class="w-1.5 h-1.5 rounded-full bg-current {{ if or (eq . "running") (eq . "starting") }}
+        animate-pulse
+      {{ end }}"></span>
     {{ . }}
   </span>
 {{ end }}
@@ -321,19 +457,22 @@ InputId, Placeholder, Masked, File, Description, Error */}}
   and the sync detail page. Context: dict with Apps (row list), AppPath
   (console root path), Perms (the user's management permissions) and
   ShowActions (row action buttons; the apps page passes true - the
-  actions re-render the apps page partial, so view-only pages omit them)
+  actions re-render the apps page partial, so view-only pages omit them).
+  RowAction ("promote"/"approve", optional) switches the reload row action
+  to the promote/approve button used by the apps page tabs
 */}}
 {{ define "app_table" }}
   {{ $root := .AppPath }}
   {{ $perms := .Perms }}
   {{ $actions := .ShowActions }}
+  {{ $rowAction := .RowAction | default "" }}
   <div class="overflow-x-auto">
     <table class="table table-sm">
       <thead>
         <tr>
           <th scope="col" class="w-8"><span class="sr-only">Details</span></th>
-          <th scope="col">App</th>
-          <th scope="col" class="hidden md:table-cell w-2/5">Source</th>
+          <th scope="col" class="w-1/3">App</th>
+          <th scope="col" class="hidden md:table-cell w-1/3">Source</th>
           <th scope="col" class="w-28 text-center">Version</th>
           <th scope="col" class="hidden lg:table-cell">Auth</th>
           <th scope="col" class="hidden sm:table-cell">Updated</th>
@@ -408,15 +547,24 @@ InputId, Placeholder, Masked, File, Description, Error */}}
                   {{ .git_sha }}
                 {{ end }}</span
               >
-              {{ if or .staging .is_dev }}
+              {{ if or .staging .is_dev .needs_approval }}
                 <!-- Always on its own row, keeping the version lines aligned -->
-                <div class="mt-0.5">
+                <div
+                  class="mt-0.5 flex items-center justify-center gap-1 flex-wrap">
+                  {{ if .needs_approval }}
+                    <span
+                      class="badge badge-error badge-xs badge-soft whitespace-nowrap"
+                      title="the app requests plugin permissions which are not approved yet"
+                      >needs approval</span
+                    >
+                  {{ end }}
                   {{ if .is_dev }}
                     <span
                       class="badge badge-success badge-xs badge-soft"
                       title="development mode app, served from the local source directory"
                       >dev</span
                     >
+                  {{ else if not .staging }}
                   {{ else if .staging.ahead }}
                     <span
                       class="badge badge-warning badge-xs badge-soft"
@@ -454,6 +602,9 @@ InputId, Placeholder, Masked, File, Description, Error */}}
             {{ if $actions }}
               <td class="text-right whitespace-nowrap">
                 <div class="inline-flex items-center gap-0.5">
+                  {{/* The promote/approval tab rows carry only their one
+                    action; edit/delete stay on the default list */}}
+                  {{ if eq $rowAction "" }}
                   <a
                     href="{{ $root }}/apps/update?path={{ .path }}"
                     class="btn btn-xs btn-ghost btn-square {{ if not (index $perms "app:update") }}
@@ -482,38 +633,81 @@ InputId, Placeholder, Masked, File, Description, Error */}}
                         d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
                     </svg>
                   </a>
-                  <button
-                    class="btn btn-xs btn-ghost btn-square"
-                    aria-label="Reload {{ .path }}"
-                    {{ if index $perms "app:reload" }}
-                      title="{{ if .is_git }}
-                        Reload from git
+                  {{ end }}
+                  {{ if eq $rowAction "promote" }}
+                    <button
+                      class="btn btn-xs btn-primary btn-soft transition-transform duration-150 active:scale-95"
+                      aria-label="Promote {{ .path }}"
+                      {{ if index $perms "app:promote" }}
+                        title="Promote staging to prod"
+                        hx-post="{{ $root }}/apps/promote"
+                        hx-disabled-elt="this" hx-vals='{"path": "{{ .path }}"}'
+                        hx-confirm="Promote staging
+                        {{ if .staging }}v{{ .staging.version }}{{ end }}
+                        to prod for {{ .path }}?" hx-target="#app-groups"
+                        hx-swap="innerHTML transition:true"
+                        hx-include="#page-search, #app-filter-value,
+                        #app-tab-value" hx-indicator="#page-progress"
                       {{ else }}
-                        Reload from source
-                      {{ end }}"
-                      hx-post="{{ $root }}/apps/reload" hx-disabled-elt="this"
-                      hx-vals='{"path": "{{ .path }}"}' hx-confirm="Reload
-                      {{ .path }} from its source and promote?"
-                      hx-target="#app-groups" hx-swap="innerHTML
-                      transition:true" hx-include="#page-search,
-                      #app-filter-value" hx-indicator="#page-progress"
-                    {{ else }}
-                      disabled title="requires app:reload"
-                    {{ end }}>
-                    <svg
-                      aria-hidden="true"
-                      focusable="false"
-                      class="w-3.5 h-3.5"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round">
-                      <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-                      <path d="M21 3v6h-6" />
-                    </svg>
-                  </button>
+                        disabled title="requires app:promote"
+                      {{ end }}>
+                      Promote
+                    </button>
+                  {{ else if eq $rowAction "approve" }}
+                    <button
+                      class="btn btn-xs btn-primary btn-soft transition-transform duration-150 active:scale-95"
+                      aria-label="Approve permissions for {{ .path }}"
+                      {{ if or (index $perms "app:approve") (index $perms "admin") }}
+                        title="Approve the requested plugin permissions"
+                        hx-post="{{ $root }}/apps/approve"
+                        hx-disabled-elt="this" hx-vals='{"path": "{{ .path }}"}'
+                        hx-confirm="Approve the plugin permissions requested by
+                        {{ .path }}?" hx-target="#app-groups" hx-swap="innerHTML
+                        transition:true" hx-include="#page-search,
+                        #app-filter-value, #app-tab-value"
+                        hx-indicator="#page-progress"
+                      {{ else }}
+                        disabled title="requires the app:approve permission"
+                      {{ end }}>
+                      Approve
+                    </button>
+                  {{ else }}
+                    <button
+                      class="btn btn-xs btn-ghost btn-square"
+                      aria-label="Reload {{ .path }}"
+                      {{ if index $perms "app:reload" }}
+                        title="{{ if .is_git }}
+                          Reload from git
+                        {{ else }}
+                          Reload from source
+                        {{ end }}"
+                        hx-post="{{ $root }}/apps/reload" hx-disabled-elt="this"
+                        hx-vals='{"path": "{{ .path }}"}' hx-confirm="Reload
+                        {{ .path }} from its source? The changes apply to
+                        staging first."
+                        hx-target="#app-groups" hx-swap="innerHTML
+                        transition:true" hx-include="#page-search,
+                        #app-filter-value, #app-tab-value"
+                        hx-indicator="#page-progress"
+                      {{ else }}
+                        disabled title="requires app:reload"
+                      {{ end }}>
+                      <svg
+                        aria-hidden="true"
+                        focusable="false"
+                        class="w-3.5 h-3.5"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                        <path d="M21 3v6h-6" />
+                      </svg>
+                    </button>
+                  {{ end }}
+                  {{ if eq $rowAction "" }}
                   <button
                     class="btn btn-xs btn-ghost btn-square text-error"
                     aria-label="Delete {{ .path }}"
@@ -523,8 +717,8 @@ InputId, Placeholder, Masked, File, Description, Error */}}
                       hx-confirm="Delete {{ .path }}? This deletes the prod,
                       staging and preview apps." hx-target="#app-groups"
                       hx-swap="innerHTML transition:true"
-                      hx-include="#page-search, #app-filter-value"
-                      hx-indicator="#page-progress"
+                      hx-include="#page-search, #app-filter-value,
+                      #app-tab-value" hx-indicator="#page-progress"
                     {{ else }}
                       disabled title="requires app:delete"
                     {{ end }}>
@@ -545,6 +739,7 @@ InputId, Placeholder, Masked, File, Description, Error */}}
                       <path d="M14 11v6" />
                     </svg>
                   </button>
+                  {{ end }}
                 </div>
               </td>
             {{ end }}
@@ -574,6 +769,15 @@ InputId, Placeholder, Masked, File, Description, Error */}}
 {{/* sync_result renders the detailed results of a sync run.
   Context: the SyncResult summary dict
 */}}
+{{ define "bc_send_error" }}
+  {{ if .Data.SendError }}
+    <div class="pb-1 text-error text-xs whitespace-pre-wrap" role="alert">
+      Message not sent:
+      {{ .Data.SendError }}
+    </div>
+  {{ end }}
+{{ end }}
+
 {{ define "sync_result" }}
   <div class="card bg-base-100 border border-success/40">
     <div class="card-body p-4 gap-2">
@@ -732,6 +936,22 @@ InputId, Placeholder, Masked, File, Description, Error */}}
   <div id="nav-progress" class="nav-progress" aria-hidden="true"></div>
   <!-- Fallback error target: error_handler retargets failed HTMX requests here -->
   <div id="error-toast" class="toast toast-end z-50"></div>
+  {{/* Mobile companion of the sign-in notice below: the drawer (and the
+    detailed notice in it) is hidden under lg, so a slim bottom strip gives
+    the cue there; tapping it opens the drawer with the full explanation
+  */}}
+  {{ if and .Data.Perms (index .Data.Perms "feature:system_blocked") }}
+    <label
+      for="nav-drawer"
+      role="alert"
+      class="lg:hidden fixed inset-x-0 bottom-0 z-[60] bg-error text-error-content px-4 py-2 text-xs font-medium flex items-center gap-2 cursor-pointer shadow-lg">
+      <span aria-hidden="true">⚠</span>
+      <span class="min-w-0"
+        >Sign-in required - management actions are disabled. Tap for
+        details.</span
+      >
+    </label>
+  {{ end }}
   <div class="drawer-side z-20">
     <label for="nav-drawer" aria-hidden="true" class="drawer-overlay"></label>
     <aside
@@ -756,9 +976,22 @@ InputId, Placeholder, Masked, File, Description, Error */}}
         tabindex="-1"
         class="grow w-full">
         <ul class="menu w-full px-2 pt-3 gap-1 text-[0.95rem]">
-          <li>
+          {{/* Each nav item is gated on the read permission for its area (or
+            the admin super-user permission); feature-gated areas also require
+            the install feature. Without the permission the item is disabled,
+            so a role that cannot load the page never gets a 403 from clicking
+            it. With RBAC inactive get_perms returns all permissions, so every
+            item is enabled as before.
+          */}}
+          {{ $appsView := or (not .Data.Perms) (index .Data.Perms "app:read") (index .Data.Perms "admin") }}
+          <li class="{{ if not $appsView }}menu-disabled{{ end }}">
             <a
-              href="{{ .AppPath }}/apps"
+              {{ if $appsView }}
+                href="{{ .AppPath }}/apps" title="Deployed apps: status, versions and lifecycle actions"
+              {{ else }}
+                aria-disabled="true" tabindex="-1" title="requires the app:read
+                or admin permission"
+              {{ end }}
               {{ if eq .Data.Nav "apps" }}aria-current="page"{{ end }}
               class="{{ if eq .Data.Nav "apps" }}menu-active{{ end }}"
               ><svg
@@ -778,9 +1011,15 @@ InputId, Placeholder, Masked, File, Description, Error */}}
               >Apps</a
             >
           </li>
-          <li>
+          {{ $syncsView := or (not .Data.Perms) (index .Data.Perms "sync:read") (index .Data.Perms "admin") }}
+          <li class="{{ if not $syncsView }}menu-disabled{{ end }}">
             <a
-              href="{{ .AppPath }}/syncs"
+              {{ if $syncsView }}
+                href="{{ .AppPath }}/syncs" title="Declarative sync sources which install and update apps from git"
+              {{ else }}
+                aria-disabled="true" tabindex="-1" title="requires the sync:read
+                or admin permission"
+              {{ end }}
               {{ if eq .Data.Nav "syncs" }}aria-current="page"{{ end }}
               class="{{ if eq .Data.Nav "syncs" }}menu-active{{ end }}"
               ><svg
@@ -800,9 +1039,15 @@ InputId, Placeholder, Masked, File, Description, Error */}}
               >Syncs</a
             >
           </li>
-          <li>
+          {{ $bindingsView := or (not .Data.Perms) (index .Data.Perms "binding:read") (index .Data.Perms "admin") }}
+          <li class="{{ if not $bindingsView }}menu-disabled{{ end }}">
             <a
-              href="{{ .AppPath }}/bindings"
+              {{ if $bindingsView }}
+                href="{{ .AppPath }}/bindings" title="Services and the bindings connecting apps to them"
+              {{ else }}
+                aria-disabled="true" tabindex="-1" title="requires the
+                binding:read or admin permission"
+              {{ end }}
               {{ if eq .Data.Nav "bindings" }}aria-current="page"{{ end }}
               class="{{ if eq .Data.Nav "bindings" }}menu-active{{ end }}"
               ><svg
@@ -826,13 +1071,17 @@ InputId, Placeholder, Masked, File, Description, Error */}}
             a disabled install has no /builder routes at all
           */}}
           {{ $builderOff := and .Data.Perms (not (index .Data.Perms "feature:builder")) }}
-          <li class="{{ if $builderOff }}menu-disabled{{ end }}">
+          {{ $builderView := and (not $builderOff) (or (not .Data.Perms) (index .Data.Perms "builder:list") (index .Data.Perms "admin")) }}
+          <li class="{{ if not $builderView }}menu-disabled{{ end }}">
             <a
               {{ if $builderOff }}
                 aria-disabled="true" tabindex="-1" title="the builder is
                 disabled for this console install"
+              {{ else if not $builderView }}
+                aria-disabled="true" tabindex="-1" title="requires the
+                builder:list or admin permission"
               {{ else }}
-                href="{{ .AppPath }}/builder"
+                href="{{ .AppPath }}/builder" title="AI agent sessions for building and publishing apps"
               {{ end }}
               {{ if eq .Data.Nav "builder" }}aria-current="page"{{ end }}
               class="{{ if eq .Data.Nav "builder" }}menu-active{{ end }}"
@@ -846,7 +1095,12 @@ InputId, Placeholder, Masked, File, Description, Error */}}
                 stroke-width="2"
                 stroke-linecap="round"
                 stroke-linejoin="round">
-                <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" /><path d="M20 3v4" /><path d="M22 5h-4" /><path d="M4 17v2" /><path d="M5 18H3" /></svg
+                <path
+                  d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
+                <path d="M20 3v4" />
+                <path d="M22 5h-4" />
+                <path d="M4 17v2" />
+                <path d="M5 18H3" /></svg
               >Builder</a
             >
           </li>
@@ -854,13 +1108,17 @@ InputId, Placeholder, Masked, File, Description, Error */}}
             a disabled install has no /containers routes at all
           */}}
           {{ $containersOff := and .Data.Perms (not (index .Data.Perms "feature:container")) }}
-          <li class="{{ if $containersOff }}menu-disabled{{ end }}">
+          {{ $containersView := and (not $containersOff) (or (not .Data.Perms) (index .Data.Perms "container:read") (index .Data.Perms "admin")) }}
+          <li class="{{ if not $containersView }}menu-disabled{{ end }}">
             <a
               {{ if $containersOff }}
                 aria-disabled="true" tabindex="-1" title="containers are
                 disabled for this console install"
+              {{ else if not $containersView }}
+                aria-disabled="true" tabindex="-1" title="requires the
+                container:read or admin permission"
               {{ else }}
-                href="{{ .AppPath }}/containers"
+                href="{{ .AppPath }}/containers" title="Containers and pods managed by OpenRun"
               {{ end }}
               {{ if eq .Data.Nav "containers" }}aria-current="page"{{ end }}
               class="{{ if eq .Data.Nav "containers" }}menu-active{{ end }}"
@@ -881,9 +1139,15 @@ InputId, Placeholder, Masked, File, Description, Error */}}
               >Containers</a
             >
           </li>
-          <li>
+          {{ $auditView := or (not .Data.Perms) (index .Data.Perms "audit:read") (index .Data.Perms "admin") }}
+          <li class="{{ if not $auditView }}menu-disabled{{ end }}">
             <a
-              href="{{ .AppPath }}/audit"
+              {{ if $auditView }}
+                href="{{ .AppPath }}/audit" title="Audit trail of management operations and app calls"
+              {{ else }}
+                aria-disabled="true" tabindex="-1" title="requires the
+                audit:read or admin permission"
+              {{ end }}
               {{ if eq .Data.Nav "audit" }}aria-current="page"{{ end }}
               class="{{ if eq .Data.Nav "audit" }}menu-active{{ end }}"
               ><svg
@@ -905,17 +1169,21 @@ InputId, Placeholder, Masked, File, Description, Error */}}
               >Audit Logs</a
             >
           </li>
-          <li>
-            {{/* Configuration screens are install-gated (enable_config
-              param); a disabled install has no /config routes at all
-            */}}
-            {{ $configOff := and .Data.Perms (not (index .Data.Perms "feature:config")) }}
+          {{/* Configuration screens are install-gated (enable_config
+            param); a disabled install has no /config routes at all
+          */}}
+          {{ $configOff := and .Data.Perms (not (index .Data.Perms "feature:config")) }}
+          {{ $configView := and (not $configOff) (or (not .Data.Perms) (index .Data.Perms "config:read") (index .Data.Perms "admin")) }}
+          <li class="{{ if not $configView }}menu-disabled{{ end }}">
             <a
               {{ if $configOff }}
                 aria-disabled="true" tabindex="-1" title="configuration is
                 disabled for this console install"
+              {{ else if not $configView }}
+                aria-disabled="true" tabindex="-1" title="requires the
+                config:read or admin permission"
               {{ else }}
-                href="{{ .AppPath }}/config"
+                href="{{ .AppPath }}/config" title="Server configuration and RBAC settings"
               {{ end }}
               {{ if eq .Data.Nav "config" }}aria-current="page"{{ end }}
               class="{{ if eq .Data.Nav "config" }}menu-active{{ end }}"
@@ -937,6 +1205,33 @@ InputId, Placeholder, Masked, File, Description, Error */}}
           </li>
         </ul>
       </nav>
+      {{/* feature:system_blocked: the caller is anonymous and the server's
+        default security.unsafe_allow_system_plugins_anon=false blocks the
+        privileged system plugins (openrun_admin, build). Management/builder
+        actions would fail server-side, so a persistent notice sits above the
+        user footer, next to the anonymous identity it is about.
+      */}}
+      {{ if and .Data.Perms (index .Data.Perms "feature:system_blocked") }}
+        <div
+          role="alert"
+          class="mx-2 mb-2 px-3 py-2 rounded-box bg-error/10 border border-error/40 text-xs space-y-1">
+          <div class="flex items-center gap-1 font-semibold text-error">
+            <span aria-hidden="true">⚠</span>
+            Console app requires sign in.
+          </div>
+          <p>
+            Management and builder operations are disabled for anonymous users.
+          </p>
+          <p>
+            Configure auth for the Console app, or (for dev only) set
+            <code class="font-mono break-all"
+              >security.unsafe_allow_system_plugins_anon = true</code
+            >
+            in <code class="font-mono">openrun.toml</code> and restart the
+            server.
+          </p>
+        </div>
+      {{ end }}
       <div
         class="px-4 py-3 border-t border-base-300 flex items-center gap-2 text-sm">
         {{ if .UserId }}
