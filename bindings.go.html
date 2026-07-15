@@ -8,7 +8,7 @@
   {{ if .service_type }}
     <span class="badge badge-ghost badge-xs">{{ .service_type }}</span>
   {{ else if not .service_name }}
-    <span class="text-xs text-base-content/70" title="{{ .source }}"
+    <span class="text-xs text-base-content/70 tooltip tooltip-right" data-tip="{{ .source }}"
       >config only</span
     >
   {{ end }}
@@ -18,8 +18,8 @@
 {{ define "binding_config" }}
   {{ if .config_keys }}
     <span
-      class="text-xs text-base-content/70 font-mono"
-      title="{{ range .config_keys }}{{ . }} {{ end }}"
+      class="text-xs text-base-content/70 font-mono tooltip tooltip-right"
+      data-tip="{{ range .config_keys }}{{ . }} {{ end }}"
       >{{ len .config_keys }} keys</span
     >
   {{ else }}
@@ -31,8 +31,8 @@
 {{ define "binding_badges" }}
   {{ if .has_staged }}
     <span
-      class="badge badge-warning badge-xs badge-soft"
-      title="staging has changes not applied to prod: {{ range .staged_grants }}{{ . }} {{ end }}"
+      class="badge badge-warning badge-xs badge-soft tooltip tooltip-left"
+      data-tip="staging has changes not applied to prod: {{ range .staged_grants }}{{ . }} {{ end }}"
       >pending</span
     >
   {{ end }}
@@ -54,10 +54,10 @@
     {{ if .Editable }}
       <a
         href="{{ .AppPath }}/bindings/update?path={{ .Path }}"
-        class="btn btn-xs btn-ghost btn-square {{ if not (index .Perms "binding:update") }}btn-disabled{{ end }}"
+        class="btn btn-xs btn-ghost btn-square tooltip tooltip-left {{ if not (index .Perms "binding:update") }}btn-disabled{{ end }}"
         {{ if not (index .Perms "binding:update") }}aria-disabled="true" tabindex="-1"{{ end }}
         aria-label="Edit grants of {{ .Path }}"
-        title="{{ if index .Perms "binding:update" }}Edit grants{{ else }}requires binding:update{{ end }}">
+        data-tip="{{ if index .Perms "binding:update" }}Edit grants{{ else }}requires binding:update{{ end }}">
         <svg aria-hidden="true" focusable="false"
           class="w-3.5 h-3.5"
           viewBox="0 0 24 24"
@@ -71,10 +71,10 @@
       </a>
     {{ end }}
     <button
-      class="btn btn-xs btn-ghost btn-square text-error"
+      class="btn btn-xs btn-ghost btn-square text-error tooltip tooltip-left"
       aria-label="Delete binding {{ .Path }}"
       {{ if index .Perms "binding:delete" }}
-        title="Delete binding"
+        data-tip="Delete binding"
         hx-post="{{ .AppPath }}/bindings/delete"
         hx-disabled-elt="this"
         hx-vals='{"path": "{{ .Path }}"}'
@@ -84,7 +84,7 @@
         hx-include="#page-search"
         hx-indicator="#page-progress"
       {{ else }}
-        disabled title="requires binding:delete"
+        disabled data-tip="requires binding:delete"
       {{ end }}>
       <svg aria-hidden="true" focusable="false"
         class="w-3.5 h-3.5"
@@ -142,18 +142,20 @@
                   hx-indicator="#page-progress" />
               </label>
               <a
-                href="{{ .AppPath }}/bindings/services/create"
-                class="btn btn-sm btn-outline transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "service:create") }}btn-disabled{{ end }}"
-                {{ if not (index .Data.Perms "service:create") }}
-                  title="requires service:create" aria-disabled="true" tabindex="-1"
+                class="btn btn-sm btn-outline transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "service:create") }}btn-disabled tooltip tooltip-bottom{{ end }}"
+                {{ if index .Data.Perms "service:create" }}
+                  href="{{ .AppPath }}/bindings/services/create"
+                {{ else }}
+                  data-tip="requires service:create" aria-disabled="true" tabindex="-1"
                 {{ end }}>
                 + New service
               </a>
               <a
-                href="{{ .AppPath }}/bindings/create"
-                class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "binding:create") }}btn-disabled{{ end }}"
-                {{ if not (index .Data.Perms "binding:create") }}
-                  title="requires binding:create" aria-disabled="true" tabindex="-1"
+                class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "binding:create") }}btn-disabled tooltip tooltip-bottom{{ end }}"
+                {{ if index .Data.Perms "binding:create" }}
+                  href="{{ .AppPath }}/bindings/create"
+                {{ else }}
+                  data-tip="requires binding:create" aria-disabled="true" tabindex="-1"
                 {{ end }}>
                 + New binding
               </a>
@@ -202,8 +204,8 @@
                               {{ .id }}
                               {{ if .is_default }}
                                 <span
-                                  class="badge badge-primary badge-xs badge-soft"
-                                  title="default {{ .service_type }} service"
+                                  class="badge badge-primary badge-xs badge-soft tooltip tooltip-right"
+                                  data-tip="default {{ .service_type }} service"
                                   >default</span
                                 >
                               {{ end }}
@@ -243,9 +245,9 @@
                               <div
                                 class="inline-flex items-center gap-0.5">
                                 <button
-                                  class="btn btn-xs btn-ghost text-error"
+                                  class="btn btn-xs btn-ghost text-error tooltip tooltip-left"
                                   {{ if index $.Data.Perms "service:delete" }}
-                                    title="Delete service"
+                                    data-tip="Delete service"
                                     hx-post="{{ $.AppPath }}/bindings/services/delete"
                                     hx-vals='{"id": "{{ .id }}"}'
                                     hx-confirm="Delete service {{ .id }}? Bindings referencing it will stop working."
@@ -255,7 +257,7 @@
                                     hx-disabled-elt="this"
                                     hx-indicator="#page-progress"
                                   {{ else }}
-                                    disabled title="requires service:delete"
+                                    disabled data-tip="requires service:delete"
                                   {{ end }}>
                                   delete
                                 </button>
@@ -271,10 +273,11 @@
                     class="px-4 py-4 text-sm text-base-content/70 flex items-center gap-3 flex-wrap">
                     <span>No services configured yet</span>
                     <a
-                      href="{{ .AppPath }}/bindings/services/create"
-                      class="btn btn-xs btn-outline transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "service:create") }}btn-disabled{{ end }}"
-                      {{ if not (index .Data.Perms "service:create") }}
-                        title="requires service:create"
+                      class="btn btn-xs btn-outline transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "service:create") }}btn-disabled tooltip tooltip-top{{ end }}"
+                      {{ if index .Data.Perms "service:create" }}
+                        href="{{ .AppPath }}/bindings/services/create"
+                      {{ else }}
+                        data-tip="requires service:create"
                       {{ end }}
                       >+ New service</a
                     >
@@ -317,8 +320,8 @@
                               {{ template "binding_config" . }}
                             </td>
                             <td
-                              class="text-xs text-base-content/70 whitespace-nowrap hidden lg:table-cell max-w-32 truncate"
-                              title="{{ .created_by }}">
+                              class="text-xs text-base-content/70 whitespace-nowrap hidden lg:table-cell max-w-32 truncate tooltip tooltip-left"
+                              data-tip="{{ .created_by }}">
                               {{ if .created_by }}
                                 {{ .created_by }}
                               {{ else }}
@@ -399,8 +402,8 @@
                               {{ template "binding_config" . }}
                             </td>
                             <td
-                              class="text-xs text-base-content/70 whitespace-nowrap hidden lg:table-cell max-w-32 truncate"
-                              title="{{ .created_by }}">
+                              class="text-xs text-base-content/70 whitespace-nowrap hidden lg:table-cell max-w-32 truncate tooltip tooltip-left"
+                              data-tip="{{ .created_by }}">
                               {{ if .created_by }}
                                 {{ .created_by }}
                               {{ else }}
@@ -448,8 +451,8 @@
                           <tr class="hover:bg-base-200/60">
                             <td>
                               <span
-                                class="font-mono font-medium"
-                                title="{{ .path }}"
+                                class="font-mono font-medium tooltip tooltip-right"
+                                data-tip="{{ .path }}"
                                 >{{ .app_path }}</span
                               >
                               {{ template "binding_badges" . }}
@@ -479,17 +482,24 @@
                       <p>No bindings match "{{ .Data.Query }}"</p>
                       <button
                         class="btn btn-xs btn-outline transition-transform duration-150 active:scale-95"
-                        onclick="clearAppFilter()">
+                        onclick="const s = document.getElementById('page-search'); if (s) s.value = ''"
+                        hx-get="{{ .AppPath }}/bindings"
+                        hx-vals='{"query": ""}'
+                        hx-target="#binding-groups"
+                        hx-swap="innerHTML transition:true"
+                        hx-push-url="true"
+                        hx-indicator="#page-progress">
                         Clear search
                       </button>
                     {{ else }}
                       <span class="text-xl" aria-hidden="true">🔗</span>
                       <p>No bindings configured yet</p>
                       <a
-                        href="{{ .AppPath }}/bindings/create"
-                        class="btn btn-xs btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "binding:create") }}btn-disabled{{ end }}"
-                        {{ if not (index .Data.Perms "binding:create") }}
-                          title="requires binding:create"
+                        class="btn btn-xs btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "binding:create") }}btn-disabled tooltip tooltip-top{{ end }}"
+                        {{ if index .Data.Perms "binding:create" }}
+                          href="{{ .AppPath }}/bindings/create"
+                        {{ else }}
+                          data-tip="requires binding:create"
                         {{ end }}
                         >+ New binding</a
                       >

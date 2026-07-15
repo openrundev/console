@@ -50,9 +50,9 @@
               <div class="page-actions ml-auto flex items-center gap-2">
                 {{ if .Data.Sync }}
                   <button
-                    class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95"
+                    class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95 tooltip tooltip-bottom"
                     {{ if index .Data.Perms "sync:run" }}
-                      title="Fetch from the source and apply now"
+                      data-tip="Fetch from the source and apply now"
                       hx-post="{{ .AppPath }}/syncs/detail/run"
                       hx-vals='{"id": "{{ .Data.Id }}"}'
                       hx-target="#sync-content"
@@ -60,14 +60,14 @@
                       hx-disabled-elt="this"
                       hx-indicator="#page-progress"
                     {{ else }}
-                      disabled title="requires sync:run"
+                      disabled data-tip="requires sync:run"
                     {{ end }}>
                     Sync now
                   </button>
                   <button
-                    class="btn btn-sm btn-ghost text-error transition-transform duration-150 active:scale-95"
+                    class="btn btn-sm btn-ghost text-error transition-transform duration-150 active:scale-95 tooltip tooltip-bottom"
                     {{ if index .Data.Perms "sync:delete" }}
-                      title="Remove this sync source"
+                      data-tip="Remove this sync source"
                       hx-post="{{ .AppPath }}/syncs/detail/delete"
                       hx-vals='{"id": "{{ .Data.Id }}"}'
                       hx-confirm="Remove sync source {{ .Data.Sync.repo }}? Apps applied by it are not deleted."
@@ -76,7 +76,7 @@
                       hx-disabled-elt="this"
                       hx-indicator="#page-progress"
                     {{ else }}
-                      disabled title="requires sync:delete"
+                      disabled data-tip="requires sync:delete"
                     {{ end }}>
                     Delete
                   </button>
@@ -98,7 +98,7 @@
                     Overview
                   </h2>
                   <div
-                    class="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1.5 text-sm">
+                    class="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-6 gap-y-1.5 text-sm">
                     <span class="text-xs text-base-content/70 pt-0.5"
                       >Source</span
                     >
@@ -198,8 +198,8 @@
                     >
                     {{ if $s.commit_short }}
                       <span
-                        class="font-mono text-xs text-base-content/70"
-                        title="{{ $s.commit }}"
+                        class="font-mono text-xs text-base-content/70 tooltip tooltip-top"
+                        data-tip="{{ $s.commit }}"
                         >{{ $s.commit_short }}</span
                       >
                     {{ end }}

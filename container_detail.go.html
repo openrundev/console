@@ -50,7 +50,7 @@
                   {{ if ne .Data.Container.runtime "kubernetes" }}
                     {{ if eq .Data.Container.state "running" }}
                       <button
-                        class="btn btn-sm btn-outline btn-error transition-transform duration-150 active:scale-95"
+                        class="btn btn-sm btn-outline btn-error transition-transform duration-150 active:scale-95 {{ if not (and (index .Data.Perms "feature:updates") (or (index .Data.Perms "container:manage") (index .Data.Perms "admin"))) }}tooltip tooltip-bottom{{ end }}"
                         {{ if and (index .Data.Perms "feature:updates") (or (index .Data.Perms "container:manage") (index .Data.Perms "admin")) }}
                           hx-post="{{ .AppPath }}/containers/detail/lifecycle"
                           hx-vals='{"id": "{{ .Data.Id }}", "action": "stop"}'
@@ -60,15 +60,15 @@
                           hx-disabled-elt="this"
                           hx-indicator="#page-progress"
                         {{ else if not (index .Data.Perms "feature:updates") }}
-                          disabled title="updates are disabled for this console install"
+                          disabled data-tip="updates are disabled for this console install"
                         {{ else }}
-                          disabled title="requires the container:manage or admin permission"
+                          disabled data-tip="requires the container:manage or admin permission"
                         {{ end }}>
                         Stop
                       </button>
                     {{ else }}
                       <button
-                        class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95"
+                        class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95 {{ if not (and (index .Data.Perms "feature:updates") (or (index .Data.Perms "container:manage") (index .Data.Perms "admin"))) }}tooltip tooltip-bottom{{ end }}"
                         {{ if and (index .Data.Perms "feature:updates") (or (index .Data.Perms "container:manage") (index .Data.Perms "admin")) }}
                           hx-post="{{ .AppPath }}/containers/detail/lifecycle"
                           hx-vals='{"id": "{{ .Data.Id }}", "action": "start"}'
@@ -77,9 +77,9 @@
                           hx-disabled-elt="this"
                           hx-indicator="#page-progress"
                         {{ else if not (index .Data.Perms "feature:updates") }}
-                          disabled title="updates are disabled for this console install"
+                          disabled data-tip="updates are disabled for this console install"
                         {{ else }}
-                          disabled title="requires the container:manage or admin permission"
+                          disabled data-tip="requires the container:manage or admin permission"
                         {{ end }}>
                         Start
                       </button>
@@ -258,6 +258,7 @@
                           {{ end }}
 
                           {{ if .Data.K8s.containers }}
+                            <div class="overflow-x-auto">
                             <table class="table table-sm">
                               <thead>
                                 <tr>
@@ -292,6 +293,7 @@
                                 {{ end }}
                               </tbody>
                             </table>
+                            </div>
                           {{ end }}
 
                           <div>
@@ -303,6 +305,7 @@
                                 events unavailable: {{ .Data.K8s.events_error }}
                               </p>
                             {{ else if .Data.K8s.events }}
+                              <div class="overflow-x-auto">
                               <table class="table table-sm">
                                 <tbody>
                                   {{ range .Data.K8s.events }}
@@ -331,6 +334,7 @@
                                   {{ end }}
                                 </tbody>
                               </table>
+                              </div>
                             {{ else }}
                               <p class="text-xs text-base-content/70">
                                 No recent events
@@ -356,7 +360,7 @@
                     Overview
                   </h2>
                   <div
-                    class="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1.5 text-sm">
+                    class="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-6 gap-y-1.5 text-sm">
                     <span class="text-xs text-base-content/70 pt-0.5"
                       >Name</span
                     >
@@ -530,16 +534,16 @@
                   >
                   <div class="ml-auto flex items-center gap-1">
                     <button
-                      class="btn btn-xs btn-ghost"
-                      title="Reload the last 500 lines"
+                      class="btn btn-xs btn-ghost tooltip tooltip-top"
+                      data-tip="Reload the last 500 lines"
                       onclick="logTailRefresh()">
                       refresh
                     </button>
                     {{ if eq $c.state "running" }}
                       <button
                         id="log-follow-btn"
-                        class="btn btn-xs btn-outline transition-transform duration-150 active:scale-95"
-                        title="Stream new log output live"
+                        class="btn btn-xs btn-outline transition-transform duration-150 active:scale-95 tooltip tooltip-top"
+                        data-tip="Stream new log output live"
                         aria-pressed="false"
                         onclick="logTailFollow(this)">
                         Follow

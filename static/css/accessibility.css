@@ -312,3 +312,111 @@ a.btn-disabled {
     min-width: 0;
   }
 }
+
+/* ---- AXE AA color contrast (audited with axe-core, both themes) --------
+   The brand light green (--color-primary #00c200) is a FILL color: as text
+   on light surfaces it measures ~2.3:1. The brand dark green
+   (--color-secondary #007700, the design layer's table header color)
+   measures 2.8:1 on the dark card background. --or-accent-text is the
+   readable brand green for text in the active theme: dark green on light
+   surfaces, bright green on dark. Buttons and badges with a primary FILL
+   keep their designed colors (their content color is dark and passes). */
+:root {
+  --or-accent-text: #007700; /* light default, 5.7:1 on white */
+  --or-error-text: #c02827; /* soft error badge text, 4.9:1 (brand error #d3302f is 4.46) */
+  /* inactive tabs: daisyui dims them below 4.5:1 in both themes */
+  --or-tab-dim: color-mix(in srgb, var(--color-base-content) 80%, transparent);
+}
+:root[data-theme="openrun-dark"] {
+  --or-accent-text: var(--color-primary); /* 6.8:1 on the dark card */
+  --or-error-text: var(--color-error);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="openrun-light"]) {
+    --or-accent-text: var(--color-primary);
+    --or-error-text: var(--color-error);
+  }
+}
+.text-primary {
+  color: var(--or-accent-text);
+}
+.badge-soft.badge-primary,
+.btn-soft.btn-primary {
+  color: var(--or-accent-text);
+}
+.badge-soft.badge-error {
+  color: var(--or-error-text);
+}
+.table thead th {
+  color: var(--or-accent-text);
+}
+.tabs .tab:not(.tab-active) {
+  color: var(--or-tab-dim);
+}
+
+/* daisy tooltips (upgraded from title attributes in console.js): cap the
+   bubble width and wrap - long identifiers would otherwise render one
+   enormous single line */
+.tooltip:before {
+  max-width: 18rem;
+  white-space: normal;
+}
+
+/* Disabled buttons keep hover so their "requires <perm>" tooltip shows:
+   daisyui sets pointer-events:none on disabled buttons, which suppressed
+   the permission tooltips entirely (native titles included, a long
+   standing gap). A disabled button still cannot be activated - the
+   disabled attribute blocks click dispatch - only hover is restored.
+   Anchor-based .btn-disabled stays inert: those keep a real href */
+button.tooltip:disabled,
+a.tooltip.btn-disabled {
+  pointer-events: auto;
+  cursor: not-allowed;
+}
+
+/* Sidebar tooltips must stay INSIDE the sidebar clip box (.drawer-side has
+   overflow:hidden for the resize support): nav items and footer controls
+   use top/bottom placement with a bubble narrower than the sidebar. Nav
+   labels are self-explanatory, so the bubbles (which overlap the next
+   item) appear only after a hover-intent delay - the delay lives on the
+   :hover state only, hiding stays immediate */
+.drawer-side .tooltip:before {
+  max-width: 11rem;
+}
+.drawer-side .tooltip:hover:before,
+.drawer-side .tooltip:hover:after {
+  transition: opacity 150ms ease-out 700ms;
+}
+
+/* ---- Mobile layout: let scrollers actually scroll ----------------------
+   Grid/flex items default to min-width:auto, so a wide table propagates
+   its min-content width through .card / .drawer-content up to the page
+   (the body scrolls sideways) instead of scrolling inside its own
+   .overflow-x-auto container. Zero the floor on the standard containers.
+   And daisyui keeps .label-text-alt on one line - long field helper text
+   must wrap. */
+.drawer-content,
+.card,
+.card-body {
+  min-width: 0;
+}
+.label {
+  min-width: 0;
+}
+.label-text-alt {
+  white-space: normal;
+  min-width: 0;
+}
+
+/* Hidden tooltip bubbles must not widen the page. daisyui keeps the
+   bubble in layout (position:absolute, opacity:0), so a bubble near the
+   right viewport edge adds horizontal page scroll on mobile even though
+   nothing is visible. While hidden, park it as position:fixed - fixed
+   boxes never contribute to scrollable overflow - and let the show
+   states (mirroring daisyui's) restore the normal absolute placement.
+   The opacity transitions (and the sidebar show delay) are unaffected. */
+.tooltip:not(:hover):not(.tooltip-open):not(:has(:focus-visible)) > .tooltip-content,
+.tooltip[data-tip]:not(:hover):not(.tooltip-open):not(:has(:focus-visible))::before,
+.tooltip:not(:hover):not(.tooltip-open):not(:has(:focus-visible))::after {
+  position: fixed;
+}

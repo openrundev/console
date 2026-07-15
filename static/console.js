@@ -98,8 +98,8 @@ class SecretInput extends HTMLElement {
 		}
 		if (stored) {
 			input.readOnly = true;
-			input.classList.add('bg-base-200');
-			input.title = 'Stored secret reference';
+			input.classList.add('bg-base-200', 'tooltip', 'tooltip-top');
+			input.setAttribute('data-tip', 'Stored secret reference');
 		}
 		join.appendChild(input);
 
@@ -167,14 +167,16 @@ class SecretInput extends HTMLElement {
 		}
 	}
 
-	makeButton(icon, title, disabled, onClick) {
+	makeButton(icon, tip, disabled, onClick) {
 		const btn = document.createElement('button');
 		btn.type = 'button';
+		// daisy tooltip like the rest of the console; left, over the input,
+		// which always has room (the button is the right end of the join)
 		btn.className = this.hasAttribute('small')
-			? 'btn btn-sm btn-square join-item'
-			: 'btn btn-square join-item';
-		btn.title = title;
-		btn.setAttribute('aria-label', title);
+			? 'btn btn-sm btn-square join-item tooltip tooltip-left'
+			: 'btn btn-square join-item tooltip tooltip-left';
+		btn.setAttribute('data-tip', tip);
+		btn.setAttribute('aria-label', tip);
 		btn.disabled = disabled;
 		btn.innerHTML = SecretInput.icons[icon];
 		if (onClick) {
@@ -586,55 +588,6 @@ function toggleNavDrawer(btn) {
 		if (nav) {
 			nav.focus();
 		}
-	}
-}
-
-// Set the app list filter chip and trigger the HTMX refresh via the hidden input
-function setAppFilter(btn, value) {
-	const input = document.getElementById('app-filter-value');
-	if (!input) {
-		return;
-	}
-	input.value = value;
-	// The buttons live outside the htmx swap target, update the highlight
-	// (and the toggle state for assistive tech) here. Join chips use
-	// btn-primary, stat blocks use a primary tint
-	for (const sibling of btn.parentElement.children) {
-		const active = sibling === btn;
-		sibling.setAttribute('aria-pressed', active ? 'true' : 'false');
-		if (sibling.classList.contains('join-item')) {
-			sibling.classList.toggle('btn-primary', active);
-		} else {
-			sibling.classList.toggle('bg-primary/5', active);
-			for (const v of sibling.querySelectorAll('.stat-value')) {
-				v.classList.toggle('text-primary', active);
-			}
-		}
-	}
-	input.dispatchEvent(new Event('change'));
-}
-
-// Reset the page search box, and filter chips back to "All" when the page
-// has them (used from list empty states)
-function clearAppFilter() {
-	const search = document.getElementById('page-search');
-	const filter = document.getElementById('app-filter-value');
-	if (search) {
-		search.value = '';
-	}
-	if (filter) {
-		const first = filter.parentElement.querySelector('.join button, .stats button');
-		if (first) {
-			setAppFilter(first, first.dataset.filter || '');
-		} else {
-			filter.value = '';
-			filter.dispatchEvent(new Event('change'));
-		}
-	} else if (search) {
-		search.dispatchEvent(new Event('input'));
-	}
-	if (search) {
-		search.focus();
 	}
 }
 

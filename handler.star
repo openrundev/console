@@ -425,8 +425,9 @@ def apps_files_handler(req):
 
 
 def apps_files_download_handler(req):
-    # GET: bundle the version's files into a zip and redirect to the
-    # single-access download url; errors re-render the files page
+    # GET: bundle the version's files into a zip and stream it back to the
+    # client as an attachment (chunked, no disk/db staging); errors re-render
+    # the files page
     path = query_param(req, "path")
     version = query_param(req, "version")
     env = query_param(req, "env") or "prod"
@@ -436,7 +437,8 @@ def apps_files_download_handler(req):
         data = apps_files_handler(req)
         data["FlashError"] = "Download failed: %s" % ret.error
         return data
-    return ace.redirect(ret.value["url"])
+    return ace.response(ret.value["content"], download=ret.value["name"],
+                        content_type="application/zip")
 
 
 def apps_delete_handler(req):
@@ -2943,15 +2945,17 @@ def builder_file_handler(req):
 
 
 def builder_download_handler(req):
-    # Bundle the workspace source into a zip and redirect to the
-    # single-access download url; errors render the session page with a flash
+    # Bundle the workspace source into a zip and stream it back to the client
+    # as an attachment (chunked, no disk/db staging); errors render the
+    # session page with a flash
     ret = build.get_source_zip(query_param(req, "id").strip())
     error = ret.error
     if error:
         data = builder_detail_data(req)
         data["FlashError"] = "Source download failed: " + error
         return data
-    return ace.redirect(ret.value["url"])
+    return ace.response(ret.value["content"], download=ret.value["name"],
+                        content_type="application/zip")
 
 
 def builder_events_handler(req):

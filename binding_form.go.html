@@ -68,7 +68,7 @@
                   </div>
                   <div>
                     <div class="text-xs text-base-content/70">Base binding</div>
-                    <div class="font-mono text-xs">
+                    <div class="font-mono text-xs break-all">
                       {{ if .Data.Binding.derived_from }}
                         {{ .Data.Binding.derived_from }}
                       {{ else }}
@@ -78,7 +78,7 @@
                   </div>
                   <div>
                     <div class="text-xs text-base-content/70">Service</div>
-                    <div class="font-mono text-xs">
+                    <div class="font-mono text-xs break-all">
                       {{ .Data.Binding.service_type }}{{ if .Data.Binding.service_name }}/{{ .Data.Binding.service_name }}{{ end }}
                     </div>
                   </div>
@@ -199,11 +199,11 @@
                       name="action"
                       value="validate"
                       {{ if index .Data.Perms "binding:create" }}
-                        title="Dry run: check the binding without creating it"
+                        data-tip="Dry run: check the binding without creating it"
                       {{ else }}
-                        disabled title="requires binding:create"
+                        disabled data-tip="requires binding:create"
                       {{ end }}
-                      class="btn btn-outline btn-sm transition-transform duration-150 active:scale-95">
+                      class="btn btn-outline btn-sm transition-transform duration-150 active:scale-95 tooltip tooltip-top">
                       Validate
                     </button>
                     <button
@@ -211,18 +211,18 @@
                       name="action"
                       value="create"
                       {{ if not (index .Data.Perms "binding:create") }}
-                        disabled title="requires binding:create"
+                        disabled data-tip="requires binding:create"
                       {{ end }}
-                      class="btn btn-primary btn-sm transition-transform duration-150 active:scale-95">
+                      class="btn btn-primary btn-sm transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "binding:create") }}tooltip tooltip-top{{ end }}">
                       Create binding
                     </button>
                   {{ else }}
                     <button
                       type="submit"
                       {{ if not (index .Data.Perms "binding:update") }}
-                        disabled title="requires binding:update"
+                        disabled data-tip="requires binding:update"
                       {{ end }}
-                      class="btn btn-primary btn-sm transition-transform duration-150 active:scale-95">
+                      class="btn btn-primary btn-sm transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "binding:update") }}tooltip tooltip-top{{ end }}">
                       Save changes
                     </button>
                   {{ end }}

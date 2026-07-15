@@ -53,8 +53,8 @@
                   {{ if $s.edit_app }}
                     <a
                       href="{{ .AppPath }}/apps/detail?path={{ $s.edit_app }}"
-                      class="badge badge-sm badge-info badge-soft font-mono"
-                      title="This session edits the app {{ $s.edit_app }}"
+                      class="badge badge-sm badge-info badge-soft font-mono tooltip tooltip-bottom"
+                      data-tip="This session edits the app {{ $s.edit_app }}"
                       >editing {{ $s.edit_app }}</a
                     >
                   {{ end }}
@@ -62,12 +62,12 @@
                   <div class="page-actions ml-auto flex items-center gap-2 flex-wrap">
                     {{ if $s.preview_path }}
                       <button
-                        class="btn btn-ghost btn-sm"
+                        class="btn btn-ghost btn-sm {{ if not (or (index .Data.Perms "app:approve") (index .Data.Perms "admin")) }}tooltip tooltip-bottom{{ end }}"
                         {{ if or (index .Data.Perms "app:approve") (index .Data.Perms "admin") }}
                           hx-post="{{ .AppPath }}/builder/detail/approve?id={{ $s.id }}"
                           hx-disabled-elt="this"
                         {{ else }}
-                          disabled title="requires the app:approve permission"
+                          disabled data-tip="requires the app:approve permission"
                         {{ end }}>
                         Approve permissions
                       </button>
@@ -83,7 +83,7 @@
                           hx-post="{{ .AppPath }}/builder/detail/resume?id={{ $s.id }}"
                           hx-disabled-elt="this"
                         {{ else }}
-                          disabled title="requires builder:create"
+                          disabled data-tip="requires builder:create"
                         {{ end }}>
                         Resume
                       </button>
@@ -94,7 +94,7 @@
                           hx-post="{{ .AppPath }}/builder/detail/stop?id={{ $s.id }}"
                           hx-disabled-elt="this"
                         {{ else }}
-                          disabled title="requires builder:create"
+                          disabled data-tip="requires builder:create"
                         {{ end }}>
                         Stop sandbox
                       </button>
@@ -106,17 +106,17 @@
                         hx-confirm="Delete draft {{ $s.name }}? The workspace and preview app are removed.{{ if $s.publish_path }} The published app at {{ $s.publish_path }} stays live until unpublished.{{ end }}"
                         hx-disabled-elt="this"
                       {{ else }}
-                        disabled title="requires builder:create"
+                        disabled data-tip="requires builder:create"
                       {{ end }}>
                       Delete draft
                     </button>
                     <details class="dropdown dropdown-end">
                       <summary
-                        class="btn btn-primary btn-sm {{ if or (not $canPublish) (not $s.preview_path) }}btn-disabled{{ end }}"
+                        class="btn btn-primary btn-sm {{ if or (not $canPublish) (not $s.preview_path) }}btn-disabled tooltip tooltip-bottom{{ end }}"
                         {{ if not $canPublish }}
-                          title="requires builder:publish"
+                          data-tip="requires builder:publish"
                         {{ else if not $s.preview_path }}
-                          title="the app must load in preview before publishing"
+                          data-tip="the app must load in preview before publishing"
                         {{ end }}>
                         {{ if and $s.edit_app $s.publish_path }}Publish update{{ else if $s.publish_path }}Republish{{ else }}Publish{{ end }}
                       </summary>
@@ -166,7 +166,7 @@
                                     class="radio radio-xs radio-primary mt-0.5"
                                     {{ if not $i }}checked{{ end }} />
                                   <span class="min-w-0">
-                                    <span class="block font-mono text-xs">{{ $dest.path }}</span>
+                                    <span class="block font-mono text-xs break-all">{{ $dest.path }}</span>
                                     {{ if $dest.description }}
                                       <span class="block text-[11px] text-base-content/60">{{ $dest.description }}</span>
                                     {{ end }}
@@ -265,9 +265,9 @@
                     Published at <span class="font-mono">{{ $s.publish_path }}</span
                     ><a
                       href="{{ .AppPath }}/apps/detail?path={{ $s.publish_path }}"
-                      title="View app details"
+                      data-tip="View app details"
                       aria-label="View app details for {{ $s.publish_path }}"
-                      class="inline-block text-primary ml-1"
+                      class="inline-block text-primary ml-1 tooltip tooltip-top"
                       >app detail <span aria-hidden="true">↗</span></a
                     >
                     {{ if not $s.edit_app }}
@@ -278,7 +278,7 @@
                         hx-confirm="Unpublish {{ $s.publish_path }}? {{ if eq .Data.PublishMode "git" }}The removal is committed to the repo; the prod sync decides whether the app is deleted.{{ else }}The app is deleted from this server.{{ end }}"
                         hx-disabled-elt="this"
                       {{ else }}
-                        disabled title="requires builder:publish"
+                        disabled data-tip="requires builder:publish"
                       {{ end }}>
                       Unpublish
                     </button>
@@ -299,7 +299,7 @@
                         {{ if .Data.SandboxContainerId }}
                           <a
                             href="{{ .AppPath }}/containers/detail?id={{ .Data.SandboxContainerId }}"
-                            title="Agent container detail and logs (raw ACP traffic)"
+                            data-tip="Agent container detail and logs (raw ACP traffic)"
                             aria-label="Agent container detail for this session"
                             class="inline-block text-primary text-xs"
                             >agent <span aria-hidden="true">↗</span></a
@@ -314,7 +314,7 @@
                             hx-post="{{ .AppPath }}/builder/detail/cancel?id={{ $s.id }}"
                             hx-swap="none"
                           {{ else }}
-                            disabled title="requires builder:create"
+                            disabled data-tip="requires builder:create"
                           {{ end }}>
                           <span class="loading loading-spinner loading-xs" aria-hidden="true"></span>
                           Stop
@@ -345,7 +345,7 @@
                                 {{ range .parts }}
                                   <span class="inline-flex items-center gap-1 font-mono">
                                     {{- .text | trim -}}
-                                    {{- if gt .count 1 }}<span class="badge badge-soft badge-primary badge-xs font-mono" title="{{ .count }} {{ .text | trim }} tool calls">×{{ .count }}</span>{{ end -}}
+                                    {{- if gt .count 1 }}<span class="badge badge-soft badge-primary badge-xs font-mono tooltip tooltip-top" data-tip="{{ .count }} {{ .text | trim }} tool calls">×{{ .count }}</span>{{ end -}}
                                   </span>
                                 {{ end }}
                               </div>
@@ -387,11 +387,11 @@
                             {{ if not .Data.IsLive }}disabled{{ end }}></textarea>
                           <button
                             type="submit"
-                            class="btn btn-primary btn-sm btn-circle transition-transform duration-150 active:scale-95"
+                            class="btn btn-primary btn-sm btn-circle transition-transform duration-150 active:scale-95 {{ if not (and $canWrite .Data.IsLive) }}tooltip tooltip-top{{ end }}"
                             aria-label="Send message"
                             {{ if not (and $canWrite .Data.IsLive) }}
                               disabled
-                              title="{{ if not $canWrite }}requires builder:create{{ else }}sandbox is stopped{{ end }}"
+                              data-tip="{{ if not $canWrite }}requires builder:create{{ else }}sandbox is stopped{{ end }}"
                             {{ end }}>
                             <svg aria-hidden="true" focusable="false" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 14-9-4 18-4.5-7z" /><path d="M19 3 10.5 14" /></svg>
                           </button>
@@ -430,8 +430,8 @@
                         {{ if .Data.Files }}
                           <a
                             href="{{ $.AppPath }}/builder/download?id={{ .Data.Id }}"
-                            class="btn btn-ghost btn-xs btn-circle"
-                            title="Download the source files as a zip"
+                            class="btn btn-ghost btn-xs btn-circle tooltip tooltip-left"
+                            data-tip="Download the source files as a zip"
                             aria-label="Download the source files as a zip">
                             <svg aria-hidden="true" focusable="false" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
                           </a>

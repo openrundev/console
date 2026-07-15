@@ -130,9 +130,9 @@
                 <a href="{{ .AppPath }}/builder" class="btn btn-ghost btn-sm">Cancel</a>
                 <button
                   type="submit"
-                  class="btn btn-primary btn-sm transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "builder:create") }}btn-disabled{{ end }}"
+                  class="btn btn-primary btn-sm transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "builder:create") }}btn-disabled tooltip tooltip-top{{ end }}"
                   {{ if not (index .Data.Perms "builder:create") }}
-                    disabled title="requires builder:create"
+                    disabled data-tip="requires builder:create"
                   {{ end }}>
                   Start building
                 </button>

@@ -242,9 +242,9 @@
                 <button
                   type="submit"
                   {{ if not (index .Data.Perms "config:update") }}
-                    disabled title="requires config:update"
+                    disabled data-tip="requires config:update"
                   {{ end }}
-                  class="btn btn-primary btn-sm transition-transform duration-150 active:scale-95">
+                  class="btn btn-primary btn-sm transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "config:update") }}tooltip tooltip-top{{ end }}">
                   {{ if .Data.Values.is_edit }}
                     Save to staged config
                   {{ else }}

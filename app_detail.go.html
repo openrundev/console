@@ -59,10 +59,10 @@
                   class="inline-flex items-center gap-0.5">
                   {{ if not .active }}
                     <button
-                      class="btn btn-xs btn-ghost text-primary"
+                      class="btn btn-xs btn-ghost text-primary tooltip tooltip-left"
                       aria-label="Switch {{ $ctx.Env }} to v{{ .version }}"
                       {{ if index $ctx.Perms "app:update" }}
-                        title="Make v{{ .version }} the active {{ $ctx.Env }} version"
+                        data-tip="Make v{{ .version }} the active {{ $ctx.Env }} version"
                         hx-post="{{ $ctx.AppPath }}/apps/detail/switch"
                         hx-vals='{"path": "{{ $ctx.Path }}", "env": "{{ $ctx.Env }}", "version": "{{ .version }}"}'
                         hx-confirm="Switch {{ $ctx.Env }} of {{ $ctx.Path }} to v{{ .version }}?"
@@ -71,15 +71,15 @@
                         hx-disabled-elt="this"
                         hx-indicator="#page-progress"
                       {{ else }}
-                        disabled title="requires app:update"
+                        disabled data-tip="requires app:update"
                       {{ end }}>
                       switch
                     </button>
                   {{ end }}
                   <a
                     href="{{ $ctx.AppPath }}/apps/files?path={{ $ctx.Path }}&version={{ .version }}&env={{ $ctx.Env }}"
-                    class="btn btn-xs btn-ghost"
-                    title="View the files in this version"
+                    class="btn btn-xs btn-ghost tooltip tooltip-left"
+                    data-tip="View the files in this version"
                     aria-label="Files of {{ $ctx.Env }} v{{ .version }}">
                     files <span aria-hidden="true">→</span>
                   </a>
@@ -121,8 +121,8 @@
                   {{ end }}
                   {{ if .Data.App.staged_changes }}
                     <span
-                      class="badge badge-warning badge-xs badge-soft"
-                      title="staging has changes not promoted to prod"
+                      class="badge badge-warning badge-xs badge-soft tooltip tooltip-bottom"
+                      data-tip="staging has changes not promoted to prod"
                       >pending</span
                     >
                   {{ end }}
@@ -132,14 +132,14 @@
             <div class="page-actions ml-auto flex items-center gap-2">
               {{ if .Data.App }}
                 <a
-                  href="{{ .AppPath }}/apps/update?path={{ .Data.Path }}"
-                  class="btn btn-sm btn-outline transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "app:update") }}
+                  class="btn btn-sm btn-outline transition-transform duration-150 active:scale-95 tooltip tooltip-bottom {{ if not (index .Data.Perms "app:update") }}
                     btn-disabled
                   {{ end }}"
                   {{ if index .Data.Perms "app:update" }}
-                    title="Edit auth and parameters"
+                    href="{{ .AppPath }}/apps/update?path={{ .Data.Path }}"
+                    data-tip="Edit auth and parameters"
                   {{ else }}
-                    aria-disabled="true" tabindex="-1" title="requires app:update"
+                    aria-disabled="true" tabindex="-1" data-tip="requires app:update"
                   {{ end }}>
                   Edit app
                 </a>
@@ -155,8 +155,9 @@
                     onclick="const d=this.closest('details'); if(d && !event.target.closest('[disabled]')) d.removeAttribute('open')">
                     <li {{ if not (index .Data.Perms "app:reload") }}class="menu-disabled"{{ end }}>
                       <button
+                        class="tooltip tooltip-left"
                         {{ if index .Data.Perms "app:reload" }}
-                          title="Reload staging from {{ if .Data.App.git_branch }}git{{ else }}source{{ end }}"
+                          data-tip="Reload staging from {{ if .Data.App.git_branch }}git{{ else }}source{{ end }}"
                           hx-post="{{ .AppPath }}/apps/detail/reload"
                           hx-vals='{"path": "{{ .Data.Path }}"}'
                           hx-confirm="Reload {{ .Data.Path }} staging from its source?"
@@ -164,7 +165,7 @@
                           hx-swap="innerHTML transition:true"
                           hx-indicator="#page-progress"
                         {{ else }}
-                          disabled title="requires app:reload"
+                          disabled data-tip="requires app:reload"
                         {{ end }}>
                         <svg aria-hidden="true" focusable="false" class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><path d="M8 16H3v5" /></svg>
                         Reload
@@ -173,8 +174,9 @@
                     {{ if not .Data.App.is_dev }}
                       <li {{ if not (index .Data.Perms "app:promote") }}class="menu-disabled"{{ end }}>
                         <button
+                          class="tooltip tooltip-left"
                           {{ if index .Data.Perms "app:promote" }}
-                            title="Push the staging version to prod"
+                            data-tip="Push the staging version to prod"
                             hx-post="{{ .AppPath }}/apps/detail/promote"
                             hx-vals='{"path": "{{ .Data.Path }}"}'
                             hx-confirm="Promote staged changes of {{ .Data.Path }} to prod?"
@@ -182,7 +184,7 @@
                             hx-swap="innerHTML transition:true"
                             hx-indicator="#page-progress"
                           {{ else }}
-                            disabled title="requires app:promote"
+                            disabled data-tip="requires app:promote"
                           {{ end }}>
                           <svg aria-hidden="true" focusable="false" class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 7-7 7 7" /><path d="M12 19V5" /></svg>
                           Promote
@@ -193,12 +195,13 @@
                       <li {{ if not (index .Data.Perms "builder:create") }}class="menu-disabled"{{ end }}>
                         <a
                           href="{{ .AppPath }}/builder/create?edit={{ .Data.Path }}"
+                          class="tooltip tooltip-left"
                           {{ if not (index .Data.Perms "builder:create") }}
-                            title="requires builder:create" aria-disabled="true" tabindex="-1"
+                            data-tip="requires builder:create" aria-disabled="true" tabindex="-1"
                           {{ else if .Data.App.builder_published }}
-                            title="Modify this app's source with the AI agent"
+                            data-tip="Modify this app's source with the AI agent"
                           {{ else }}
-                            title="Edit a copy with the AI agent; publish creates a new app"
+                            data-tip="Edit a copy with the AI agent; publish creates a new app"
                           {{ end }}>
                           <svg aria-hidden="true" focusable="false" class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" /><path d="M20 3v4" /><path d="M22 5h-4" /><path d="M4 17v2" /><path d="M5 18H3" /></svg>
                           {{ if .Data.App.builder_published }}Update with Agent{{ else }}Rebuild with Agent{{ end }}
@@ -208,10 +211,11 @@
                     <li {{ if not (index .Data.Perms "app:update") }}class="menu-disabled"{{ end }}>
                       <a
                         href="{{ .AppPath }}/apps/update?path={{ .Data.Path }}"
+                        class="tooltip tooltip-left"
                         {{ if not (index .Data.Perms "app:update") }}
-                          title="requires app:update" aria-disabled="true" tabindex="-1"
+                          data-tip="requires app:update" aria-disabled="true" tabindex="-1"
                         {{ else }}
-                          title="Edit the app settings and params"
+                          data-tip="Edit the app settings and params"
                         {{ end }}>
                         <svg aria-hidden="true" focusable="false" class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" /></svg>
                         Edit
@@ -219,9 +223,9 @@
                     </li>
                     <li {{ if not (index .Data.Perms "app:delete") }}class="menu-disabled"{{ end }}>
                       <button
-                        class="text-error"
+                        class="text-error tooltip tooltip-left"
                         {{ if index .Data.Perms "app:delete" }}
-                          title="Delete app"
+                          data-tip="Delete app"
                           hx-post="{{ .AppPath }}/apps/detail/delete"
                           hx-vals='{"path": "{{ .Data.Path }}"}'
                           hx-confirm="Delete {{ .Data.Path }}? This deletes the prod, staging and preview apps."
@@ -229,7 +233,7 @@
                           hx-swap="innerHTML transition:true"
                           hx-indicator="#page-progress"
                         {{ else }}
-                          disabled title="requires app:delete"
+                          disabled data-tip="requires app:delete"
                         {{ end }}>
                         <svg aria-hidden="true" focusable="false" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
                         Delete
@@ -274,14 +278,15 @@
                   Overview
                 </h2>
                 <div
-                  class="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1.5 text-sm">
+                  class="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-6 gap-y-1.5 text-sm">
                   <span class="text-xs text-base-content/70 pt-0.5">Source</span>
                   <span class="font-mono text-xs break-all pt-1"
                     >{{ .Data.App.source_url }}{{ if .Data.App.browse_url }}<a
                         href="{{ .Data.App.browse_url }}"
                         target="_blank"
                         rel="noopener"
-                        title="View source code in a new tab"
+                        class="tooltip tooltip-top"
+                        data-tip="View source code in a new tab"
                         aria-label="View source of {{ .Data.Path }} in a new tab"
                         class="inline-block text-primary ml-0.5"
                         ><span aria-hidden="true">↗</span></a
@@ -296,11 +301,16 @@
                     <span class="text-xs text-base-content/70 pt-0.5"
                       >Commit</span
                     >
-                    <span class="font-mono text-xs pt-1"
+                    <span class="font-mono text-xs break-all pt-1"
                       >{{ .Data.App.git_commit }}
                       {{ if .Data.App.git_message }}
                         <span class="text-base-content/70 font-sans"
-                          >- {{ .Data.App.git_message }}</span
+                          >-
+                          {{ if gt (len .Data.App.git_message) 500 }}
+                            {{ trunc 500 .Data.App.git_message }}…
+                          {{ else }}
+                            {{ .Data.App.git_message }}
+                          {{ end }}</span
                         >
                       {{ end }}</span
                     >
@@ -311,7 +321,7 @@
                   >
                   <span class="pt-1">
                     {{ if .Data.Sync }}
-                      <span class="font-mono text-xs">{{ .Data.Sync.repo }}</span>
+                      <span class="font-mono text-xs break-all">{{ .Data.Sync.repo }}</span>
                       {{ if .Data.Sync.branch }}
                         <span class="badge badge-ghost badge-xs"
                           >{{ .Data.Sync.branch }}</span
@@ -323,7 +333,7 @@
                   </span>
 
                   <span class="text-xs text-base-content/70 pt-0.5">Spec</span>
-                  <span class="font-mono text-xs pt-1"
+                  <span class="font-mono text-xs break-all pt-1"
                     >{{ if .Data.App.spec }}
                       {{ .Data.App.spec }}
                     {{ else }}
@@ -366,8 +376,8 @@
                       {{ range .Data.Containers }}
                         <a
                           href="{{ $.AppPath }}/containers/detail?id={{ .id }}"
-                          class="link link-hover inline-flex items-center gap-1.5 text-xs"
-                          title="{{ .name }} - stats and logs">
+                          class="link link-hover inline-flex items-center gap-1.5 text-xs tooltip tooltip-right"
+                          data-tip="{{ .name }} - stats and logs">
                           {{ if eq .state "running" }}
                             <span class="status status-success"></span>
                           {{ else }}
@@ -383,7 +393,7 @@
                   {{ end }}
 
                   <span class="text-xs text-base-content/70 pt-0.5">Id</span>
-                  <span class="font-mono text-xs text-base-content/70 pt-1"
+                  <span class="font-mono text-xs text-base-content/70 break-all pt-1"
                     >{{ .Data.App.id }}</span
                   >
                 </div>
@@ -436,7 +446,7 @@
                       hx-disabled-elt="this"
                       hx-indicator="#page-progress"
                     {{ else }}
-                      disabled title="requires the app:approve permission"
+                      disabled data-tip="requires the app:approve permission"
                     {{ end }}>
                     Approve permissions
                   </button>
@@ -476,7 +486,7 @@
                         text-warning
                       {{ end }}"
                       {{ if .Data.App.staged_changes }}
-                        title="staging is not promoted to prod yet"
+                        data-tip="staging is not promoted to prod yet"
                       {{ end }}>
                       Staging versions
                     </h2>

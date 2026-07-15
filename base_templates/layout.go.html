@@ -41,6 +41,31 @@
     </style>
     <script src="{{ static "console.js" }}"></script>
 
+    {{/* Brand fonts (see the Typography section of static/css/style.css);
+      the faces used above the fold are preloaded so text does not swap
+      after first paint. Plain (unhashed) paths on purpose: the css url()
+      references resolve to these exact urls, a hashed static-helper href
+      would preload a different url and download the font twice
+    */}}
+    <link
+      rel="preload"
+      href="{{ .AppPath }}/static/fonts/inter-400.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin />
+    <link
+      rel="preload"
+      href="{{ .AppPath }}/static/fonts/jetbrains-mono-400.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin />
+    <link
+      rel="preload"
+      href="{{ .AppPath }}/static/fonts/space-grotesk-700.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin />
+
     {{/* Cross-document view transitions (see accessibility.css) snapshot
       the outgoing and incoming pages; block rendering until the sidebar
       nav - the last element in the body - is parsed, so the incoming
@@ -106,7 +131,7 @@
   {{- $d := ago $t -}}
   {{- $d = regexReplaceAll "([hm])[0-9]+(\\.[0-9]+)?s$" $d "${1}" -}}
   {{- $d = regexReplaceAll "(h)[0-9]+m$" $d "${1}" -}}
-  <span title="{{ dateInZone "2006-01-02 15:04:05" $t "UTC" }} UTC"
+  <span class="tooltip" data-tip="{{ dateInZone "2006-01-02 15:04:05" $t "UTC" }} UTC"
     >{{ $d }} ago</span
   >
 {{- end }}
@@ -133,8 +158,8 @@
       href="{{ . }}"
       target="_blank"
       rel="noopener"
-      class="btn btn-xs btn-ghost btn-square text-primary"
-      title="Open the documentation in a new tab"
+      class="btn btn-xs btn-ghost btn-square text-primary tooltip tooltip-bottom"
+      data-tip="Open the documentation in a new tab"
       aria-label="Open the documentation in a new tab">
       <svg
         aria-hidden="true"
@@ -163,9 +188,9 @@
     href="{{ .Href }}"
     target="_blank"
     rel="noopener"
-    title="Opens the {{ .What }} in a new tab"
+    data-tip="Opens the {{ .What }} in a new tab"
     aria-label="Open the {{ .What }} in a new tab"
-    class="link link-hover text-xs text-primary ml-auto whitespace-nowrap">
+    class="link link-hover text-xs text-primary ml-auto whitespace-nowrap tooltip tooltip-left">
     {{ .Label }} {{ template "globe_icon" }}
   </a>
 {{ end }}
@@ -193,8 +218,8 @@
           href="{{ .StageUrl }}"
           target="_blank"
           rel="noopener"
-          title="Opens the staging app in a new tab"
-          class="btn btn-xs btn-ghost">
+          data-tip="Opens the staging app in a new tab"
+          class="btn btn-xs btn-ghost tooltip tooltip-top">
           Open staging {{ template "globe_icon" }}
         </a>
       {{ end }}
@@ -208,7 +233,9 @@
           btn-warning
         {{ else }}
           btn-primary
-        {{ end }} transition-transform duration-150 active:scale-95"
+        {{ end }} transition-transform duration-150 active:scale-95 {{ if not (index .Perms "app:promote") }}
+          tooltip tooltip-top
+        {{ end }}"
         {{ if index .Perms "app:promote" }}
           hx-post="{{ .PostUrl }}"
           hx-vals='{"path": "{{ .Path }}"}'
@@ -218,7 +245,7 @@
           hx-disabled-elt="this"
           hx-indicator="#page-progress"
         {{ else }}
-          disabled title="requires app:promote"
+          disabled data-tip="requires app:promote"
         {{ end }}>
         Promote now
       </button>
@@ -345,8 +372,8 @@ InputId, Placeholder, Masked, File, Description, Error */}}
     </div>
     <button
       type="button"
-      class="btn btn-ghost btn-square"
-      title="Remove row"
+      class="btn btn-ghost btn-square tooltip tooltip-top"
+      data-tip="Remove row"
       aria-label="Remove row"
       onclick="removeKvRow(this)">
       ✕
@@ -487,8 +514,8 @@ InputId, Placeholder, Masked, File, Description, Error */}}
             <td class="w-8">
               <a
                 href="{{ $root }}/apps/detail?path={{ .path }}"
-                class="btn btn-xs btn-ghost btn-square"
-                title="Expand: {{ .name }} - view details"
+                class="btn btn-xs btn-ghost btn-square tooltip tooltip-right"
+                data-tip="Expand: {{ .name }} - view details"
                 aria-label="View details for {{ .path }}">
                 {{ template "drilldown_icon" }}
               </a>
@@ -499,9 +526,9 @@ InputId, Placeholder, Masked, File, Description, Error */}}
                 href="{{ .url }}"
                 target="_blank"
                 rel="noopener"
-                title="Open app in a new tab"
+                data-tip="Open app in a new tab"
                 aria-label="Open {{ .path }} in a new tab"
-                class="inline-block text-primary text-xs opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-200 ml-0.5"
+                class="inline-block text-primary text-xs opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-200 ml-0.5 tooltip tooltip-right"
                 >{{ template "globe_icon" }}</a
               >
             </td>
@@ -513,9 +540,9 @@ InputId, Placeholder, Masked, File, Description, Error */}}
                     href="{{ .source_url }}"
                     target="_blank"
                     rel="noopener"
-                    title="View source code in a new tab"
+                    data-tip="View source code in a new tab"
                     aria-label="View source of {{ .path }} in a new tab"
-                    class="inline-block text-primary text-xs opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-200 ml-0.5"
+                    class="inline-block text-primary text-xs opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-200 ml-0.5 tooltip tooltip-right"
                     ><span aria-hidden="true">↗</span></a
                   >
                 {{ end }}
@@ -524,14 +551,14 @@ InputId, Placeholder, Masked, File, Description, Error */}}
                 <!-- Branch and spec on their own row, keeping sources aligned -->
                 <div class="mt-0.5 flex items-center gap-1 flex-wrap">
                   {{ if .git_branch }}
-                    <span class="badge badge-ghost badge-xs" title="git branch"
+                    <span class="badge badge-ghost badge-xs tooltip tooltip-right" data-tip="git branch"
                       >{{ .git_branch }}</span
                     >
                   {{ end }}
                   {{ if .spec }}
                     <span
-                      class="badge badge-ghost badge-xs font-mono"
-                      title="app spec"
+                      class="badge badge-ghost badge-xs font-mono tooltip tooltip-right"
+                      data-tip="app spec"
                       >{{ .spec }}</span
                     >
                   {{ end }}
@@ -553,28 +580,28 @@ InputId, Placeholder, Masked, File, Description, Error */}}
                   class="mt-0.5 flex items-center justify-center gap-1 flex-wrap">
                   {{ if .needs_approval }}
                     <span
-                      class="badge badge-error badge-xs badge-soft whitespace-nowrap"
-                      title="the app requests plugin permissions which are not approved yet"
+                      class="badge badge-error badge-xs badge-soft whitespace-nowrap tooltip tooltip-left"
+                      data-tip="the app requests plugin permissions which are not approved yet"
                       >needs approval</span
                     >
                   {{ end }}
                   {{ if .is_dev }}
                     <span
-                      class="badge badge-success badge-xs badge-soft"
-                      title="development mode app, served from the local source directory"
+                      class="badge badge-success badge-xs badge-soft tooltip tooltip-left"
+                      data-tip="development mode app, served from the local source directory"
                       >dev</span
                     >
                   {{ else if not .staging }}
                   {{ else if .staging.ahead }}
                     <span
-                      class="badge badge-warning badge-xs badge-soft"
-                      title="staging v{{ .staging.version }} is not promoted to prod yet"
+                      class="badge badge-warning badge-xs badge-soft tooltip tooltip-left"
+                      data-tip="staging v{{ .staging.version }} is not promoted to prod yet"
                       >pending</span
                     >
                   {{ else }}
                     <span
-                      class="badge badge-success badge-xs badge-soft"
-                      title="prod matches staging"
+                      class="badge badge-success badge-xs badge-soft tooltip tooltip-left"
+                      data-tip="prod matches staging"
                       >in sync</span
                     >
                   {{ end }}
@@ -588,7 +615,8 @@ InputId, Placeholder, Masked, File, Description, Error */}}
               class="text-xs text-base-content/70 whitespace-nowrap hidden sm:table-cell">
               {{ if .update_time }}
                 <span
-                  title="{{ dateInZone "2006-01-02 15:04:05" (toDate "2006-01-02T15:04:05Z07:00" .update_time) "UTC" }} UTC · by {{ if .update_user }}
+                  class="tooltip tooltip-left"
+                  data-tip="{{ dateInZone "2006-01-02 15:04:05" (toDate "2006-01-02T15:04:05Z07:00" .update_time) "UTC" }} UTC · by {{ if .update_user }}
                     {{ .update_user }}
                   {{ else }}
                     unknown
@@ -606,15 +634,16 @@ InputId, Placeholder, Masked, File, Description, Error */}}
                     action; edit/delete stay on the default list */}}
                   {{ if eq $rowAction "" }}
                   <a
-                    href="{{ $root }}/apps/update?path={{ .path }}"
-                    class="btn btn-xs btn-ghost btn-square {{ if not (index $perms "app:update") }}
+                    class="btn btn-xs btn-ghost btn-square tooltip tooltip-left {{ if not (index $perms "app:update") }}
                       btn-disabled
                     {{ end }}"
-                    {{ if not (index $perms "app:update") }}
+                    {{ if index $perms "app:update" }}
+                      href="{{ $root }}/apps/update?path={{ .path }}"
+                    {{ else }}
                       aria-disabled="true" tabindex="-1"
                     {{ end }}
                     aria-label="Edit {{ .path }}"
-                    title="{{ if index $perms "app:update" }}
+                    data-tip="{{ if index $perms "app:update" }}
                       Edit auth and parameters
                     {{ else }}
                       requires app:update
@@ -636,10 +665,10 @@ InputId, Placeholder, Masked, File, Description, Error */}}
                   {{ end }}
                   {{ if eq $rowAction "promote" }}
                     <button
-                      class="btn btn-xs btn-primary btn-soft transition-transform duration-150 active:scale-95"
+                      class="btn btn-xs btn-primary btn-soft transition-transform duration-150 active:scale-95 tooltip tooltip-left"
                       aria-label="Promote {{ .path }}"
                       {{ if index $perms "app:promote" }}
-                        title="Promote staging to prod"
+                        data-tip="Promote staging to prod"
                         hx-post="{{ $root }}/apps/promote"
                         hx-disabled-elt="this" hx-vals='{"path": "{{ .path }}"}'
                         hx-confirm="Promote staging
@@ -649,16 +678,16 @@ InputId, Placeholder, Masked, File, Description, Error */}}
                         hx-include="#page-search, #app-filter-value,
                         #app-tab-value" hx-indicator="#page-progress"
                       {{ else }}
-                        disabled title="requires app:promote"
+                        disabled data-tip="requires app:promote"
                       {{ end }}>
                       Promote
                     </button>
                   {{ else if eq $rowAction "approve" }}
                     <button
-                      class="btn btn-xs btn-primary btn-soft transition-transform duration-150 active:scale-95"
+                      class="btn btn-xs btn-primary btn-soft transition-transform duration-150 active:scale-95 tooltip tooltip-left"
                       aria-label="Approve permissions for {{ .path }}"
                       {{ if or (index $perms "app:approve") (index $perms "admin") }}
-                        title="Approve the requested plugin permissions"
+                        data-tip="Approve the requested plugin permissions"
                         hx-post="{{ $root }}/apps/approve"
                         hx-disabled-elt="this" hx-vals='{"path": "{{ .path }}"}'
                         hx-confirm="Approve the plugin permissions requested by
@@ -667,16 +696,16 @@ InputId, Placeholder, Masked, File, Description, Error */}}
                         #app-filter-value, #app-tab-value"
                         hx-indicator="#page-progress"
                       {{ else }}
-                        disabled title="requires the app:approve permission"
+                        disabled data-tip="requires the app:approve permission"
                       {{ end }}>
                       Approve
                     </button>
                   {{ else }}
                     <button
-                      class="btn btn-xs btn-ghost btn-square"
+                      class="btn btn-xs btn-ghost btn-square tooltip tooltip-left"
                       aria-label="Reload {{ .path }}"
                       {{ if index $perms "app:reload" }}
-                        title="{{ if .is_git }}
+                        data-tip="{{ if .is_git }}
                           Reload from git
                         {{ else }}
                           Reload from source
@@ -690,7 +719,7 @@ InputId, Placeholder, Masked, File, Description, Error */}}
                         #app-filter-value, #app-tab-value"
                         hx-indicator="#page-progress"
                       {{ else }}
-                        disabled title="requires app:reload"
+                        disabled data-tip="requires app:reload"
                       {{ end }}>
                       <svg
                         aria-hidden="true"
@@ -709,10 +738,10 @@ InputId, Placeholder, Masked, File, Description, Error */}}
                   {{ end }}
                   {{ if eq $rowAction "" }}
                   <button
-                    class="btn btn-xs btn-ghost btn-square text-error"
+                    class="btn btn-xs btn-ghost btn-square text-error tooltip tooltip-left"
                     aria-label="Delete {{ .path }}"
                     {{ if index $perms "app:delete" }}
-                      title="Delete app" hx-post="{{ $root }}/apps/delete"
+                      data-tip="Delete app" hx-post="{{ $root }}/apps/delete"
                       hx-disabled-elt="this" hx-vals='{"path": "{{ .path }}"}'
                       hx-confirm="Delete {{ .path }}? This deletes the prod,
                       staging and preview apps." hx-target="#app-groups"
@@ -720,7 +749,7 @@ InputId, Placeholder, Masked, File, Description, Error */}}
                       hx-include="#page-search, #app-filter-value,
                       #app-tab-value" hx-indicator="#page-progress"
                     {{ else }}
-                      disabled title="requires app:delete"
+                      disabled data-tip="requires app:delete"
                     {{ end }}>
                     <svg
                       aria-hidden="true"
@@ -903,8 +932,8 @@ InputId, Placeholder, Masked, File, Description, Error */}}
 */}}
 {{ define "theme_toggle" }}
   <label
-    class="swap swap-rotate btn btn-sm btn-ghost btn-circle"
-    title="Switch between dark and light themes">
+    class="swap swap-rotate btn btn-sm btn-ghost btn-circle tooltip tooltip-left"
+    data-tip="Switch between dark and light themes">
     <input
       id="theme-toggle"
       type="checkbox"
@@ -938,19 +967,25 @@ InputId, Placeholder, Masked, File, Description, Error */}}
   <div id="error-toast" class="toast toast-end z-50"></div>
   {{/* Mobile companion of the sign-in notice below: the drawer (and the
     detailed notice in it) is hidden under lg, so a slim bottom strip gives
-    the cue there; tapping it opens the drawer with the full explanation
+    the cue there; activating it (tap or keyboard, a real button unlike the
+    pointer-only drawer overlay label) opens the drawer with the full
+    explanation
   */}}
   {{ if and .Data.Perms (index .Data.Perms "feature:system_blocked") }}
-    <label
-      for="nav-drawer"
-      role="alert"
-      class="lg:hidden fixed inset-x-0 bottom-0 z-[60] bg-error text-error-content px-4 py-2 text-xs font-medium flex items-center gap-2 cursor-pointer shadow-lg">
-      <span aria-hidden="true">⚠</span>
-      <span class="min-w-0"
-        >Sign-in required - management actions are disabled. Tap for
-        details.</span
-      >
-    </label>
+    <button
+      type="button"
+      aria-controls="main-nav"
+      aria-expanded="false"
+      onclick="toggleNavDrawer(this)"
+      class="lg:hidden fixed inset-x-0 bottom-0 z-[60] bg-error text-error-content px-4 py-2 text-xs font-medium flex items-center gap-2 text-left cursor-pointer shadow-lg">
+      <span role="alert" class="flex items-center gap-2 min-w-0">
+        <span aria-hidden="true">⚠</span>
+        <span class="min-w-0"
+          >Sign-in required - management actions are disabled. Tap for
+          details.</span
+        >
+      </span>
+    </button>
   {{ end }}
   <div class="drawer-side z-20">
     <label for="nav-drawer" aria-hidden="true" class="drawer-overlay"></label>
@@ -960,8 +995,8 @@ InputId, Placeholder, Masked, File, Description, Error */}}
         class="px-3 py-1.5 flex items-center justify-center border-b border-base-300">
         <a
           href="{{ .AppPath }}/apps"
-          title="OpenRun home"
-          class="logo-mark inline-block">
+          data-tip="OpenRun home"
+          class="logo-mark inline-block tooltip tooltip-bottom">
           <img
             src="{{ static "openrun.png" }}"
             alt="OpenRun"
@@ -984,13 +1019,14 @@ InputId, Placeholder, Masked, File, Description, Error */}}
             item is enabled as before.
           */}}
           {{ $appsView := or (not .Data.Perms) (index .Data.Perms "app:read") (index .Data.Perms "admin") }}
-          <li class="{{ if not $appsView }}menu-disabled{{ end }}">
+          <li
+            class="tooltip tooltip-bottom {{ if not $appsView }}menu-disabled{{ end }}"
+            data-tip="{{ if $appsView }}Deployed apps: status, versions and lifecycle actions{{ else }}requires the app:read or admin permission{{ end }}">
             <a
               {{ if $appsView }}
-                href="{{ .AppPath }}/apps" title="Deployed apps: status, versions and lifecycle actions"
+                href="{{ .AppPath }}/apps"
               {{ else }}
-                aria-disabled="true" tabindex="-1" title="requires the app:read
-                or admin permission"
+                aria-disabled="true" tabindex="-1"
               {{ end }}
               {{ if eq .Data.Nav "apps" }}aria-current="page"{{ end }}
               class="{{ if eq .Data.Nav "apps" }}menu-active{{ end }}"
@@ -1012,13 +1048,14 @@ InputId, Placeholder, Masked, File, Description, Error */}}
             >
           </li>
           {{ $syncsView := or (not .Data.Perms) (index .Data.Perms "sync:read") (index .Data.Perms "admin") }}
-          <li class="{{ if not $syncsView }}menu-disabled{{ end }}">
+          <li
+            class="tooltip tooltip-bottom {{ if not $syncsView }}menu-disabled{{ end }}"
+            data-tip="{{ if $syncsView }}Declarative sync sources which install and update apps from git{{ else }}requires the sync:read or admin permission{{ end }}">
             <a
               {{ if $syncsView }}
-                href="{{ .AppPath }}/syncs" title="Declarative sync sources which install and update apps from git"
+                href="{{ .AppPath }}/syncs"
               {{ else }}
-                aria-disabled="true" tabindex="-1" title="requires the sync:read
-                or admin permission"
+                aria-disabled="true" tabindex="-1"
               {{ end }}
               {{ if eq .Data.Nav "syncs" }}aria-current="page"{{ end }}
               class="{{ if eq .Data.Nav "syncs" }}menu-active{{ end }}"
@@ -1040,13 +1077,14 @@ InputId, Placeholder, Masked, File, Description, Error */}}
             >
           </li>
           {{ $bindingsView := or (not .Data.Perms) (index .Data.Perms "binding:read") (index .Data.Perms "admin") }}
-          <li class="{{ if not $bindingsView }}menu-disabled{{ end }}">
+          <li
+            class="tooltip tooltip-bottom {{ if not $bindingsView }}menu-disabled{{ end }}"
+            data-tip="{{ if $bindingsView }}Services and the bindings connecting apps to them{{ else }}requires the binding:read or admin permission{{ end }}">
             <a
               {{ if $bindingsView }}
-                href="{{ .AppPath }}/bindings" title="Services and the bindings connecting apps to them"
+                href="{{ .AppPath }}/bindings"
               {{ else }}
-                aria-disabled="true" tabindex="-1" title="requires the
-                binding:read or admin permission"
+                aria-disabled="true" tabindex="-1"
               {{ end }}
               {{ if eq .Data.Nav "bindings" }}aria-current="page"{{ end }}
               class="{{ if eq .Data.Nav "bindings" }}menu-active{{ end }}"
@@ -1072,16 +1110,14 @@ InputId, Placeholder, Masked, File, Description, Error */}}
           */}}
           {{ $builderOff := and .Data.Perms (not (index .Data.Perms "feature:builder")) }}
           {{ $builderView := and (not $builderOff) (or (not .Data.Perms) (index .Data.Perms "builder:list") (index .Data.Perms "admin")) }}
-          <li class="{{ if not $builderView }}menu-disabled{{ end }}">
+          <li
+            class="tooltip tooltip-bottom {{ if not $builderView }}menu-disabled{{ end }}"
+            data-tip="{{ if $builderOff }}the builder is disabled for this console install{{ else if not $builderView }}requires the builder:list or admin permission{{ else }}AI agent sessions for building and publishing apps{{ end }}">
             <a
-              {{ if $builderOff }}
-                aria-disabled="true" tabindex="-1" title="the builder is
-                disabled for this console install"
-              {{ else if not $builderView }}
-                aria-disabled="true" tabindex="-1" title="requires the
-                builder:list or admin permission"
+              {{ if not $builderView }}
+                aria-disabled="true" tabindex="-1"
               {{ else }}
-                href="{{ .AppPath }}/builder" title="AI agent sessions for building and publishing apps"
+                href="{{ .AppPath }}/builder"
               {{ end }}
               {{ if eq .Data.Nav "builder" }}aria-current="page"{{ end }}
               class="{{ if eq .Data.Nav "builder" }}menu-active{{ end }}"
@@ -1109,16 +1145,14 @@ InputId, Placeholder, Masked, File, Description, Error */}}
           */}}
           {{ $containersOff := and .Data.Perms (not (index .Data.Perms "feature:container")) }}
           {{ $containersView := and (not $containersOff) (or (not .Data.Perms) (index .Data.Perms "container:read") (index .Data.Perms "admin")) }}
-          <li class="{{ if not $containersView }}menu-disabled{{ end }}">
+          <li
+            class="tooltip tooltip-bottom {{ if not $containersView }}menu-disabled{{ end }}"
+            data-tip="{{ if $containersOff }}containers are disabled for this console install{{ else if not $containersView }}requires the container:read or admin permission{{ else }}Containers and pods managed by OpenRun{{ end }}">
             <a
-              {{ if $containersOff }}
-                aria-disabled="true" tabindex="-1" title="containers are
-                disabled for this console install"
-              {{ else if not $containersView }}
-                aria-disabled="true" tabindex="-1" title="requires the
-                container:read or admin permission"
+              {{ if not $containersView }}
+                aria-disabled="true" tabindex="-1"
               {{ else }}
-                href="{{ .AppPath }}/containers" title="Containers and pods managed by OpenRun"
+                href="{{ .AppPath }}/containers"
               {{ end }}
               {{ if eq .Data.Nav "containers" }}aria-current="page"{{ end }}
               class="{{ if eq .Data.Nav "containers" }}menu-active{{ end }}"
@@ -1140,13 +1174,14 @@ InputId, Placeholder, Masked, File, Description, Error */}}
             >
           </li>
           {{ $auditView := or (not .Data.Perms) (index .Data.Perms "audit:read") (index .Data.Perms "admin") }}
-          <li class="{{ if not $auditView }}menu-disabled{{ end }}">
+          <li
+            class="tooltip tooltip-bottom {{ if not $auditView }}menu-disabled{{ end }}"
+            data-tip="{{ if $auditView }}Audit trail of management operations and app calls{{ else }}requires the audit:read or admin permission{{ end }}">
             <a
               {{ if $auditView }}
-                href="{{ .AppPath }}/audit" title="Audit trail of management operations and app calls"
+                href="{{ .AppPath }}/audit"
               {{ else }}
-                aria-disabled="true" tabindex="-1" title="requires the
-                audit:read or admin permission"
+                aria-disabled="true" tabindex="-1"
               {{ end }}
               {{ if eq .Data.Nav "audit" }}aria-current="page"{{ end }}
               class="{{ if eq .Data.Nav "audit" }}menu-active{{ end }}"
@@ -1174,16 +1209,14 @@ InputId, Placeholder, Masked, File, Description, Error */}}
           */}}
           {{ $configOff := and .Data.Perms (not (index .Data.Perms "feature:config")) }}
           {{ $configView := and (not $configOff) (or (not .Data.Perms) (index .Data.Perms "config:read") (index .Data.Perms "admin")) }}
-          <li class="{{ if not $configView }}menu-disabled{{ end }}">
+          <li
+            class="tooltip tooltip-bottom {{ if not $configView }}menu-disabled{{ end }}"
+            data-tip="{{ if $configOff }}configuration is disabled for this console install{{ else if not $configView }}requires the config:read or admin permission{{ else }}Server configuration and RBAC settings{{ end }}">
             <a
-              {{ if $configOff }}
-                aria-disabled="true" tabindex="-1" title="configuration is
-                disabled for this console install"
-              {{ else if not $configView }}
-                aria-disabled="true" tabindex="-1" title="requires the
-                config:read or admin permission"
+              {{ if not $configView }}
+                aria-disabled="true" tabindex="-1"
               {{ else }}
-                href="{{ .AppPath }}/config" title="Server configuration and RBAC settings"
+                href="{{ .AppPath }}/config"
               {{ end }}
               {{ if eq .Data.Nav "config" }}aria-current="page"{{ end }}
               class="{{ if eq .Data.Nav "config" }}menu-active{{ end }}"
@@ -1241,7 +1274,7 @@ InputId, Placeholder, Masked, File, Description, Error */}}
             </div>
           </div>
           <div class="min-w-0">
-            <div class="truncate" title="{{ .UserId }}">{{ .UserId }}</div>
+            <div class="truncate tooltip tooltip-top" data-tip="{{ .UserId }}">{{ .UserId }}</div>
           </div>
         {{ end }}
         <div class="ml-auto">

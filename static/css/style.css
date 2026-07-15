@@ -2,8 +2,86 @@
    the daisyui custom themes defined in app.star (ace.style custom_themes);
    everything here uses theme variables so it adapts to light/dark. */
 
+/* ---- Typography ---------------------------------------------------------
+   Self-hosted brand type (SIL OFL, woff2 in static/fonts/, downloaded from
+   fontsource): Space Grotesk for headings, Inter for body, JetBrains Mono
+   for code and identifiers. The generated tailwind layer routes every font
+   through --font-sans/--font-mono, so redefining the variables here covers
+   the preflight body default and the font-sans/font-mono utilities alike.
+   Weights follow usage: Inter 400/500/600 (body, font-medium,
+   font-semibold), Space Grotesk 500/700 (card h2s, titles - the extrabold
+   italic page title maps to 700 with a synthesized slant, Space Grotesk
+   has no 800 and no italic), JetBrains Mono 400/500. The three faces used
+   above the fold are preloaded in the head define. */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../fonts/inter-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../fonts/inter-500.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../fonts/inter-600.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Space Grotesk";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../fonts/space-grotesk-500.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Space Grotesk";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../fonts/space-grotesk-700.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../fonts/jetbrains-mono-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../fonts/jetbrains-mono-500.woff2") format("woff2");
+}
+
 :root {
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+    "Noto Color Emoji";
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+/* Headings and heading-like labels carry the display face. This rule is
+   UNLAYERED while the tailwind utilities live in a cascade layer, so it
+   would silently beat .font-mono on the same element - mono headings (sync
+   repo names, app path h2s) are excluded explicitly */
+h1:not(.font-mono),
+h2:not(.font-mono),
+h3:not(.font-mono),
+.page-title,
+.stat-title {
+  font-family: "Space Grotesk", var(--font-sans);
 }
 
 /* ---- Branded loading indicator ----------------------------------------

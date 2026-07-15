@@ -51,8 +51,8 @@
                       {{ end }}
                       {{ if .Data.RBAC.has_staged }}
                         <span
-                          class="badge badge-warning badge-sm badge-soft"
-                          title="staged changes by {{ .Data.RBAC.staged_by }} pending publish"
+                          class="badge badge-warning badge-sm badge-soft tooltip tooltip-top"
+                          data-tip="staged changes by {{ .Data.RBAC.staged_by }} pending publish"
                           >pending</span
                         >
                       {{ end }}
@@ -85,8 +85,8 @@
                         {{ end }}
                         {{ if .dynamic_count }}
                           <span
-                            class="badge badge-soft badge-primary badge-sm"
-                            title="dynamic values overriding openrun.toml"
+                            class="badge badge-soft badge-primary badge-sm tooltip tooltip-top"
+                            data-tip="dynamic values overriding openrun.toml"
                             >{{ .dynamic_count }} dynamic</span
                           >
                         {{ end }}
@@ -151,8 +151,8 @@
                             <td class="text-right whitespace-nowrap">
                               <a
                                 href="{{ $.AppPath }}/config/history?version={{ $h.version_id }}"
-                                class="btn btn-xs btn-ghost"
-                                title="View this config snapshot as JSON">
+                                class="btn btn-xs btn-ghost tooltip tooltip-left"
+                                data-tip="View this config snapshot as JSON">
                                 view
                               </a>
                               {{ if ne $h.version_id $.Data.VersionId }}
@@ -167,7 +167,7 @@
                                     hx-disabled-elt="this"
                                     hx-indicator="#page-progress"
                                   {{ else }}
-                                    disabled title="requires config:update"
+                                    disabled data-tip="requires config:update"
                                   {{ end }}>
                                   restore
                                 </button>

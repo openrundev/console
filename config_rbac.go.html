@@ -67,12 +67,12 @@
                     {{ end }}
                     {{ if .Data.Diff.groups }}
                       groups: {{ range $i, $n := .Data.Diff.groups }}{{ if $i }},
-                        {{ end }}<span class="font-mono text-xs">{{ $n }}</span>
+                        {{ end }}<span class="font-mono text-xs break-all">{{ $n }}</span>
                       {{- end }},
                     {{ end }}
                     {{ if .Data.Diff.roles }}
                       roles: {{ range $i, $n := .Data.Diff.roles }}{{ if $i }},
-                        {{ end }}<span class="font-mono text-xs">{{ $n }}</span>
+                        {{ end }}<span class="font-mono text-xs break-all">{{ $n }}</span>
                       {{- end }},
                     {{ end }}
                     {{ if .Data.Diff.grants }}
@@ -83,8 +83,8 @@
                   <div class="ml-auto flex items-center gap-2">
                     {{ if $viewLive }}
                       <button
-                        class="btn btn-xs btn-ghost"
-                        title="Show the staged draft in the tables below"
+                        class="btn btn-xs btn-ghost tooltip tooltip-top"
+                        data-tip="Show the staged draft in the tables below"
                         hx-get="{{ .AppPath }}/config/rbac"
                         hx-push-url="true"
                         hx-target="#rbac-content"
@@ -94,8 +94,8 @@
                       </button>
                     {{ else }}
                       <button
-                        class="btn btn-xs btn-ghost"
-                        title="Show the live config (what enforcement uses) in the tables below"
+                        class="btn btn-xs btn-ghost tooltip tooltip-top"
+                        data-tip="Show the live config (what enforcement uses) in the tables below"
                         hx-get="{{ .AppPath }}/config/rbac?view=live"
                         hx-push-url="true"
                         hx-target="#rbac-content"
@@ -115,7 +115,7 @@
                         hx-disabled-elt="this"
                         hx-indicator="#page-progress"
                       {{ else }}
-                        disabled title="requires config:update"
+                        disabled data-tip="requires config:update"
                       {{ end }}>
                       Discard
                     </button>
@@ -130,7 +130,7 @@
                         hx-disabled-elt="this"
                         hx-indicator="#page-progress"
                       {{ else }}
-                        disabled title="requires config:update"
+                        disabled data-tip="requires config:update"
                       {{ end }}>
                       Publish
                     </button>
@@ -166,14 +166,14 @@
                   {{ if .Data.HasStaged }}
                     {{ if $viewLive }}
                       <span
-                        class="badge badge-info badge-sm badge-soft"
-                        title="the tables below show the live config, which enforcement uses; a staged draft is pending"
+                        class="badge badge-info badge-sm badge-soft tooltip tooltip-top"
+                        data-tip="the tables below show the live config, which enforcement uses; a staged draft is pending"
                         >live view</span
                       >
                     {{ else }}
                       <span
-                        class="badge badge-warning badge-sm badge-soft"
-                        title="the tables below show the staged draft"
+                        class="badge badge-warning badge-sm badge-soft tooltip tooltip-top"
+                        data-tip="the tables below show the staged draft"
                         >pending</span
                       >
                     {{ end }}
@@ -198,7 +198,7 @@
                         hx-disabled-elt="this"
                         hx-indicator="#page-progress"
                       {{ else }}
-                        disabled title="{{ $editTitle }}"
+                        disabled data-tip="{{ $editTitle }}"
                       {{ end }}>
                       {{ if $view.enabled }}
                         Disable
@@ -221,16 +221,18 @@
                       >
                       {{ if not $viewLive }}
                         <a
-                          href="{{ .AppPath }}/config/rbac/group"
-                          class="btn btn-xs btn-outline ml-auto {{ if not $canEdit }}btn-disabled{{ end }}"
-                          {{ if not $canEdit }}
-                            title="{{ $editTitle }}" aria-disabled="true" tabindex="-1"
+                          class="btn btn-xs btn-outline ml-auto {{ if not $canEdit }}btn-disabled tooltip tooltip-left{{ end }}"
+                          {{ if $canEdit }}
+                            href="{{ .AppPath }}/config/rbac/group"
+                          {{ else }}
+                            data-tip="{{ $editTitle }}" aria-disabled="true" tabindex="-1"
                           {{ end }}
                           >+ Add group</a
                         >
                       {{ end }}
                     </div>
                     {{ if $view.groups }}
+                      <div class="overflow-x-auto">
                       <table class="table table-sm">
                         <tbody>
                           {{ range $view.groups }}
@@ -252,9 +254,8 @@
                                 <div
                                   class="inline-flex items-center gap-0.5">
                                   <a
-                                    href="{{ $.AppPath }}/config/rbac/group?name={{ .name }}"
-                                    class="btn btn-xs btn-ghost {{ if not $canEdit }}btn-disabled{{ end }}"
-                                    {{ if not $canEdit }}title="{{ $editTitle }}" aria-disabled="true" tabindex="-1"{{ end }}
+                                    class="btn btn-xs btn-ghost tooltip tooltip-left {{ if not $canEdit }}btn-disabled{{ end }}"
+                                    {{ if $canEdit }}href="{{ $.AppPath }}/config/rbac/group?name={{ .name }}"{{ else }}data-tip="{{ $editTitle }}" aria-disabled="true" tabindex="-1"{{ end }}
                                     aria-label="Edit group {{ .name }}"
                                     >edit</a
                                   >
@@ -270,7 +271,7 @@
                                       hx-disabled-elt="this"
                                       hx-indicator="#page-progress"
                                     {{ else }}
-                                      disabled title="{{ $editTitle }}"
+                                      disabled data-tip="{{ $editTitle }}"
                                     {{ end }}>
                                     delete
                                   </button>
@@ -281,6 +282,7 @@
                           {{ end }}
                         </tbody>
                       </table>
+                      </div>
                     {{ else }}
                       <p class="text-xs text-base-content/70">
                         No groups defined
@@ -299,16 +301,18 @@
                       >
                       {{ if not $viewLive }}
                         <a
-                          href="{{ .AppPath }}/config/rbac/role"
-                          class="btn btn-xs btn-outline ml-auto {{ if not $canEdit }}btn-disabled{{ end }}"
-                          {{ if not $canEdit }}
-                            title="{{ $editTitle }}" aria-disabled="true" tabindex="-1"
+                          class="btn btn-xs btn-outline ml-auto {{ if not $canEdit }}btn-disabled tooltip tooltip-left{{ end }}"
+                          {{ if $canEdit }}
+                            href="{{ .AppPath }}/config/rbac/role"
+                          {{ else }}
+                            data-tip="{{ $editTitle }}" aria-disabled="true" tabindex="-1"
                           {{ end }}
                           >+ Add role</a
                         >
                       {{ end }}
                     </div>
                     {{ if $view.roles }}
+                      <div class="overflow-x-auto">
                       <table class="table table-sm">
                         <tbody>
                           {{ range $view.roles }}
@@ -330,9 +334,8 @@
                                 <div
                                   class="inline-flex items-center gap-0.5">
                                   <a
-                                    href="{{ $.AppPath }}/config/rbac/role?name={{ .name }}"
-                                    class="btn btn-xs btn-ghost {{ if not $canEdit }}btn-disabled{{ end }}"
-                                    {{ if not $canEdit }}title="{{ $editTitle }}" aria-disabled="true" tabindex="-1"{{ end }}
+                                    class="btn btn-xs btn-ghost tooltip tooltip-left {{ if not $canEdit }}btn-disabled{{ end }}"
+                                    {{ if $canEdit }}href="{{ $.AppPath }}/config/rbac/role?name={{ .name }}"{{ else }}data-tip="{{ $editTitle }}" aria-disabled="true" tabindex="-1"{{ end }}
                                     aria-label="Edit role {{ .name }}"
                                     >edit</a
                                   >
@@ -348,7 +351,7 @@
                                       hx-disabled-elt="this"
                                       hx-indicator="#page-progress"
                                     {{ else }}
-                                      disabled title="{{ $editTitle }}"
+                                      disabled data-tip="{{ $editTitle }}"
                                     {{ end }}>
                                     delete
                                   </button>
@@ -359,6 +362,7 @@
                           {{ end }}
                         </tbody>
                       </table>
+                      </div>
                     {{ else }}
                       <p class="text-xs text-base-content/70">
                         No roles defined
@@ -376,16 +380,18 @@
                       >
                       {{ if not $viewLive }}
                         <a
-                          href="{{ .AppPath }}/config/rbac/grant"
-                          class="btn btn-xs btn-outline ml-auto {{ if not $canEdit }}btn-disabled{{ end }}"
-                          {{ if not $canEdit }}
-                            title="{{ $editTitle }}" aria-disabled="true" tabindex="-1"
+                          class="btn btn-xs btn-outline ml-auto {{ if not $canEdit }}btn-disabled tooltip tooltip-left{{ end }}"
+                          {{ if $canEdit }}
+                            href="{{ .AppPath }}/config/rbac/grant"
+                          {{ else }}
+                            data-tip="{{ $editTitle }}" aria-disabled="true" tabindex="-1"
                           {{ end }}
                           >+ Add grant</a
                         >
                       {{ end }}
                     </div>
                     {{ if $view.grants }}
+                      <div class="overflow-x-auto">
                       <table class="table table-sm">
                         <thead>
                           <tr>
@@ -428,9 +434,8 @@
                                 <div
                                   class="inline-flex items-center gap-0.5">
                                   <a
-                                    href="{{ $.AppPath }}/config/rbac/grant?index={{ .index }}"
-                                    class="btn btn-xs btn-ghost {{ if not $canEdit }}btn-disabled{{ end }}"
-                                    {{ if not $canEdit }}title="{{ $editTitle }}" aria-disabled="true" tabindex="-1"{{ end }}
+                                    class="btn btn-xs btn-ghost tooltip tooltip-left {{ if not $canEdit }}btn-disabled{{ end }}"
+                                    {{ if $canEdit }}href="{{ $.AppPath }}/config/rbac/grant?index={{ .index }}"{{ else }}data-tip="{{ $editTitle }}" aria-disabled="true" tabindex="-1"{{ end }}
                                     aria-label="Edit grant {{ .description }}"
                                     >edit</a
                                   >
@@ -446,7 +451,7 @@
                                       hx-disabled-elt="this"
                                       hx-indicator="#page-progress"
                                     {{ else }}
-                                      disabled title="{{ $editTitle }}"
+                                      disabled data-tip="{{ $editTitle }}"
                                     {{ end }}>
                                     delete
                                   </button>
@@ -457,6 +462,7 @@
                           {{ end }}
                         </tbody>
                       </table>
+                      </div>
                     {{ else }}
                       <p class="text-xs text-base-content/70">
                         No grants defined - with RBAC enabled, only admins can

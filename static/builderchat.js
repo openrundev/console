@@ -59,7 +59,10 @@
 	// is whitespace-pre-wrap, so newlines render as-is)
 
 	function esc(s) {
-		return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+		// Quotes must be escaped too: inlineMd interpolates escaped text into
+		// the link href attribute, where a raw " would break out of the value
+		return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+			.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 	}
 
 	function inlineMd(s) {
@@ -281,7 +284,7 @@
 				this.lastTool.count++;
 				const badge = this.lastTool.badge;
 				badge.textContent = '×' + this.lastTool.count;
-				badge.title = this.lastTool.count + ' ' + title + ' tool calls';
+				badge.setAttribute('data-tip', this.lastTool.count + ' ' + title + ' tool calls');
 				badge.classList.remove('hidden', 'bc-pop');
 				void badge.offsetWidth; // restart the pop animation
 				badge.classList.add('bc-pop');
@@ -306,7 +309,7 @@
 			const label = document.createElement('span');
 			label.textContent = title;
 			const badge = document.createElement('span');
-			badge.className = 'badge badge-soft badge-primary badge-xs font-mono hidden';
+			badge.className = 'badge badge-soft badge-primary badge-xs font-mono hidden tooltip tooltip-top';
 			chip.append(label, badge);
 			this.toolLine.appendChild(chip);
 			this.lastTool = { label: title, line: this.toolLine, count: 1, badge: badge };

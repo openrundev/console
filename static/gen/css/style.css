@@ -2480,8 +2480,64 @@
   .sticky {
     position: sticky;
   }
+  .tooltip-bottom {
+    @layer daisyui.l1.l2 {
+       > .tooltip-content, &[data-tip]:before {
+        transform: translateX(var(--tt-trans, -50%)) translateY(var(--tt-pos, -0.25rem));
+        inset: var(--tt-off) auto auto 50%;
+      }
+      &:after {
+        transform: translateX(var(--tt-trans, -50%)) translateY(var(--tt-pos, -0.25rem)) rotate(180deg);
+        inset: var(--tt-tail) auto auto 50%;
+      }
+    }
+  }
+  .tooltip-top {
+    @layer daisyui.l1.l2 {
+       > .tooltip-content, &[data-tip]:before {
+        transform: translateX(var(--tt-trans, -50%)) translateY(var(--tt-pos, 0.25rem));
+        inset: auto auto var(--tt-off) 50%;
+      }
+      &:after {
+        transform: translateX(var(--tt-trans, -50%)) translateY(var(--tt-pos, 0.25rem));
+        inset: auto auto var(--tt-tail) 50%;
+      }
+    }
+  }
   .inset-x-0 {
     inset-inline: 0;
+  }
+  .tooltip-left {
+    @layer daisyui.l1.l2 {
+       > .tooltip-content, &[data-tip]:before {
+        transform: translateX(calc(var(--tt-pos, 0.25rem) - 0.25rem)) translateY(var(--tt-trans, -50%));
+        left: auto;
+        right: var(--tt-off);
+        inset-block: var(--tt-inset, 50% auto);
+      }
+      &:after {
+        transform: translateX(var(--tt-pos, 0.25rem)) translateY(var(--tt-trans, -50%)) rotate(-90deg);
+        left: auto;
+        right: calc(var(--tt-tail) + 1px);
+        inset-block: var(--tt-tail-inset, 50% auto);
+      }
+    }
+  }
+  .tooltip-right {
+    @layer daisyui.l1.l2 {
+       > .tooltip-content, &[data-tip]:before {
+        transform: translateX(calc(var(--tt-pos, -0.25rem) + 0.25rem)) translateY(var(--tt-trans, -50%));
+        left: var(--tt-off);
+        right: auto;
+        inset-block: var(--tt-inset, 50% auto);
+      }
+      &:after {
+        transform: translateX(var(--tt-pos, -0.25rem)) translateY(var(--tt-trans, -50%)) rotate(90deg);
+        left: calc(var(--tt-tail) + 1px);
+        right: auto;
+        inset-block: var(--tt-tail-inset, 50% auto);
+      }
+    }
   }
   .toast-center {
     @layer daisyui.l1.l2 {
@@ -3730,8 +3786,8 @@
   .grid-cols-2 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .grid-cols-\[max-content_1fr\] {
-    grid-template-columns: max-content 1fr;
+  .grid-cols-\[max-content_minmax\(0\,1fr\)\] {
+    grid-template-columns: max-content minmax(0,1fr);
   }
   .flex-col {
     flex-direction: column;

@@ -69,9 +69,9 @@
                 name="action"
                 value="approve"
                 {{ if not (or (index .Data.Perms "app:approve") (index .Data.Perms "admin")) }}
-                  disabled title="requires the app:approve permission"
+                  disabled data-tip="requires the app:approve permission"
                 {{ end }}
-                class="btn btn-primary btn-sm transition-transform duration-150 active:scale-95">
+                class="btn btn-primary btn-sm transition-transform duration-150 active:scale-95 {{ if not (or (index .Data.Perms "app:approve") (index .Data.Perms "admin")) }}tooltip tooltip-top{{ end }}">
                 Approve permissions
               </button>
             </form>
@@ -118,13 +118,13 @@
                   </div>
                   <div>
                     <div class="text-xs text-base-content/70">Spec</div>
-                    <div class="font-mono text-xs">
+                    <div class="font-mono text-xs break-all">
                       {{ if .Data.App.spec }}{{ .Data.App.spec }}{{ else }}-{{ end }}
                     </div>
                   </div>
                   <div>
                     <div class="text-xs text-base-content/70">Branch</div>
-                    <div class="font-mono text-xs">
+                    <div class="font-mono text-xs break-all">
                       {{ if .Data.App.git_branch }}
                         {{ .Data.App.git_branch }}
                       {{ else }}
@@ -337,11 +337,11 @@
                       name="action"
                       value="validate"
                       {{ if index .Data.Perms "app:create" }}
-                        title="Dry run: check the create and show the requested permissions without creating"
+                        data-tip="Dry run: check the create and show the requested permissions without creating"
                       {{ else }}
-                        disabled title="requires app:create"
+                        disabled data-tip="requires app:create"
                       {{ end }}
-                      class="btn btn-outline btn-sm transition-transform duration-150 active:scale-95">
+                      class="btn btn-outline btn-sm transition-transform duration-150 active:scale-95 tooltip tooltip-top">
                       Validate
                     </button>
                     <button
@@ -349,18 +349,18 @@
                       name="action"
                       value="create"
                       {{ if not (index .Data.Perms "app:create") }}
-                        disabled title="requires app:create"
+                        disabled data-tip="requires app:create"
                       {{ end }}
-                      class="btn btn-primary btn-sm transition-transform duration-150 active:scale-95">
+                      class="btn btn-primary btn-sm transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "app:create") }}tooltip tooltip-top{{ end }}">
                       Create app
                     </button>
                   {{ else }}
                     <button
                       type="submit"
                       {{ if not (index .Data.Perms "app:update") }}
-                        disabled title="requires app:update"
+                        disabled data-tip="requires app:update"
                       {{ end }}
-                      class="btn btn-primary btn-sm transition-transform duration-150 active:scale-95">
+                      class="btn btn-primary btn-sm transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "app:update") }}tooltip tooltip-top{{ end }}">
                       Save changes
                     </button>
                   {{ end }}

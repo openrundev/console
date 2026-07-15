@@ -45,63 +45,6 @@
             </div>
           </div>
 
-          <!-- State filter chips -->
-          <div class="flex items-center gap-2 flex-wrap">
-            <input
-              type="hidden"
-              id="app-filter-value"
-              name="filter"
-              value="{{ .Data.Filter }}"
-              hx-push-url="true"
-              hx-get="{{ .AppPath }}/containers"
-              hx-trigger="change"
-              hx-target="#container-rows"
-              hx-swap="innerHTML transition:true"
-              hx-include="#page-search"
-              hx-indicator="#page-progress" />
-            <div class="join" role="group" aria-label="Filter containers by state">
-              <button
-                class="btn btn-sm join-item transition-transform duration-150 active:scale-95 {{ if eq .Data.Filter "running" }}btn-primary{{ end }}"
-                aria-pressed="{{ if eq .Data.Filter "running" }}true{{ else }}false{{ end }}"
-                data-filter="running" onclick="setAppFilter(this, 'running')">
-                Running
-              </button>
-              <button
-                class="btn btn-sm join-item transition-transform duration-150 active:scale-95 {{ if eq .Data.Filter "exited" }}btn-primary{{ end }}"
-                aria-pressed="{{ if eq .Data.Filter "exited" }}true{{ else }}false{{ end }}"
-                data-filter="exited" onclick="setAppFilter(this, 'exited')">
-                Stopped
-              </button>
-              <button
-                class="btn btn-sm join-item transition-transform duration-150 active:scale-95 {{ if eq .Data.Filter "all" }}btn-primary{{ end }}"
-                aria-pressed="{{ if eq .Data.Filter "all" }}true{{ else }}false{{ end }}"
-                data-filter="all" onclick="setAppFilter(this, 'all')">
-                All
-              </button>
-              {{ if and .Data.Perms (index .Data.Perms "feature:builder") }}
-                <button
-                  class="btn btn-sm join-item transition-transform duration-150 active:scale-95 {{ if eq .Data.Filter "agent" }}btn-primary{{ end }}"
-                  aria-pressed="{{ if eq .Data.Filter "agent" }}true{{ else }}false{{ end }}"
-                  title="App builder AI agent containers"
-                  data-filter="agent" onclick="setAppFilter(this, 'agent')">
-                  Agents
-                </button>
-              {{ end }}
-              {{ if eq .Data.Runtime "kubernetes" }}
-                <button
-                  class="btn btn-sm join-item transition-transform duration-150 active:scale-95 {{ if eq .Data.Filter "kaniko" }}btn-primary{{ end }}"
-                  aria-pressed="{{ if eq .Data.Filter "kaniko" }}true{{ else }}false{{ end }}"
-                  title="Kaniko image build pods"
-                  data-filter="kaniko" onclick="setAppFilter(this, 'kaniko')">
-                  Image builds
-                </button>
-              {{ end }}
-            </div>
-            <span class="text-xs text-base-content/70 ml-auto hidden md:inline"
-              >auto-refresh 30s</span
-            >
-          </div>
-
           {{ template "page_progress" }}
 
           <!-- Kubernetes namespace stats, loaded async so the list is not
@@ -123,8 +66,8 @@
                           <h2 class="text-sm font-medium">Cluster</h2>
                           {{ if .Data.K8s.cluster.version }}
                             <span
-                              class="badge badge-ghost badge-xs font-mono"
-                              title="{{ .Data.K8s.cluster.platform }}"
+                              class="badge badge-ghost badge-xs font-mono tooltip tooltip-top"
+                              data-tip="{{ .Data.K8s.cluster.platform }}"
                               >{{ .Data.K8s.cluster.version }}</span
                             >
                           {{ end }}
@@ -219,6 +162,91 @@
             hx-include="#page-search, #app-filter-value"
             hx-indicator="#page-progress">
             {{ block "container_rows" . }}
+          <!-- State filter chips -->
+          <div class="flex items-center gap-2 flex-wrap">
+            <input
+              type="hidden"
+              id="app-filter-value"
+              name="filter"
+              value="{{ .Data.Filter }}" />
+            <div class="join" role="group" aria-label="Filter containers by state">
+              <button
+                class="btn btn-sm join-item transition-transform duration-150 active:scale-95 {{ if eq .Data.Filter "running" }}btn-primary{{ end }}"
+                aria-pressed="{{ if eq .Data.Filter "running" }}true{{ else }}false{{ end }}"
+                data-filter="running"
+                hx-get="{{ $.AppPath }}/containers"
+                hx-vals='{"filter": "running"}'
+                hx-include="#page-search"
+                hx-target="#container-rows"
+                hx-swap="innerHTML transition:true"
+                hx-push-url="true"
+                hx-indicator="#page-progress">
+                Running
+              </button>
+              <button
+                class="btn btn-sm join-item transition-transform duration-150 active:scale-95 {{ if eq .Data.Filter "exited" }}btn-primary{{ end }}"
+                aria-pressed="{{ if eq .Data.Filter "exited" }}true{{ else }}false{{ end }}"
+                data-filter="exited"
+                hx-get="{{ $.AppPath }}/containers"
+                hx-vals='{"filter": "exited"}'
+                hx-include="#page-search"
+                hx-target="#container-rows"
+                hx-swap="innerHTML transition:true"
+                hx-push-url="true"
+                hx-indicator="#page-progress">
+                Stopped
+              </button>
+              <button
+                class="btn btn-sm join-item transition-transform duration-150 active:scale-95 {{ if eq .Data.Filter "all" }}btn-primary{{ end }}"
+                aria-pressed="{{ if eq .Data.Filter "all" }}true{{ else }}false{{ end }}"
+                data-filter="all"
+                hx-get="{{ $.AppPath }}/containers"
+                hx-vals='{"filter": "all"}'
+                hx-include="#page-search"
+                hx-target="#container-rows"
+                hx-swap="innerHTML transition:true"
+                hx-push-url="true"
+                hx-indicator="#page-progress">
+                All
+              </button>
+              {{ if and .Data.Perms (index .Data.Perms "feature:builder") }}
+                <button
+                  class="btn btn-sm join-item transition-transform duration-150 active:scale-95 tooltip tooltip-bottom {{ if eq .Data.Filter "agent" }}btn-primary{{ end }}"
+                  aria-pressed="{{ if eq .Data.Filter "agent" }}true{{ else }}false{{ end }}"
+                  data-tip="App builder AI agent containers"
+                  data-filter="agent"
+                hx-get="{{ $.AppPath }}/containers"
+                hx-vals='{"filter": "agent"}'
+                hx-include="#page-search"
+                hx-target="#container-rows"
+                hx-swap="innerHTML transition:true"
+                hx-push-url="true"
+                hx-indicator="#page-progress">
+                  Agents
+                </button>
+              {{ end }}
+              {{ if eq .Data.Runtime "kubernetes" }}
+                <button
+                  class="btn btn-sm join-item transition-transform duration-150 active:scale-95 tooltip tooltip-bottom {{ if eq .Data.Filter "kaniko" }}btn-primary{{ end }}"
+                  aria-pressed="{{ if eq .Data.Filter "kaniko" }}true{{ else }}false{{ end }}"
+                  data-tip="Kaniko image build pods"
+                  data-filter="kaniko"
+                hx-get="{{ $.AppPath }}/containers"
+                hx-vals='{"filter": "kaniko"}'
+                hx-include="#page-search"
+                hx-target="#container-rows"
+                hx-swap="innerHTML transition:true"
+                hx-push-url="true"
+                hx-indicator="#page-progress">
+                  Image builds
+                </button>
+              {{ end }}
+            </div>
+            <span class="text-xs text-base-content/70 ml-auto hidden md:inline"
+              >auto-refresh 30s</span
+            >
+          </div>
+
               {{ template "flash_alerts" .Data }}
 
               {{ if .Data.Containers }}
@@ -243,8 +271,8 @@
                             <td class="w-8">
                               <a
                                 href="{{ $.AppPath }}/containers/detail?id={{ .id }}"
-                                class="btn btn-xs btn-ghost btn-square"
-                                title="Expand: {{ .name }} - details, stats and logs"
+                                class="btn btn-xs btn-ghost btn-square tooltip tooltip-right"
+                                data-tip="Expand: {{ .name }} - details, stats and logs"
                                 aria-label="View details for container {{ .name }}">
                                 {{ template "drilldown_icon" }}
                               </a>
@@ -254,25 +282,26 @@
                             </td>
                             <td class="whitespace-nowrap">
                               <span
-                                class="font-mono text-xs font-medium"
-                                title="{{ .id }}"
+                                class="font-mono text-xs font-medium tooltip tooltip-right"
+                                data-tip="{{ .id }}"
                                 >{{ trunc 12 .id }}</span
                               >
                             </td>
                             <td>
                               <span
-                                class="font-mono text-xs inline-block max-w-36 truncate align-bottom"
-                                title="{{ .name }}"
+                                class="font-mono text-xs inline-block max-w-36 truncate align-bottom tooltip tooltip-right"
+                                data-tip="{{ .name }}"
                                 >{{ .name }}</span
                               >
                             </td>
                             <td>
                               {{ if .app_path }}
-                                <span class="font-mono text-xs break-all whitespace-normal"
+                                <span
+                                  class="font-mono text-xs inline-block min-w-40 break-all whitespace-normal align-bottom"
                                   >{{ .app_path }}</span
                                 ><a
                                   href="{{ $.AppPath }}/apps/detail?path={{ .app_path }}"
-                                  title="View app details"
+                                  data-tip="View app details"
                                   aria-label="View details for {{ .app_path }}"
                                   class="inline-block text-primary text-xs opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-200 ml-0.5"
                                   ><span aria-hidden="true">↗</span></a
@@ -306,10 +335,10 @@
                                 {{ if ne .runtime "kubernetes" }}
                                   {{ if eq .state "running" }}
                                     <button
-                                      class="btn btn-xs btn-ghost text-error"
+                                      class="btn btn-xs btn-ghost text-error tooltip tooltip-left"
                                       aria-label="Stop container {{ .name }}"
                                       {{ if and (index $.Data.Perms "feature:updates") (or (index $.Data.Perms "container:manage") (index $.Data.Perms "admin")) }}
-                                        title="Stop container"
+                                        data-tip="Stop container"
                                         hx-post="{{ $.AppPath }}/containers/lifecycle"
                                         hx-vals='{"id": "{{ .id }}", "action": "stop"}'
                                         hx-confirm="Stop container {{ .name }}? The app will be unavailable until it is started again."
@@ -319,18 +348,18 @@
                                         hx-disabled-elt="this"
                                         hx-indicator="#page-progress"
                                       {{ else if not (index $.Data.Perms "feature:updates") }}
-                                        disabled title="updates are disabled for this console install"
+                                        disabled data-tip="updates are disabled for this console install"
                                       {{ else }}
-                                        disabled title="requires the container:manage or admin permission"
+                                        disabled data-tip="requires the container:manage or admin permission"
                                       {{ end }}>
                                       stop
                                     </button>
                                   {{ else }}
                                     <button
-                                      class="btn btn-xs btn-ghost text-primary"
+                                      class="btn btn-xs btn-ghost text-primary tooltip tooltip-left"
                                       aria-label="Start container {{ .name }}"
                                       {{ if and (index $.Data.Perms "feature:updates") (or (index $.Data.Perms "container:manage") (index $.Data.Perms "admin")) }}
-                                        title="Start container"
+                                        data-tip="Start container"
                                         hx-post="{{ $.AppPath }}/containers/lifecycle"
                                         hx-vals='{"id": "{{ .id }}", "action": "start"}'
                                         hx-target="#container-rows"
@@ -339,9 +368,9 @@
                                         hx-disabled-elt="this"
                                         hx-indicator="#page-progress"
                                       {{ else if not (index $.Data.Perms "feature:updates") }}
-                                        disabled title="updates are disabled for this console install"
+                                        disabled data-tip="updates are disabled for this console install"
                                       {{ else }}
-                                        disabled title="requires the container:manage or admin permission"
+                                        disabled data-tip="requires the container:manage or admin permission"
                                       {{ end }}>
                                       start
                                     </button>
@@ -364,7 +393,13 @@
                       <p>No containers match "{{ .Data.Query }}"</p>
                       <button
                         class="btn btn-xs btn-outline transition-transform duration-150 active:scale-95"
-                        onclick="clearAppFilter()">
+                        onclick="const s = document.getElementById('page-search'); if (s) s.value = ''"
+                        hx-get="{{ $.AppPath }}/containers"
+                        hx-vals='{"query": "", "filter": ""}'
+                        hx-target="#container-rows"
+                        hx-swap="innerHTML transition:true"
+                        hx-push-url="true"
+                        hx-indicator="#page-progress">
                         Clear search
                       </button>
                     {{ else }}

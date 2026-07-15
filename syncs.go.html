@@ -39,10 +39,11 @@
                   hx-indicator="#page-progress" />
               </label>
               <a
-                href="{{ .AppPath }}/syncs/create"
-                class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "sync:create") }}btn-disabled{{ end }}"
-                {{ if not (index .Data.Perms "sync:create") }}
-                  title="requires sync:create" aria-disabled="true" tabindex="-1"
+                class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "sync:create") }}btn-disabled tooltip tooltip-bottom{{ end }}"
+                {{ if index .Data.Perms "sync:create" }}
+                  href="{{ .AppPath }}/syncs/create"
+                {{ else }}
+                  data-tip="requires sync:create" aria-disabled="true" tabindex="-1"
                 {{ end }}>
                 + Add sync source
               </a>
@@ -83,8 +84,8 @@
                             <td class="w-8">
                               <a
                                 href="{{ $.AppPath }}/syncs/detail?id={{ .id }}"
-                                class="btn btn-xs btn-ghost btn-square"
-                                title="Expand: {{ .repo }} - details and last run results"
+                                class="btn btn-xs btn-ghost btn-square tooltip tooltip-right"
+                                data-tip="Expand: {{ .repo }} - details and last run results"
                                 aria-label="View details for sync {{ .repo }}">
                                 {{ template "drilldown_icon" }}
                               </a>
@@ -134,15 +135,15 @@
                                 {{ end }}
                               {{ else }}
                                 <span
-                                  class="text-xs text-base-content/70"
-                                  title="staging only - no promote"
+                                  class="text-xs text-base-content/70 tooltip tooltip-right"
+                                  data-tip="staging only - no promote"
                                   >staging only</span
                                 >
                               {{ end }}
                             </td>
                             <td
-                              class="text-xs text-base-content/70 hidden lg:table-cell whitespace-nowrap max-w-32 truncate"
-                              title="{{ .user }}">
+                              class="text-xs text-base-content/70 hidden lg:table-cell whitespace-nowrap max-w-32 truncate tooltip tooltip-left"
+                              data-tip="{{ .user }}">
                               {{ if .user }}
                                 {{ .user }}
                               {{ else }}
@@ -170,10 +171,10 @@
                               <div
                                 class="inline-flex items-center gap-0.5">
                                 <button
-                                  class="btn btn-xs btn-ghost text-primary"
+                                  class="btn btn-xs btn-ghost text-primary tooltip tooltip-left"
                                   aria-label="Run sync {{ .repo }} now"
                                   {{ if index $.Data.Perms "sync:run" }}
-                                    title="Fetch from the source and apply now"
+                                    data-tip="Fetch from the source and apply now"
                                     hx-post="{{ $.AppPath }}/syncs/run"
                                     hx-vals='{"sync_id": "{{ .id }}"}'
                                     hx-target="#sync-rows"
@@ -182,15 +183,15 @@
                                     hx-disabled-elt="this"
                                     hx-indicator="#page-progress"
                                   {{ else }}
-                                    disabled title="requires sync:run"
+                                    disabled data-tip="requires sync:run"
                                   {{ end }}>
                                   sync now
                                 </button>
                                 <button
-                                  class="btn btn-xs btn-ghost text-error"
+                                  class="btn btn-xs btn-ghost text-error tooltip tooltip-left"
                                   aria-label="Delete sync {{ .repo }}"
                                   {{ if index $.Data.Perms "sync:delete" }}
-                                    title="Remove this sync source (apps are not deleted)"
+                                    data-tip="Remove this sync source (apps are not deleted)"
                                     hx-post="{{ $.AppPath }}/syncs/delete"
                                     hx-vals='{"sync_id": "{{ .id }}"}'
                                     hx-confirm="Remove sync source {{ .repo }}? Apps applied by it are not deleted."
@@ -200,7 +201,7 @@
                                     hx-disabled-elt="this"
                                     hx-indicator="#page-progress"
                                   {{ else }}
-                                    disabled title="requires sync:delete"
+                                    disabled data-tip="requires sync:delete"
                                   {{ end }}>
                                   delete
                                 </button>
@@ -221,7 +222,13 @@
                       <p>No syncs match "{{ .Data.Query }}"</p>
                       <button
                         class="btn btn-xs btn-outline transition-transform duration-150 active:scale-95"
-                        onclick="clearAppFilter()">
+                        onclick="const s = document.getElementById('page-search'); if (s) s.value = ''"
+                        hx-get="{{ .AppPath }}/syncs"
+                        hx-vals='{"query": ""}'
+                        hx-target="#sync-rows"
+                        hx-swap="innerHTML transition:true"
+                        hx-push-url="true"
+                        hx-indicator="#page-progress">
                         Clear search
                       </button>
                     {{ else }}
@@ -232,10 +239,11 @@
                         with app definitions
                       </p>
                       <a
-                        href="{{ .AppPath }}/syncs/create"
-                        class="btn btn-xs btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "sync:create") }}btn-disabled{{ end }}"
-                        {{ if not (index .Data.Perms "sync:create") }}
-                          title="requires sync:create"
+                        class="btn btn-xs btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "sync:create") }}btn-disabled tooltip tooltip-top{{ end }}"
+                        {{ if index .Data.Perms "sync:create" }}
+                          href="{{ .AppPath }}/syncs/create"
+                        {{ else }}
+                          data-tip="requires sync:create"
                         {{ end }}
                         >+ Add sync source</a
                       >

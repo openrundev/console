@@ -38,10 +38,11 @@
                   hx-indicator="#page-progress" />
               </label>
               <a
-                href="{{ .AppPath }}/builder/create"
-                class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "builder:create") }}btn-disabled{{ end }}"
-                {{ if not (index .Data.Perms "builder:create") }}
-                  title="requires builder:create" aria-disabled="true" tabindex="-1"
+                class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "builder:create") }}btn-disabled tooltip tooltip-bottom{{ end }}"
+                {{ if index .Data.Perms "builder:create" }}
+                  href="{{ .AppPath }}/builder/create"
+                {{ else }}
+                  data-tip="requires builder:create" aria-disabled="true" tabindex="-1"
                 {{ end }}>
                 + New app
               </a>
@@ -87,8 +88,8 @@
                             <td>
                               <a
                                 href="{{ $.AppPath }}/builder/detail?id={{ .id }}"
-                                class="btn btn-xs btn-ghost btn-square"
-                                title="Expand: {{ .name }} session details"
+                                class="btn btn-xs btn-ghost btn-square tooltip tooltip-right"
+                                data-tip="Expand: {{ .name }} session details"
                                 aria-label="Details for {{ .name }}">
                                 {{ template "drilldown_icon" }}
                               </a>
@@ -103,7 +104,7 @@
                             <td class="hidden md:table-cell">
                               {{ if .preview_path }}
                                 <span class="inline-flex items-center gap-1 max-w-52">
-                                  <span class="font-mono text-xs truncate" title="{{ .preview_path }}">{{ .preview_path }}</span>
+                                  <span class="font-mono text-xs truncate tooltip tooltip-right" data-tip="{{ .preview_path }}">{{ .preview_path }}</span>
                                   <a
                                     href="{{ .preview_path }}"
                                     target="_blank"
@@ -125,36 +126,36 @@
                                 {{ $canWrite := index $.Data.Perms "builder:create" }}
                                 {{ if or (eq .status "detached") (eq .status "error") }}
                                   <button
-                                    class="btn btn-ghost btn-xs"
+                                    class="btn btn-ghost btn-xs {{ if not $canWrite }}tooltip tooltip-left{{ end }}"
                                     {{ if $canWrite }}
                                       hx-post="{{ $.AppPath }}/builder/resume?id={{ .id }}"
                                       hx-target="#builder-rows" hx-disabled-elt="this"
                                       hx-indicator="#page-progress"
                                     {{ else }}
-                                      disabled title="requires builder:create"
+                                      disabled data-tip="requires builder:create"
                                     {{ end }}
                                     aria-label="Resume session {{ .name }}">Resume</button>
                                 {{ else if ne .status "published" }}
                                   <button
-                                    class="btn btn-ghost btn-xs"
+                                    class="btn btn-ghost btn-xs {{ if not $canWrite }}tooltip tooltip-left{{ end }}"
                                     {{ if $canWrite }}
                                       hx-post="{{ $.AppPath }}/builder/stop?id={{ .id }}"
                                       hx-target="#builder-rows" hx-disabled-elt="this"
                                       hx-indicator="#page-progress"
                                     {{ else }}
-                                      disabled title="requires builder:create"
+                                      disabled data-tip="requires builder:create"
                                     {{ end }}
                                     aria-label="Stop session {{ .name }}">Stop</button>
                                 {{ end }}
                                 <button
-                                  class="btn btn-ghost btn-xs text-error"
+                                  class="btn btn-ghost btn-xs text-error {{ if not $canWrite }}tooltip tooltip-left{{ end }}"
                                   {{ if $canWrite }}
                                     hx-post="{{ $.AppPath }}/builder/delete?id={{ .id }}"
                                     hx-confirm="Delete draft {{ .name }}? The workspace and preview app are removed. A published app stays live until unpublished."
                                     hx-target="#builder-rows" hx-disabled-elt="this"
                                     hx-indicator="#page-progress"
                                   {{ else }}
-                                    disabled title="requires builder:create"
+                                    disabled data-tip="requires builder:create"
                                   {{ end }}
                                   aria-label="Delete session {{ .name }}">Delete</button>
                               </div>
@@ -177,10 +178,11 @@
                         a live preview
                       </p>
                       <a
-                        href="{{ .AppPath }}/builder/create"
-                        class="btn btn-xs btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "builder:create") }}btn-disabled{{ end }}"
-                        {{ if not (index .Data.Perms "builder:create") }}
-                          title="requires builder:create"
+                        class="btn btn-xs btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "builder:create") }}btn-disabled tooltip tooltip-top{{ end }}"
+                        {{ if index .Data.Perms "builder:create" }}
+                          href="{{ .AppPath }}/builder/create"
+                        {{ else }}
+                          data-tip="requires builder:create"
                         {{ end }}
                         >+ New app</a
                       >
