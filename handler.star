@@ -1,7 +1,7 @@
 load("openrun.in", "openrun")
 load("openrun_admin.in", "openrun_admin")
 load("build.in", "build")
-load("utils.star", "query_param", "get_perms", "params_to_text",
+load("utils.star", "query_param", "query_param_list", "get_perms", "params_to_text",
      "parse_lines", "short_sha", "short_age", "human_size", "pct_num", "nonzero_time", "sort_recent",
      "flash_result", "parse_kv_rows", "kv_rows", "raw_kv_rows",
      "path_domain_str", "sync_flags", "sync_result_summary", "review_from_dryrun",
@@ -524,6 +524,55 @@ def git_auth_options():
     return ret.value if not ret.error else []
 
 
+def binding_options():
+    # The choices for the app form's service bindings dropdowns: service ids
+    # (binding to a service creates an auto binding) and the base/derived
+    # binding paths (an app's own auto bindings are not offered). Errors
+    # (e.g. no binding:read access) degrade to empty lists
+    services = []
+    svc_ret = openrun.list_services()
+    if not svc_ret.error:
+        for entry in svc_ret.value:
+            services.append(entry["service_type"] + "/" + entry["name"])
+
+    bindings = []
+    list_ret = openrun.list_bindings()
+    if not list_ret.error:
+        for entry in list_ret.value:
+            if not entry["path"].startswith("/auto/"):
+                bindings.append(entry["path"])
+
+    return {"services": sorted(services), "bindings": sorted(bindings)}
+
+
+def posted_bindings(req):
+    # The bindings selected on the app form, in row order. Rows left on the
+    # placeholder (empty value) are skipped
+    return [ref for ref in query_param_list(req, "bindings") if ref]
+
+
+def app_binding_refs(app):
+    # The app's current bindings as form dropdown values: an auto binding
+    # path is mapped back to the service source it was created from (the
+    # dropdown offers services, not auto binding paths); explicit binding
+    # paths stay as-is
+    refs = app.get("bindings") or []
+    if not refs:
+        return []
+    sources = {}
+    list_ret = openrun.list_bindings()
+    if not list_ret.error:
+        for entry in list_ret.value:
+            sources[entry["path"]] = entry["source"]
+    mapped = []
+    for ref in refs:
+        if ref.startswith("/auto/") and sources.get(ref):
+            mapped.append(sources[ref])
+        else:
+            mapped.append(ref)
+    return mapped
+
+
 def form_values(req):
     # The form fields for the create/update subpages
     return {
@@ -534,6 +583,7 @@ def form_values(req):
         "git_branch": query_param(req, "git_branch"),
         "git_auth": query_param(req, "git_auth"),
         "params_rows": raw_kv_rows(req, "params"),
+        "bindings": posted_bindings(req),
         "approve": query_param(req, "approve"),
     }
 
@@ -549,6 +599,7 @@ def create_form_data(req, values, error):
         "Specs": openrun.list_specs().value,
         "AuthOptions": auth_options(),
         "GitAuthOptions": git_auth_options(),
+        "BindingOptions": binding_options(),
         "Values": values,
         "Perms": get_perms(),
     }
@@ -600,7 +651,8 @@ def apps_create_submit_handler(req):
         ret = openrun_admin.create_app(values["path"], values["source_url"],
                                approve=False, auth=auth,
                                spec=values["spec"], git_branch=values["git_branch"],
-                               git_auth=values["git_auth"], params=params)
+                               git_auth=values["git_auth"], params=params,
+                               bindings=values["bindings"])
         if ret.error:
             return create_form_data(req, values, ret.error)
         if needs_approval(ret.value):
@@ -612,7 +664,8 @@ def apps_create_submit_handler(req):
     ret = openrun_admin.create_app(values["path"], values["source_url"],
                            approve=True, dry_run=True, auth=auth,
                            spec=values["spec"], git_branch=values["git_branch"],
-                           git_auth=values["git_auth"], params=params)
+                           git_auth=values["git_auth"], params=params,
+                           bindings=values["bindings"])
     if ret.error:
         return create_form_data(req, values, ret.error)
 
@@ -632,6 +685,7 @@ def update_form_data(req, app, values, error):
         "Error": error,
         "App": app,
         "AuthOptions": auth_options(),
+        "BindingOptions": binding_options(),
         "Values": values,
         "Perms": get_perms(values.get("path", "")),
     }
@@ -649,17 +703,19 @@ def apps_update_page_handler(req):
         "path": app["path"],
         "auth": app["auth"] or "default",
         "params_rows": kv_rows(app["params"]),
+        "bindings": app_binding_refs(app),
     }
     return update_form_data(req, app, values, "")
 
 
 def apps_update_submit_handler(req):
-    # POST: apply param (staged) and auth (direct) changes
+    # POST: apply param/binding (staged) and auth (direct) changes
     path = query_param(req, "path")
     values = {
         "path": path,
         "auth": query_param(req, "auth"),
         "params_rows": raw_kv_rows(req, "params"),
+        "bindings": posted_bindings(req),
     }
 
     ret = openrun.get_app(path)
@@ -678,6 +734,16 @@ def apps_update_submit_handler(req):
         if result.error:
             return update_form_data(req, app, values, result.error)
 
+    # Compare in dropdown-value space (auto binding paths mapped back to
+    # their service source), same as the form prefill
+    bindings_changed = values["bindings"] != app_binding_refs(app)
+    if bindings_changed:
+        # Bindings apply to staging like params; a single "-" clears them all
+        result = openrun_admin.update_bindings(path, values["bindings"] or ["-"],
+                                               promote=False)
+        if result.error:
+            return update_form_data(req, app, values, result.error)
+
     new_auth = values["auth"] or "default"
     if new_auth != (app["auth"] or "default"):
         # Auth is an app setting, not version controlled; applies directly
@@ -685,7 +751,7 @@ def apps_update_submit_handler(req):
         if result.error:
             return update_form_data(req, app, values, result.error)
 
-    if params_changed and not app.get("is_dev"):
+    if (params_changed or bindings_changed) and not app.get("is_dev"):
         # Ask about promoting the staged change; dev apps apply directly
         # (they have no staging), so there is nothing to promote
         return ace.redirect("%s/apps/detail?path=%s&staged=update" % (req.AppPath, path))

@@ -33,6 +33,9 @@
             </div>
           </div>
 
+          {{ template "page_progress" }}
+
+
           {{ template "error_alert" .Data.Error }}
 
           {{ template "validation_alert" (dict
@@ -46,6 +49,9 @@
           <form
             method="post"
             action="{{ .AppPath }}/syncs/create"
+            id="op-form"
+            hx-boost="true"
+            hx-indicator="#page-progress, #op-form"
             class="card bg-base-100 border border-base-300">
             <div class="card-body p-5 gap-5">
               <div class="space-y-4">

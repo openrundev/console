@@ -28,11 +28,17 @@
             </div>
           </div>
 
+          {{ template "page_progress" }}
+
+
           {{ template "error_alert" .Data.Error }}
 
           <form
             method="post"
             action="{{ .AppPath }}/builder/create"
+            id="op-form"
+            hx-boost="true"
+            hx-indicator="#page-progress, #op-form"
             class="card bg-base-100 border border-base-300">
             <div class="card-body p-5 gap-5">
               <div class="flex flex-col gap-4">
@@ -86,7 +92,7 @@
                 {{ if not .Data.EditApp }}
                 <label class="form-control w-full">
                   <div class="label"><span class="label-text">Framework</span></div>
-                  <select name="spec" class="select select-bordered w-full">
+                  <select name="spec" class="select w-full">
                     <option value="">Let the agent choose</option>
                     {{ range .Data.Specs }}
                       <option value="{{ . }}" {{ if eq . $.Data.Values.spec }}selected{{ end }}>{{ . }}</option>
@@ -98,7 +104,7 @@
                 {{ if and .Data.Prompts (not .Data.EditApp) }}
                   <label class="form-control w-full">
                     <div class="label"><span class="label-text">Prompt preset</span></div>
-                    <select name="prompt_preset" class="select select-bordered w-full">
+                    <select name="prompt_preset" class="select w-full">
                       <option value="">None - default prompt</option>
                       {{ range .Data.Prompts }}
                         <option value="{{ .name }}" {{ if eq .name $.Data.Values.preset }}selected{{ end }}>
@@ -117,7 +123,7 @@
                 {{ if gt (len .Data.Agents) 1 }}
                   <label class="form-control w-full">
                     <div class="label"><span class="label-text">Agent profile</span></div>
-                    <select name="agent" class="select select-bordered w-full">
+                    <select name="agent" class="select w-full">
                       {{ range .Data.Agents }}
                         <option value="{{ . }}" {{ if eq . $.Data.DefaultAgent }}selected{{ end }}>{{ . }}</option>
                       {{ end }}

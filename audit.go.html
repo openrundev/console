@@ -43,19 +43,36 @@
                     for="app_glob"
                     >App</label
                   >
-                  <input
-                    list="audit-app-list"
-                    class="input input-sm w-full font-mono"
+                  {{ $appGlob := .Data.Filters.app_glob }}
+                  <select
+                    class="select select-sm w-full min-w-0 font-mono"
                     id="app_glob"
-                    name="app_glob"
-                    value="{{ .Data.Filters.app_glob }}"
-                    placeholder="all apps, glob ok"
-                    onfocus="this.select()" />
-                  <datalist id="audit-app-list">
+                    name="app_glob">
+                    <option value="" {{ if not $appGlob }}selected{{ end }}>
+                      all apps
+                    </option>
                     {{ range .Data.Apps }}
-                      <option value="{{ . }}"></option>
+                      <option
+                        value="{{ . }}"
+                        {{ if eq . $appGlob }}selected{{ end }}>
+                        {{ . }}
+                      </option>
                     {{ end }}
-                  </datalist>
+                    {{/* A deep-linked glob (or a deleted app's path) is not
+                      in the apps list; keep it as a selected option so the
+                      shared url still filters and displays */}}
+                    {{ if $appGlob }}
+                      {{ $found := false }}
+                      {{ range .Data.Apps }}
+                        {{ if eq . $appGlob }}{{ $found = true }}{{ end }}
+                      {{ end }}
+                      {{ if not $found }}
+                        <option value="{{ $appGlob }}" selected>
+                          {{ $appGlob }}
+                        </option>
+                      {{ end }}
+                    {{ end }}
+                  </select>
                 </div>
 
                 <div>
@@ -85,19 +102,31 @@
                     for="operation"
                     >Operation</label
                   >
-                  <input
-                    list="audit-op-list"
+                  {{ $op := .Data.Filters.operation }}
+                  <select
                     id="operation"
                     name="operation"
-                    class="input input-sm w-full font-mono"
-                    value="{{ .Data.Filters.operation }}"
-                    placeholder="all"
-                    onfocus="this.select()" />
-                  <datalist id="audit-op-list">
+                    class="select select-sm w-full min-w-0 font-mono">
+                    <option value="" {{ if not $op }}selected{{ end }}>
+                      all
+                    </option>
                     {{ range .Data.Operations }}
-                      <option value="{{ . }}"></option>
+                      <option
+                        value="{{ . }}"
+                        {{ if eq . $op }}selected{{ end }}>
+                        {{ . }}
+                      </option>
                     {{ end }}
-                  </datalist>
+                    {{ if $op }}
+                      {{ $found := false }}
+                      {{ range .Data.Operations }}
+                        {{ if eq . $op }}{{ $found = true }}{{ end }}
+                      {{ end }}
+                      {{ if not $found }}
+                        <option value="{{ $op }}" selected>{{ $op }}</option>
+                      {{ end }}
+                    {{ end }}
+                  </select>
                 </div>
 
                 <div>

@@ -361,124 +361,132 @@ def build_routes():
 
 # Plugin permissions. The read APIs backing the always-on pages are always
 # requested; write APIs only when their feature flag is enabled, so a
-# read-only install approves no write permission at all
+# read-only install approves no write permission at all.
+# Every permission allows all secrets: user-entered values (service configs,
+# params, bindings) may carry {{secret ...}} references that the plugin call
+# resolves server-side - secret values still never reach the browser
+def perm(plugin, method):
+    return ace.permission(plugin, method, secrets=[["regex:.*"]])
+
+
 def build_permissions():
     permissions = [
-        ace.permission("openrun.in", "list_apps"),
-        ace.permission("openrun.in", "list_all_apps"),
-        ace.permission("openrun.in", "list_operations"),
-        ace.permission("openrun.in", "list_audit_events"),
-        ace.permission("openrun.in", "list_sync"),
-        ace.permission("openrun.in", "list_bindings"),
-        ace.permission("openrun.in", "list_specs"),
-        ace.permission("openrun.in", "get_app"),
-        ace.permission("openrun.in", "get_permissions"),
-        ace.permission("openrun.in", "system_plugins_allowed"),
-        ace.permission("openrun.in", "list_auths"),
-        ace.permission("openrun.in", "list_git_auths"),
-        ace.permission("openrun.in", "list_versions"),
-        ace.permission("openrun.in", "list_version_files"),
-        ace.permission("openrun.in", "get_version_zip"),
-        ace.permission("openrun.in", "audit_app"),
-        ace.permission("openrun.in", "list_services"),
+        perm("openrun.in", "list_apps"),
+        perm("openrun.in", "list_all_apps"),
+        perm("openrun.in", "list_operations"),
+        perm("openrun.in", "list_audit_events"),
+        perm("openrun.in", "list_sync"),
+        perm("openrun.in", "list_bindings"),
+        perm("openrun.in", "list_specs"),
+        perm("openrun.in", "get_app"),
+        perm("openrun.in", "get_permissions"),
+        perm("openrun.in", "system_plugins_allowed"),
+        perm("openrun.in", "list_auths"),
+        perm("openrun.in", "list_git_auths"),
+        perm("openrun.in", "list_versions"),
+        perm("openrun.in", "list_version_files"),
+        perm("openrun.in", "get_version_zip"),
+        perm("openrun.in", "audit_app"),
+        perm("openrun.in", "list_services"),
     ]
 
     if ENABLE_UPDATES:
         permissions += [
-            ace.permission("openrun_admin.in", "create_app"),
-            ace.permission("openrun_admin.in", "delete_apps"),
-            ace.permission("openrun_admin.in", "update_params"),
-            ace.permission("openrun_admin.in", "update_auth"),
-            ace.permission("openrun_admin.in", "reload_apps"),
-            ace.permission("openrun_admin.in", "approve_apps"),
-            ace.permission("openrun_admin.in", "switch_version"),
-            ace.permission("openrun_admin.in", "promote_apps"),
-            ace.permission("openrun_admin.in", "create_sync"),
-            ace.permission("openrun_admin.in", "run_sync"),
-            ace.permission("openrun_admin.in", "delete_sync"),
-            ace.permission("openrun_admin.in", "create_binding"),
-            ace.permission("openrun_admin.in", "update_binding"),
-            ace.permission("openrun_admin.in", "delete_binding"),
-            ace.permission("openrun_admin.in", "create_service"),
-            ace.permission("openrun_admin.in", "delete_service"),
+            perm("openrun_admin.in", "create_app"),
+            perm("openrun_admin.in", "delete_apps"),
+            perm("openrun_admin.in", "update_params"),
+            perm("openrun_admin.in", "update_auth"),
+            perm("openrun_admin.in", "update_bindings"),
+            perm("openrun_admin.in", "reload_apps"),
+            perm("openrun_admin.in", "approve_apps"),
+            perm("openrun_admin.in", "switch_version"),
+            perm("openrun_admin.in", "promote_apps"),
+            perm("openrun_admin.in", "create_sync"),
+            perm("openrun_admin.in", "run_sync"),
+            perm("openrun_admin.in", "delete_sync"),
+            perm("openrun_admin.in", "create_binding"),
+            perm("openrun_admin.in", "update_binding"),
+            perm("openrun_admin.in", "delete_binding"),
+            perm("openrun_admin.in", "create_service"),
+            perm("openrun_admin.in", "delete_service"),
         ]
 
     if ENABLE_CONFIG:
         permissions += [
-            ace.permission("openrun.in", "get_rbac_config"),
-            ace.permission("openrun.in", "get_config_entries"),
-            ace.permission("openrun.in", "get_config_values"),
-            ace.permission("openrun.in", "list_config_history"),
-            ace.permission("openrun.in", "get_config_version"),
-            ace.permission("openrun.in", "list_rbac_permissions"),
+            perm("openrun.in", "get_rbac_config"),
+            perm("openrun.in", "get_config_entries"),
+            perm("openrun.in", "get_config_values"),
+            perm("openrun.in", "list_config_history"),
+            perm("openrun.in", "get_config_version"),
+            perm("openrun.in", "list_rbac_permissions"),
         ]
 
     if ENABLE_CONFIG and ENABLE_UPDATES:
         # Config changes are writes: need both flags
         permissions += [
-            ace.permission("openrun_admin.in", "update_rbac_enabled"),
-            ace.permission("openrun_admin.in", "set_rbac_group"),
-            ace.permission("openrun_admin.in", "delete_rbac_group"),
-            ace.permission("openrun_admin.in", "set_rbac_role"),
-            ace.permission("openrun_admin.in", "delete_rbac_role"),
-            ace.permission("openrun_admin.in", "add_rbac_grant"),
-            ace.permission("openrun_admin.in", "update_rbac_grant"),
-            ace.permission("openrun_admin.in", "delete_rbac_grant"),
-            ace.permission("openrun_admin.in", "publish_rbac_config"),
-            ace.permission("openrun_admin.in", "discard_rbac_draft"),
-            ace.permission("openrun_admin.in", "restore_config"),
-            ace.permission("openrun_admin.in", "set_config_entry"),
-            ace.permission("openrun_admin.in", "delete_config_entry"),
-            ace.permission("openrun_admin.in", "set_config_value"),
-            ace.permission("openrun_admin.in", "delete_config_value"),
+            perm("openrun_admin.in", "update_rbac_enabled"),
+            perm("openrun_admin.in", "set_rbac_group"),
+            perm("openrun_admin.in", "delete_rbac_group"),
+            perm("openrun_admin.in", "set_rbac_role"),
+            perm("openrun_admin.in", "delete_rbac_role"),
+            perm("openrun_admin.in", "add_rbac_grant"),
+            perm("openrun_admin.in", "update_rbac_grant"),
+            perm("openrun_admin.in", "delete_rbac_grant"),
+            perm("openrun_admin.in", "publish_rbac_config"),
+            perm("openrun_admin.in", "discard_rbac_draft"),
+            perm("openrun_admin.in", "restore_config"),
+            perm("openrun_admin.in", "set_config_entry"),
+            perm("openrun_admin.in", "delete_config_entry"),
+            perm("openrun_admin.in", "set_config_value"),
+            perm("openrun_admin.in", "delete_config_value"),
         ]
 
     if ENABLE_BUILDER:
         permissions += [
-            ace.permission("build.in", "list_sessions"),
-            ace.permission("build.in", "get_session"),
-            ace.permission("build.in", "get_messages"),
-            ace.permission("build.in", "session_events"),
-            ace.permission("build.in", "list_files"),
-            ace.permission("build.in", "read_file"),
-            ace.permission("build.in", "get_source_zip"),
-            ace.permission("build.in", "get_publish_config"),
-            ace.permission("build.in", "list_activity"),
+            perm("build.in", "list_sessions"),
+            perm("build.in", "get_session"),
+            perm("build.in", "get_messages"),
+            perm("build.in", "session_events"),
+            perm("build.in", "list_files"),
+            perm("build.in", "read_file"),
+            perm("build.in", "get_source_zip"),
+            perm("build.in", "get_publish_config"),
+            perm("build.in", "list_activity"),
         ]
 
     if ENABLE_BUILDER and ENABLE_UPDATES:
         # Builder session and publish actions are writes: need both flags
         permissions += [
-            ace.permission("build.in", "create_session"),
-            ace.permission("build.in", "send_message"),
-            ace.permission("build.in", "cancel_turn"),
-            ace.permission("build.in", "stop_session"),
-            ace.permission("build.in", "resume_session"),
-            ace.permission("build.in", "delete_session"),
-            ace.permission("build.in", "publish_app"),
-            ace.permission("build.in", "unpublish_app"),
+            perm("build.in", "create_session"),
+            perm("build.in", "send_message"),
+            perm("build.in", "cancel_turn"),
+            perm("build.in", "stop_session"),
+            perm("build.in", "resume_session"),
+            perm("build.in", "delete_session"),
+            perm("build.in", "publish_app"),
+            perm("build.in", "unpublish_app"),
         ]
 
     if ENABLE_CONTAINER:
         permissions += [
-            ace.permission("openrun.in", "list_containers"),
-            ace.permission("openrun.in", "get_container"),
-            ace.permission("openrun.in", "kubernetes_stats"),
-            ace.permission("openrun.in", "container_kubernetes_status"),
-            ace.permission("openrun.in", "container_logs_stream"),
+            perm("openrun.in", "list_containers"),
+            perm("openrun.in", "get_container"),
+            perm("openrun.in", "kubernetes_stats"),
+            perm("openrun.in", "container_kubernetes_status"),
+            perm("openrun.in", "container_logs_stream"),
         ]
 
     if ENABLE_CONTAINER and ENABLE_UPDATES:
         # Container start/stop is a write: needs both flags
         permissions += [
-            ace.permission("openrun_admin.in", "start_container"),
-            ace.permission("openrun_admin.in", "stop_container"),
+            perm("openrun_admin.in", "start_container"),
+            perm("openrun_admin.in", "stop_container"),
         ]
 
     if ENABLE_UPDATES:
         permissions += [
-            ace.permission("openrun_admin.in", "create_secret"),
-            ace.permission("openrun_admin.in", "delete_secret"),
+            perm("openrun_admin.in", "create_secret"),
+            perm("openrun_admin.in", "delete_secret"),
         ]
 
     return permissions

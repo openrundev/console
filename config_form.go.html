@@ -43,12 +43,18 @@
             </div>
           </div>
 
+          {{ template "page_progress" }}
+
+
           {{ template "error_alert" .Data.Error }}
 
 
           <form
             method="post"
             action="{{ .AppPath }}/config/rbac/{{ .Data.Kind }}{{ if and (eq .Data.Kind "grant") .Data.Values.is_edit }}?index={{ .Data.Values.index }}{{ end }}"
+            id="op-form"
+            hx-boost="true"
+            hx-indicator="#page-progress, #op-form"
             class="card bg-base-100 border border-base-300">
             <div class="card-body p-5 gap-5">
               <input

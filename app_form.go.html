@@ -36,6 +36,9 @@
             </div>
           </div>
 
+          {{ template "page_progress" }}
+
+
           {{ template "error_alert" .Data.Error }}
 
           {{ if eq .Data.Step "approve" }}
@@ -59,6 +62,9 @@
             <form
               method="post"
               action="{{ .AppPath }}/apps/create"
+              id="op-form"
+              hx-boost="true"
+              hx-indicator="#page-progress, #op-form"
               class="flex justify-end gap-2">
               <input type="hidden" name="path" value="{{ .Data.Values.path }}" />
               <a href="{{ .AppPath }}/apps" class="btn btn-ghost btn-sm"
@@ -140,6 +146,9 @@
             <form
               method="post"
               action="{{ .AppPath }}/apps/{{ .Data.Mode }}"
+              id="op-form"
+              hx-boost="true"
+              hx-indicator="#page-progress, #op-form"
               class="card bg-base-100 border border-base-300">
               <div class="card-body p-5 gap-5">
                 {{ if eq .Data.Mode "create" }}
@@ -241,18 +250,33 @@
                         for="app-spec"
                         >Spec</label
                       >
-                      <input
+                      <select
                         id="app-spec"
                         name="spec"
-                        list="spec-list"
-                        value="{{ .Data.Values.spec }}"
-                        placeholder="optional"
-                        class="input w-full font-mono text-sm" />
-                      <datalist id="spec-list">
+                        class="select w-full font-mono text-sm">
+                        {{ $spec := .Data.Values.spec }}
+                        <option value="" {{ if not $spec }}selected{{ end }}>
+                          none (source has app.star)
+                        </option>
                         {{ range .Data.Specs }}
-                          <option value="{{ . }}"></option>
+                          <option
+                            value="{{ . }}"
+                            {{ if eq . $spec }}selected{{ end }}>
+                            {{ . }}
+                          </option>
                         {{ end }}
-                      </datalist>
+                        {{ if $spec }}
+                          {{ $found := false }}
+                          {{ range .Data.Specs }}
+                            {{ if eq . $spec }}{{ $found = true }}{{ end }}
+                          {{ end }}
+                          {{ if not $found }}
+                            <option value="{{ $spec }}" selected>
+                              {{ $spec }}
+                            </option>
+                          {{ end }}
+                        {{ end }}
+                      </select>
                       <p class="text-xs text-base-content/70 mt-1">
                         App spec to use when the source has no app.star, for
                         example python-flask or static
@@ -317,6 +341,37 @@
                     </p>
                   </div>
 
+                  <div>
+                    <span class="block text-sm font-medium mb-1"
+                      >Service bindings</span
+                    >
+                    {{ $opts := .Data.BindingOptions }}
+                    <div class="binding-table space-y-3">
+                      {{ range .Data.Values.bindings }}
+                        {{ template "binding_row" (dict "Options" $opts "Selected" .) }}
+                      {{ end }}
+                      <template>
+                        {{ template "binding_row" (dict "Options" $opts) }}
+                      </template>
+                      {{ if or $opts.services $opts.bindings .Data.Values.bindings }}
+                        <button
+                          type="button"
+                          class="btn btn-outline btn-xs"
+                          onclick="addBindingRow(this)">
+                          + Add binding
+                        </button>
+                      {{ else }}
+                        <p class="text-xs text-base-content/70">
+                          No services or bindings are configured
+                        </p>
+                      {{ end }}
+                    </div>
+                    <p class="text-xs text-base-content/70 mt-1">
+                      Bind the app to a service (an auto binding is created
+                      for the app) or to an existing binding
+                    </p>
+                  </div>
+
                   {{ if eq .Data.Mode "update" }}
                     <input
                       type="hidden"
@@ -375,3 +430,57 @@
     </div>
   </body>
 </html>
+
+{{/* binding_row is one service bindings row: a select over the configured
+  services (binding to a service creates an auto binding for the app) and
+  the existing base/derived binding paths. Context: dict with Options (the
+  BindingOptions lists) and optional Selected. A selected value missing from
+  the lists (e.g. a CLI-created reference) is kept as an extra option
+*/}}
+{{ define "binding_row" }}
+  {{ $sel := or .Selected "" }}
+  {{ $found := not $sel }}
+  <div class="binding-row flex gap-2 items-start">
+    {{/* min-w-0: a select's min-content width is its widest option text
+      (long binding paths), which would defeat flex shrinking on mobile */}}
+    <select
+      name="bindings"
+      aria-label="Service or binding"
+      class="select w-full min-w-0 font-mono text-sm">
+      <option value="" {{ if not $sel }}selected{{ end }}>
+        select a service or binding
+      </option>
+      {{ if .Options.services }}
+        <optgroup label="Services (creates an auto binding)">
+          {{ range .Options.services }}
+            <option value="{{ . }}" {{ if eq . $sel }}selected{{ end }}>
+              {{ . }}
+            </option>
+            {{ if eq . $sel }}{{ $found = true }}{{ end }}
+          {{ end }}
+        </optgroup>
+      {{ end }}
+      {{ if .Options.bindings }}
+        <optgroup label="Existing bindings">
+          {{ range .Options.bindings }}
+            <option value="{{ . }}" {{ if eq . $sel }}selected{{ end }}>
+              {{ . }}
+            </option>
+            {{ if eq . $sel }}{{ $found = true }}{{ end }}
+          {{ end }}
+        </optgroup>
+      {{ end }}
+      {{ if not $found }}
+        <option value="{{ $sel }}" selected>{{ $sel }}</option>
+      {{ end }}
+    </select>
+    <button
+      type="button"
+      class="btn btn-ghost btn-square tooltip tooltip-top"
+      data-tip="Remove binding"
+      aria-label="Remove binding"
+      onclick="removeBindingRow(this)">
+      ✕
+    </button>
+  </div>
+{{ end }}

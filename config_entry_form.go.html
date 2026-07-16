@@ -57,12 +57,18 @@
             </div>
           </div>
 
+          {{ template "page_progress" }}
+
+
           {{ template "error_alert" .Data.Error }}
 
 
           <form
             method="post"
             action="{{ .AppPath }}/config/entry"
+            id="op-form"
+            hx-boost="true"
+            hx-indicator="#page-progress, #op-form"
             class="card bg-base-100 border border-base-300">
             <div class="card-body p-5 gap-5">
               <input type="hidden" name="section" value="{{ .Data.Meta.section }}" />

@@ -263,10 +263,11 @@ def sync_result_summary(status):
 
 
 def review_from_dryrun(result):
-    # Collect the plugins loaded and permissions requested, reported by the
-    # dry run's approval results
+    # Collect the plugins loaded, permissions requested and binding sources
+    # used, reported by the dry run's approval results
     loads = []
     permissions = []
+    binding_sources = []
     for approval in result.get("approve_results") or []:
         for plugin_load in approval.get("new_loads") or []:
             if plugin_load not in loads:
@@ -282,7 +283,11 @@ def review_from_dryrun(result):
             }
             if entry not in permissions:  # prod and stage report the same perms
                 permissions.append(entry)
-    return {"loads": loads, "permissions": permissions}
+        for source in approval.get("new_binding_source_perms") or []:
+            if source not in binding_sources:
+                binding_sources.append(source)
+    return {"loads": loads, "permissions": permissions,
+            "binding_sources": binding_sources}
 
 
 def needs_approval(result):

@@ -420,3 +420,27 @@ a.tooltip.btn-disabled {
 .tooltip:not(:hover):not(.tooltip-open):not(:has(:focus-visible))::after {
   position: fixed;
 }
+
+/* ---- Boosted form posts ------------------------------------------------
+   The full-page operation forms (app/sync/binding/service/config/builder
+   create+update) are hx-boosted: htmx adds .htmx-request to the form while
+   its request is in flight. The submit buttons disable so the operation
+   cannot be double-submitted, and the clicked button (marked .btn-inflight
+   by console.js from the submit event's submitter - CSS alone cannot tell
+   Validate from Create) shows the shared inline spinner (btn-spin
+   keyframes in style.css). */
+form.htmx-request button[type="submit"] {
+  pointer-events: none;
+  opacity: 0.75;
+}
+.btn-inflight::before {
+  content: "";
+  display: inline-block;
+  width: 0.7em;
+  height: 0.7em;
+  flex: none;
+  border-radius: 9999px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: btn-spin 0.5s linear infinite;
+}

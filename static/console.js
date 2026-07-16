@@ -562,6 +562,50 @@ function removeKvRow(btn) {
 	row.remove();
 }
 
+// ---- binding-table row helpers ------------------------------------------
+// The app form's service bindings section renders <select name=bindings>
+// rows plus a <template> holding an empty row. Unlike the kv table, zero
+// rows is a valid state (most apps have no bindings), so removing the last
+// row removes it outright
+
+function addBindingRow(btn) {
+	const table = btn.closest('.binding-table');
+	const template = table.querySelector('template');
+	const row = template.content.firstElementChild.cloneNode(true);
+	template.before(row);
+	const select = row.querySelector('select');
+	if (select) {
+		select.focus();
+	}
+}
+
+function removeBindingRow(btn) {
+	btn.closest('.binding-row').remove();
+}
+
+// ---- boosted form submit indicator ---------------------------------------
+// The full-page operation forms are hx-boosted: while the request is in
+// flight htmx adds .htmx-request to the form (its submit buttons disable,
+// see accessibility.css) and #page-progress shows via hx-indicator. The
+// clicked submit button additionally gets the inline spinner: mark it from
+// the submit event's submitter, since CSS cannot tell which of a form's
+// buttons was clicked (e.g. Validate vs Create app)
+
+document.addEventListener('htmx:beforeRequest', (event) => {
+	const submitter = event.detail.requestConfig?.triggeringEvent?.submitter;
+	if (submitter && submitter.matches('button[type=submit]')) {
+		submitter.classList.add('btn-inflight');
+	}
+});
+
+document.addEventListener('htmx:afterRequest', () => {
+	// The boost body swap usually replaces the form; clean up for the
+	// responses that leave the page in place (e.g. a network failure)
+	for (const btn of document.querySelectorAll('.btn-inflight')) {
+		btn.classList.remove('btn-inflight');
+	}
+});
+
 // Close any open <details class="dropdown"> when clicking outside it
 // (native details elements stay open otherwise). Capture phase so a click
 // that opens one dropdown still closes the others
