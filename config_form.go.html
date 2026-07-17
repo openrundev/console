@@ -143,6 +143,14 @@
                       </fieldset>
                     {{ end }}
                   </div>
+                  <p class="text-xs text-base-content/70 mt-2">
+                    The manage permissions are composites of the other
+                    permissions of their resource;
+                    <span class="font-mono">app:approve</span>,
+                    <span class="font-mono">secret:reveal</span> and
+                    <span class="font-mono">binding:reveal</span> are never
+                    implied and must be selected explicitly.
+                  </p>
                 </fieldset>
                 <div>
                   <label
@@ -230,13 +238,26 @@
                   <textarea
                     id="rbac-targets"
                     name="targets_text"
-                    rows="3"
-                    placeholder="/myteam/*&#10;example.com:/**"
+                    rows="4"
+                    placeholder="/myteam/*&#10;service:postgres/*&#10;binding:/myteam/**"
                     class="textarea w-full font-mono text-sm leading-relaxed">{{ .Data.Values.targets_text }}</textarea>
                   <p class="text-xs text-base-content/70 mt-1">
-                    One app path glob per line, scoping the app:* and builder:*
-                    permissions in the roles. All other permissions are global
-                    and apply regardless of the targets.
+                    One target per line, scoping the roles' permissions to
+                    matching entries. An app path glob like
+                    <span class="font-mono">/myteam/*</span> or
+                    <span class="font-mono">example.com:/**</span> scopes the
+                    app:* permissions;
+                    <span class="font-mono">service:&lt;glob&gt;</span> matches
+                    service ids (<span class="font-mono">service:postgres/*</span>)
+                    and scopes the service:* permissions;
+                    <span class="font-mono">binding:&lt;glob&gt;</span> matches
+                    binding paths
+                    (<span class="font-mono">binding:/myteam/**</span>) and
+                    scopes the binding:* permissions.
+                    <span class="font-mono">all</span> matches every app,
+                    service and binding. Permissions of a kind with no matching
+                    target entry are not granted; all other permissions are
+                    global and apply regardless of the targets.
                   </p>
                 </div>
               {{ end }}

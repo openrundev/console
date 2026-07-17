@@ -854,21 +854,11 @@ InputId, Placeholder, Masked, File, Description, Error */}}
       <h2 class="text-sm font-medium text-base-content/70">
         Requested permissions
       </h2>
-      {{ if or .Review.loads .Review.permissions .Review.binding_sources }}
+      {{ if or .Review.loads .Review.permissions }}
         {{ if .Review.loads }}
           <div class="flex items-center gap-1.5 flex-wrap">
             <span class="text-xs text-base-content/70">Plugins</span>
             {{ range .Review.loads }}
-              <span class="badge badge-sm badge-soft badge-primary font-mono"
-                >{{ . }}</span
-              >
-            {{ end }}
-          </div>
-        {{ end }}
-        {{ if .Review.binding_sources }}
-          <div class="flex items-center gap-1.5 flex-wrap">
-            <span class="text-xs text-base-content/70">Binding sources</span>
-            {{ range .Review.binding_sources }}
               <span class="badge badge-sm badge-soft badge-primary font-mono"
                 >{{ . }}</span
               >

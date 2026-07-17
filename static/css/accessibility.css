@@ -444,3 +444,14 @@ form.htmx-request button[type="submit"] {
   border-right-color: transparent;
   animation: btn-spin 0.5s linear infinite;
 }
+
+/* ---- Badges: grow with wrapped text -------------------------------------
+   daisyui pins the badge pill to a one-line height (height: var(--size)),
+   so a label that wraps in a narrow spot - e.g. the openrun-developer role
+   badge in the RBAC grants table - renders OUTSIDE the pill. Let the pill
+   grow with its content instead; single-line badges keep the exact daisyui
+   height through min-height. */
+.badge {
+  height: auto;
+  min-height: var(--size);
+}
