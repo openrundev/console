@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 // <builder-files> - read-only workspace file explorer + viewer for the
 // builder session page.
 //

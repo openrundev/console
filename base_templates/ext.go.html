@@ -1,0 +1,15 @@
+{{/* SPDX-License-Identifier: Apache-2.0 */}}
+{{/* Extension hooks for optional feature packs (e.g. the console-pro
+  distribution). The pro repo swaps this file WHOLESALE - it is excluded
+  from the pro sync, so the two versions are never merged. layout.go.html
+  invokes ext_head (end of the head define), ext_brand (inside the
+  page_title h1, after the title text) and ext_nav (sidebar, between Audit
+  Logs and Configuration). Keep the define names stable: together with
+  ext.star they are the only coupling between the console and pro repos.
+*/}}
+
+{{ define "ext_head" }}{{ end }}
+
+{{ define "ext_brand" }}{{ end }}
+
+{{ define "ext_nav" }}{{ end }}

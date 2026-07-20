@@ -36,6 +36,8 @@
           {{ template "page_progress" }}
 
 
+{{ block "op_form" . }}
+          <div id="op-form-wrap">
           {{ template "error_alert" .Data.Error }}
 
           {{ template "validation_alert" (dict
@@ -50,7 +52,9 @@
             method="post"
             action="{{ .AppPath }}/syncs/create"
             id="op-form"
-            hx-boost="true"
+            hx-post="{{ .AppPath }}/syncs/create"
+            hx-target="#op-form-wrap"
+            hx-swap="outerHTML"
             hx-indicator="#page-progress, #op-form"
             class="card bg-base-100 border border-base-300">
             <div class="card-body p-5 gap-5">
@@ -204,6 +208,8 @@
               </div>
             </div>
           </form>
+          </div>
+          {{ end }}
         </main>
       </div>
 

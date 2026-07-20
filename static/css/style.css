@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 */
 /* Interaction & polish layer, per design/design.md. Theme colors come from
    the daisyui custom themes defined in app.star (ace.style custom_themes);
    everything here uses theme variables so it adapts to light/dark. */

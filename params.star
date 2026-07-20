@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 param("name", type=STRING, description="Name for the app", default="OpenRun Console")
 
 param("enable_updates", type=BOOLEAN, description="Whether to enable write operations", default=False)

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 load("openrun.in", "openrun")
 load("openrun_admin.in", "openrun_admin")
 load("build.in", "build")
@@ -632,7 +633,7 @@ def apps_create_submit_handler(req):
             if not pending.error:
                 review = review_from_dryrun({"approve_results": pending.value.get("staged_update_results")})
             return approve_step_data(req, values, review, ret.error)
-        return ace.redirect(req.AppPath + "/apps")
+        return form_redirect(req, req.AppPath + "/apps")
 
     if not values["path"]:
         return create_form_data(req, values, "App path is required")
@@ -657,7 +658,7 @@ def apps_create_submit_handler(req):
             return create_form_data(req, values, ret.error)
         if needs_approval(ret.value):
             return approve_step_data(req, values, review_from_dryrun(ret.value), "")
-        return ace.redirect(req.AppPath + "/apps")
+        return form_redirect(req, req.AppPath + "/apps")
 
     # Validate: dry run to check the create and gather the requested
     # permissions, nothing is committed
@@ -754,8 +755,8 @@ def apps_update_submit_handler(req):
     if (params_changed or bindings_changed) and not app.get("is_dev"):
         # Ask about promoting the staged change; dev apps apply directly
         # (they have no staging), so there is nothing to promote
-        return ace.redirect("%s/apps/detail?path=%s&staged=update" % (req.AppPath, path))
-    return ace.redirect("%s/apps/detail?path=%s" % (req.AppPath, path))
+        return form_redirect(req, "%s/apps/detail?path=%s&staged=update" % (req.AppPath, path))
+    return form_redirect(req, "%s/apps/detail?path=%s" % (req.AppPath, path))
 
 
 # ---------- Bindings and services ----------
@@ -916,7 +917,7 @@ def bindings_create_submit_handler(req):
                                      grants=grants, config=config)
     if ret.error:
         return binding_form_data(req, "create", values, ret.error)
-    return ace.redirect(req.AppPath + "/bindings")
+    return form_redirect(req, req.AppPath + "/bindings")
 
 
 def find_binding(path):
@@ -965,7 +966,7 @@ def bindings_update_submit_handler(req):
     delete_grants = [g for g in current if g not in wanted]
 
     if not add_grants and not delete_grants:
-        return ace.redirect(req.AppPath + "/bindings")
+        return form_redirect(req, req.AppPath + "/bindings")
 
     ret = openrun_admin.update_binding(path, add_grants=add_grants,
                                      delete_grants=delete_grants, promote=True)
@@ -973,7 +974,7 @@ def bindings_update_submit_handler(req):
         data = binding_form_data(req, "update", values, ret.error)
         data["Binding"] = binding
         return data
-    return ace.redirect(req.AppPath + "/bindings")
+    return form_redirect(req, req.AppPath + "/bindings")
 
 
 def bindings_delete_handler(req):
@@ -1027,7 +1028,7 @@ def services_create_submit_handler(req):
         data = service_form_data(req, values, "")
         data["Validated"] = True
         return data
-    return ace.redirect(req.AppPath + "/bindings")
+    return form_redirect(req, req.AppPath + "/bindings")
 
 
 def services_delete_handler(req):
@@ -1369,8 +1370,8 @@ CONFIG_SECTIONS = [
     },
     {
         "section": "builder_agent",
-        "title": "Agents profiles",
-        "desc": "AI agent profiles for the app builder",
+        "title": "Agent configs",
+        "desc": "AI agent configurations for the app builder",
         "name_help": "agent type with optional _suffix: opencode, opencode_dev, claude, codex, pi, " +
                      "or custom_<name> (custom needs dockerfile + command). The type comes from the name",
         "fields": [
@@ -1393,47 +1394,59 @@ CONFIG_SECTIONS = [
         ],
     },
     {
-        "section": "builder_prompt",
-        "title": "Builder prompt presets",
-        "desc": "named prompts users can pick when creating a builder app",
+        "section": "builder_profile",
+        "title": "Builder profiles",
+        "desc": "how builder apps are built and published: agent config, git target, publish " +
+                "destination, default spec and prompt. With none configured, the built-in default " +
+                "applies (opencode, local publish, publish anywhere); with several, the new-app " +
+                "form asks which to use",
         "name_help": "short name shown in the new-app form (e.g. internal_tool, dashboard)",
         "fields": [
+            {"name": "agent", "label": "Agent config", "kind": "select", "options": "builder_agent",
+             "required": True,
+             "help": "builder_agent entry sessions created with this profile run (required)"},
+            {"name": "git_config", "label": "Git target", "kind": "select", "options": "builder_git",
+             "empty_label": "none (publish locally)",
+             "help": "builder_git entry apps publish to; empty publishes locally to $OPENRUN_HOME/app_src"},
+            {"name": "publish_mode", "label": "Publish destination type", "kind": "select",
+             "options_list": ["subdomain", "path", "glob"],
+             "empty_label": "anywhere (no restriction)",
+             "help": "shapes the publish dialog: subdomain - the user types a subdomain of the " +
+                     "target domain; path - the user types an app name under the target path prefix; " +
+                     "glob - the user types a full path matching the target glob"},
+            {"name": "publish_target", "label": "Publish destination",
+             "help": "subdomain: the parent domain, ending in . appends the server default_domain " +
+                     "(\".\" alone = subdomain of the default domain); path: the path prefix (e.g. " +
+                     "/teams); glob: the app path glob (e.g. /teams/* or example.com:/**)"},
+            {"name": "spec", "label": "Default spec", "kind": "select", "options": "specs",
+             "empty_label": "none (plain OpenRun app)",
+             "help": "framework scaffold new sessions start from; empty builds a plain server-rendered app"},
+            {"name": "services", "label": "Bindable services", "kind": "checklist",
+             "options": "builder_services",
+             "help": "services the new-app form offers for auto binding: pick specific services, " +
+                     "\"defaults\" to offer the default service of each type, or none to offer " +
+                     "no services. The app gets one auto binding per chosen service (one per type)"},
             {"name": "prompt", "label": "Prompt", "kind": "textarea",
-             "help": "the preset text; appended to the system prompt, or replacing it when Replace is set"},
+             "help": "instructions for the agent; appended to the system prompt, or replacing it when Replace is set"},
             {"name": "replace", "label": "Replace the system prompt", "kind": "bool",
-             "help": "when set this preset replaces the system prompt entirely instead of being appended"},
+             "help": "when set this profile's prompt replaces the system prompt entirely instead of being appended"},
             {"name": "description", "label": "Description",
-             "help": "shown next to the preset in the new-app form"},
-            {"name": "git_config", "label": "Git destination",
-             "help": "builder_git entry apps created with this preset publish to; " +
-                     "empty uses the builder default git destination"},
-        ],
-    },
-    {
-        "section": "builder_publish",
-        "title": "Builder publish destinations",
-        "desc": "where builder apps may be published, set RBAC permissions in RBAC config",
-        "name_help": "short name for this destination (e.g. teams, tools)",
-        "fields": [
-            {"name": "path", "label": "App path glob",
-             "help": "e.g. /teams/* or example.com:/** - publish targets must match one destination. " +
-                     "No destinations configured means any path is allowed"},
-            {"name": "description", "label": "Description",
-             "help": "shown in the publish dialog, mention what RBAC rules will apply"},
+             "help": "shown next to the profile in the new-app form"},
         ],
     },
     {
         "section": "builder_git",
-        "title": "Builder git destinations",
-        "desc": "named git repos builder apps publish to; a prompt preset picks one via Git destination, " +
-                "else the builder default applies; no choice publishes locally",
+        "title": "Git targets",
+        "desc": "named git repos builder apps publish to; a builder profile picks one via " +
+                "Git target; no choice publishes locally",
         "name_help": "short name for this repo (e.g. tools, prod)",
         "fields": [
             {"name": "repo", "label": "Repo",
              "help": "git repo url for publish commits (e.g. github.com/org/apps)"},
             {"name": "branch", "label": "Branch",
              "help": "branch for publish commits; empty means main"},
-            {"name": "auth", "label": "Git auth",
+            {"name": "auth", "label": "Git auth", "kind": "select", "options": "git_auths",
+             "empty_label": "none (public repo)",
              "help": "git_auth entry for this repo; empty for public/unauthenticated"},
             {"name": "apps_file", "label": "Apps file",
              "help": "declarative file relative to the repo root; empty means apps.star"},
@@ -1519,26 +1532,26 @@ CONFIG_PAGES = [
     {
         "page": "builder",
         "title": "App builder",
-        "desc": "AI agent profiles, publish destinations and builder settings",
-        "entry_sections": ["builder_agent", "builder_git", "builder_publish", "builder_prompt"],
+        "desc": "agent configs, git targets, builder profiles and builder settings",
+        "entry_sections": ["builder_agent", "builder_git", "builder_profile"],
         "settings": [
             {"section": "app_builder", "key": "enabled", "label": "Enabled", "kind": "bool",
              "help": "the AI app builder (Builder tab); needs a docker/podman runtime, not supported on Kubernetes"},
-            {"section": "app_builder", "key": "default_agent", "label": "Default agent",
-             "help": "builder_agent entry used when the user does not pick one"},
-            {"section": "app_builder", "key": "default_git_config", "label": "Default git destination",
-             "help": "builder_git entry used when the prompt preset does not pick one; " +
-                     "empty publishes locally to $OPENRUN_HOME/app_src"},
-            {"section": "app_builder", "key": "preview_path", "label": "Preview path prefix",
+            {"section": "app_builder", "key": "default_builder_profile", "label": "Default builder profile",
+             "kind": "select", "options": "builder_profile",
+             "help": "builder_profile entry used when the user does not pick one; empty auto-uses a " +
+                     "single profile, or the built-in opencode default when none are configured"},
+            {"section": "app_builder", "key": "preview_path", "label": "Preview path prefix", "advanced": True,
              "help": "where draft preview apps are mounted"},
             {"section": "app_builder", "key": "max_sessions", "label": "Max live sessions", "kind": "int",
+             "advanced": True,
              "help": "concurrent agent sandboxes; further creates ask to stop an idle session"},
             {"section": "app_builder", "key": "session_idle_mins", "label": "Session idle minutes", "kind": "int",
+             "advanced": True,
              "help": "stop the agent sandbox after this idle time (the draft and transcript remain)"},
             {"section": "app_builder", "key": "system_prompt", "label": "System prompt", "kind": "textarea",
+             "advanced": True,
              "help": "replaces the embedded base prompt sent to the agent; leave empty for the built-in default"},
-            {"section": "app_builder", "key": "prompt_extra", "label": "Prompt additions", "kind": "textarea",
-             "help": "appended to the system prompt for every new session"},
         ],
     },
 ]
@@ -1560,7 +1573,8 @@ def config_page_for_section(section):
 
 
 def config_setting_options(source):
-    # Resolve a select setting's option list by source name
+    # Resolve a select setting's option list by source name (shared by the
+    # settings rows and the entry-form select fields)
     if source == "auths":
         ret = openrun.list_auths()
         # "default" is what the setting resolves, exclude it from the choices
@@ -1568,6 +1582,30 @@ def config_setting_options(source):
     if source == "git_auths":
         ret = openrun.list_git_auths()
         return list(ret.value) if not ret.error else []
+    if source == "specs":
+        ret = openrun.list_specs()
+        error = ret.error
+        return sorted([s for s in (ret.value or []) if s != "dummy"]) if not error else []
+    if source == "builder_services":
+        # "defaults" plus the live service ids, for the profile services
+        # checklist
+        ret = openrun.list_services()
+        error = ret.error
+        options = ["defaults"]
+        if not error:
+            for entry in ret.value:
+                options.append(entry["service_type"] + "/" + entry["name"])
+        return options
+    if source in ("builder_agent", "builder_git", "builder_profile"):
+        # Config entry names of the section, dynamic and static merged
+        ret = openrun.get_config_entries([source])
+        error = ret.error
+        if error:
+            return []
+        names = {}
+        for entry in ret.value["sections"].get(source) or []:
+            names[entry["name"]] = True
+        return sorted(names.keys())
     return []
 
 
@@ -1773,6 +1811,7 @@ def config_page_data(req, page):
         "PageTitle": meta["title"],
         "PageDesc": meta["desc"],
         "Settings": [],
+        "AdvancedSettings": [],
         "Sections": [],
         "KVs": [],
     }
@@ -1807,7 +1846,11 @@ def config_page_data(req, page):
         row["static_value"] = static.get(setting["key"])
         if row["kind"] == "select":
             row["option_list"] = config_setting_options(setting.get("options") or "")
-        data["Settings"].append(row)
+        # advanced settings render in a collapsed section, hidden by default
+        if setting.get("advanced"):
+            data["AdvancedSettings"].append(row)
+        else:
+            data["Settings"].append(row)
 
     for kv in meta.get("kv_sections") or []:
         dynamic = (values["sections"].get(kv["section"]) or {}).get("dynamic") or {}
@@ -2051,6 +2094,15 @@ def config_entry_form_data(req, meta, name, values, is_edit, source, error):
     # Page context for the generic config entry form
     ret = openrun.get_rbac_config()
     version_id = ret.value["version_id"] if not ret.error else ""
+    field_options = {}
+    for field in meta["fields"]:
+        if field.get("kind") in ("select", "checklist"):
+            # options_list is a fixed choice list; options names a dynamic
+            # source resolved by config_setting_options
+            if field.get("options_list"):
+                field_options[field["name"]] = field["options_list"]
+            else:
+                field_options[field["name"]] = config_setting_options(field.get("options") or "")
     return {
         "Title": "Configuration",
         "Nav": "config",
@@ -2060,6 +2112,7 @@ def config_entry_form_data(req, meta, name, values, is_edit, source, error):
         "IsEdit": is_edit,
         "Source": source,
         "Error": error,
+        "FieldOptions": field_options,
         "VersionId": version_id,
         "Perms": get_perms(),
         "ReturnPath": "/config/" + config_page_for_section(meta["section"]),
@@ -2105,7 +2158,7 @@ def config_entry_submit_handler(req):
     section = query_param(req, "section")
     meta = config_section_meta(section)
     if not meta:
-        return ace.redirect(req.AppPath + "/config")
+        return form_redirect(req, req.AppPath + "/config")
 
     name = query_param(req, "name").strip()
     is_edit = query_param(req, "is_edit") == "true"
@@ -2122,7 +2175,7 @@ def config_entry_submit_handler(req):
         if ret.error:
             return config_entry_form_data(req, meta, name, {"properties_rows": rows},
                                           is_edit, query_param(req, "source"), ret.error)
-        return ace.redirect(req.AppPath + "/config/" + config_page_for_section(section))
+        return form_redirect(req, req.AppPath + "/config/" + config_page_for_section(section))
     for field in meta["fields"]:
         kind = field.get("kind") or "text"
         raw = query_param(req, field["name"])
@@ -2133,6 +2186,10 @@ def config_entry_submit_handler(req):
             lines = parse_lines(raw)
             if lines:
                 values[field["name"]] = lines
+        elif kind == "checklist":
+            picked = [v.strip() for v in query_param_list(req, field["name"]) if v.strip()]
+            if picked:
+                values[field["name"]] = picked
         elif kind == "textarea":
             # multi-line text, newlines preserved
             if raw.strip():
@@ -2161,7 +2218,7 @@ def config_entry_submit_handler(req):
     ret = openrun_admin.set_config_entry(section, name, submit_values, query_param(req, "version_id"))
     if ret.error:
         return config_entry_form_data(req, meta, name, values, is_edit, query_param(req, "source"), ret.error)
-    return ace.redirect(req.AppPath + "/config/" + config_page_for_section(section))
+    return form_redirect(req, req.AppPath + "/config/" + config_page_for_section(section))
 
 
 def load_rbac_config():
@@ -2218,7 +2275,7 @@ def config_group_submit_handler(req):
     ret = openrun_admin.set_rbac_group(values["name"], users, query_param(req, "draft_version"))
     if ret.error:
         return config_form_data(req, "group", values, ret.error)
-    return ace.redirect(req.AppPath + "/config/rbac")
+    return form_redirect(req, req.AppPath + "/config/rbac")
 
 
 def config_role_page_handler(req):
@@ -2256,7 +2313,7 @@ def config_role_submit_handler(req):
     ret = openrun_admin.set_rbac_role(name, all_perms, query_param(req, "draft_version"))
     if ret.error:
         return config_form_data(req, "role", values, ret.error)
-    return ace.redirect(req.AppPath + "/config/rbac")
+    return form_redirect(req, req.AppPath + "/config/rbac")
 
 
 def config_grant_page_handler(req):
@@ -2302,7 +2359,7 @@ def config_grant_submit_handler(req):
                                            targets, draft_version)
     if ret.error:
         return config_form_data(req, "grant", values, ret.error)
-    return ace.redirect(req.AppPath + "/config/rbac")
+    return form_redirect(req, req.AppPath + "/config/rbac")
 
 
 def config_version_handler(req):
@@ -2434,7 +2491,7 @@ def syncs_create_submit_handler(req):
         data = sync_form_data(req, values, "")
         data["Validated"] = True
         return data
-    return ace.redirect(req.AppPath + "/syncs")
+    return form_redirect(req, req.AppPath + "/syncs")
 
 
 def syncs_delete_handler(req):
@@ -2637,11 +2694,115 @@ def secrets_delete_handler(req):
 # ---------- Builder ----------
 
 
+def form_redirect(req, target):
+    # Success navigation for the narrow-target op-forms: the htmx submit
+    # (partial) needs HX-Redirect - a plain 303 would be followed by htmx
+    # and swapped INTO the form slot. The no-JS fallback posts (and the API
+    # tests) get a real 303
+    if req.IsPartial:
+        return ace.response({}, block="op_redirect", redirect=target)
+    return ace.redirect(target)
+
+
+def slugify(name):
+    # App-name slug from a free-form session name: lowercase alnum runs
+    # joined by single dashes ("Tip Calculator" -> "tip-calculator")
+    out = ""
+    pending_dash = False
+    for ch in name.strip().lower().elems():
+        if ch.isalnum():
+            if pending_dash and out:
+                out += "-"
+            out += ch
+            pending_dash = False
+        else:
+            pending_dash = True
+    return out
+
+
+def builder_publish_prefill(session_name, dest_mode, dest_target):
+    # The publish dialog input prefill, derived from the session name and
+    # shaped by the profile's destination mode
+    slug = slugify(session_name)
+    if dest_mode in ("subdomain", "path"):
+        return slug
+    if dest_mode == "glob":
+        # prefill the fixed part of the glob plus the app name
+        if "*" in dest_target:
+            return dest_target.split("*")[0].rstrip("/") + "/" + slug
+        return dest_target
+    return "/" + slug
+
+
+def builder_publish_target_path(req, config):
+    # Compose the publish target from the dialog input based on the session
+    # profile's destination mode. Republishes target the existing path
+    if query_param(req, "publish_choice").strip() == "__same__":
+        return query_param(req, "current_path").strip()
+    value = query_param(req, "publish_input").strip()
+    if not value:
+        return ""
+    mode = config["publish_mode"]
+    target = config["publish_target"]
+    if mode == "subdomain":
+        # The target stays RAW: a trailing "." keeps the app declaration
+        # relative (portable across instances; the server resolves it to
+        # this instance's default domain when operating on the app)
+        if target == ".":
+            return value.strip(".") + ".:/"
+        return value.strip(".") + "." + target + ":/"
+    if mode == "path":
+        return target.rstrip("/") + "/" + value.strip("/")
+    return value  # glob and unrestricted: the full path is typed
+
+
+def builder_services_offer(config, profile_name):
+    # The new-app Services checklist offer for a profile choice: the
+    # profile's services list ("defaults" offers the default service of
+    # every type, empty offers none, bare types offer the type's default
+    # service), intersected with live services. profile_name "" is the
+    # implicit default profile = defaults
+    profile = None
+    for entry in config["profiles"]:
+        if entry["name"] == profile_name:
+            profile = entry
+    allow_defaults = profile == None
+    allowed = {}
+    if profile != None:
+        lst = profile.get("services") or []
+        if not lst:
+            return []
+        for e in lst:
+            if e == "defaults":
+                allow_defaults = True
+            allowed[e] = True
+    offer = []
+    for svc in config["all_services"]:
+        if allowed.get(svc["id"]) or (svc["is_default"] and (allow_defaults or allowed.get(svc["type"]))):
+            offer.append(svc)
+    return offer
+
+
+def builder_effective_profile(config, chosen):
+    # The profile whose services offer the create form shows initially:
+    # the submitted choice, else the configured default, else the single
+    # profile, else the first option the browser would select, else the
+    # implicit default ("")
+    if chosen:
+        return chosen
+    if config["default_builder_profile"]:
+        return config["default_builder_profile"]
+    profiles = config["profiles"]
+    if len(profiles) >= 1:
+        return profiles[0]["name"]
+    return ""
+
+
 def builder_publish_config(session_id=""):
-    # Publish setup (mode, allowed paths, agent profiles). Returns (config,
-    # error); config is None when the builder is not enabled server side.
-    # With session_id the mode/git fields reflect that session's git
-    # destination (its prompt preset may pick a builder_git entry)
+    # Publish setup (mode, publish restriction, builder profiles). Returns
+    # (config, error); config is None when the builder is not enabled server
+    # side. With session_id the mode/git/publish fields reflect that
+    # session's resolved builder profile
     ret = build.get_publish_config(session_id=session_id)
     error = ret.error
     if error:
@@ -2716,37 +2877,48 @@ def builder_rows_action(req, action):
 
 
 def builder_create_page_handler(req):
-    # New app form (/builder/create); with ?edit=<path> the session modifies
-    # an existing builder-published app (source only, no declaration change)
+    # New app form (/builder/create): name + what the app should do, plus a
+    # Builder Profile choice when two or more profiles are configured (one
+    # profile applies silently; none uses the built-in default). With
+    # ?edit=<path> the session modifies an existing builder-published app
+    # (source only, no declaration change)
     data = {"Title": "Builder", "Nav": "builder", "Perms": get_perms(),
-            "Specs": [], "Agents": [], "DefaultAgent": "", "Values": {},
+            "Profiles": [], "Values": {},
             "EditApp": query_param(req, "edit").strip()}
     config, error = builder_publish_config()
     if error:
         data["Error"] = error
         return data
-    data["Agents"] = config["agents"]
-    data["DefaultAgent"] = config["default_agent"]
     data["Enabled"] = config["enabled"]
-    data["Prompts"] = config["prompts"]
+    data["Profiles"] = config["profiles"]
+    data["DefaultProfile"] = config["default_builder_profile"]
+    data["ServicesOffer"] = builder_services_offer(
+        config, builder_effective_profile(config, data["Values"].get("profile") or ""))
+    data["ServicesChecked"] = {}
 
     if data["EditApp"]:
-        # Spec does not apply: the workspace is seeded from the app. Apps
-        # published by the builder are edited in place; other apps fork -
-        # publish creates a new app with the original's settings copied
+        # The workspace is seeded from the app. Apps published by the
+        # builder are edited in place; other apps fork - publish creates a
+        # new app with the original's settings copied
         ret = openrun.get_app(data["EditApp"])
         error = ret.error
         if error:
             data["Error"] = error
         else:
             data["EditPublished"] = ret.value.get("builder_published")
-        return data
-
-    ret = openrun.list_specs()
-    error = ret.error
-    if not error:
-        data["Specs"] = [s for s in ret.value if s != "dummy"]
     return data
+
+
+def builder_create_services_handler(req):
+    # Fragment: the Services checklist re-rendered for the selected profile
+    # (the create form refreshes it when the profile select changes)
+    data = {"ServicesOffer": [], "ServicesChecked": {}}
+    config, error = builder_publish_config()
+    if not error and config["enabled"]:
+        profile = query_param(req, "profile").strip()
+        data["ServicesOffer"] = builder_services_offer(
+            config, builder_effective_profile(config, profile))
+    return ace.response(data, block="builder_services_checklist")
 
 
 def builder_create_submit_handler(req):
@@ -2755,24 +2927,27 @@ def builder_create_submit_handler(req):
     data = builder_create_page_handler(req)
     name = query_param(req, "name").strip()
     prompt = query_param(req, "prompt").strip()
-    spec = query_param(req, "spec").strip()
-    agent = query_param(req, "agent").strip()
-    preset = query_param(req, "prompt_preset").strip()
+    profile = query_param(req, "profile").strip()
     edit_app = query_param(req, "edit_app").strip()
+    services = [v.strip() for v in query_param_list(req, "services") if v.strip()]
     data["EditApp"] = edit_app
-    data["Values"] = {"name": name, "prompt": prompt, "spec": spec, "agent": agent, "preset": preset}
+    data["Values"] = {"name": name, "prompt": prompt, "profile": profile}
+    checked = {}
+    for svc in services:
+        checked[svc] = True
+    data["ServicesChecked"] = checked
     if not name or not prompt:
         data["Error"] = "Name and app description are required"
         return data
 
-    ret = build.create_session(name=name, prompt=prompt, spec=spec, agent=agent, prompt_preset=preset,
-                               edit_app=edit_app)
+    ret = build.create_session(name=name, prompt=prompt, profile=profile, edit_app=edit_app,
+                               services=services)
     error = ret.error
     if error:
         data["Error"] = error
         return data
     # Plain form post: a real redirect, not HX-Redirect
-    return ace.redirect("%s/builder/detail?id=%s" % (req.AppPath, ret.value["id"]))
+    return form_redirect(req, "%s/builder/detail?id=%s" % (req.AppPath, ret.value["id"]))
 
 
 def builder_detail_data(req):
@@ -2782,6 +2957,8 @@ def builder_detail_data(req):
     id = query_param(req, "id").strip()
     data = {"Title": "Builder", "Nav": "builder", "Perms": get_perms(), "Id": id,
             "Flash": "", "FlashError": "", "PublishResult": None,
+            # Publish dialog re-render state (set by builder_publish_form_error)
+            "PublishError": "", "PublishInput": "", "PublishCommitMsg": "",
             # No dedicated builder docs page yet, link the docs root
             "HelpUrl": docs_link("/docs/")}
     if not id:
@@ -2797,7 +2974,13 @@ def builder_detail_data(req):
         data["Error"] = error
         return data
     data["PublishMode"] = config["mode"]
-    data["PublishPaths"] = config["publish_paths"]
+    # The session profile's publish restriction shapes the dialog input:
+    # subdomain label, app name under a prefix, or a full path (glob /
+    # unrestricted)
+    data["PublishDestMode"] = config["publish_mode"]
+    data["PublishDestTarget"] = config["publish_target"]
+    data["PublishDestResolved"] = config["publish_target_resolved"]
+    data["PublishDestDesc"] = config["publish_desc"]
     data["GitRepo"] = config["git_repo"]
 
     ret = build.get_session(id)
@@ -2806,6 +2989,8 @@ def builder_detail_data(req):
         data["Error"] = error
         return data
     data["Session"] = ret.value
+    data["PublishPrefill"] = builder_publish_prefill(
+        ret.value["name"], config["publish_mode"], config["publish_target"])
 
     ret = build.get_messages(id)
     error = ret.error
@@ -2875,12 +3060,19 @@ def builder_detail_action(req, action):
                 # The composer posts with hx-swap=none (the transcript is
                 # SSE-driven), so a discarded error looks like a hang.
                 # Retarget the error into the chat's error slot instead
-                return ace.response({"SendError": ret.error}, block="bc_send_error",
+                return ace.response({"SendError": "Message not sent: " + ret.error}, block="bc_send_error",
                                     retarget="#bc-send-error", reswap="innerHTML")
     elif action == "cancel":
+        # The Stop button posts with hx-swap=none too: an error dropped with
+        # the body reads as a dead button (it is reachable while the sandbox
+        # is still launching, when cancel_turn rejects with guidance).
+        # builderchat.js places the retargeted error and shows a "Stopping"
+        # status when the response carries no HX-Retarget
         ret = build.cancel_turn(id)
-        error = ret.error
-        flash = "Stop requested"
+        if ret.error:
+            return ace.response({"SendError": "Not stopped: " + ret.error}, block="bc_send_error",
+                                retarget="#bc-send-error", reswap="innerHTML")
+        return ace.response({"SendError": ""}, block="bc_send_error")
     elif action == "stop":
         ret = build.stop_session(id)
         error = ret.error
@@ -2922,44 +3114,72 @@ def builder_delete_handler(req):
                         redirect=req.AppPath + "/builder")
 
 
+def builder_publish_form_error(req, error):
+    # A failed publish re-renders JUST the dialog form (retargeted,
+    # outerHTML swap): the dropdown stays open with the submitted values and
+    # the error inline, instead of a page flash after the dialog closed
+    data = builder_detail_data(req)
+    data["PublishError"] = error
+    data["PublishInput"] = query_param(req, "publish_input").strip()
+    data["PublishCommitMsg"] = query_param(req, "commit_msg").strip()
+    return ace.response(data, block="publish_form",
+                        retarget="#publish-form", reswap="outerHTML")
+
+
 def builder_publish_handler(req):
-    # Publish: a configured destination (its glob's fixed part + the app
-    # name) or a custom domain/path entered free-form
+    # Publish: the dialog's single input composed per the profile's
+    # destination mode (subdomain label / app name / full path)
     id = query_param(req, "id").strip()
-    choice = query_param(req, "publish_choice").strip()
     commit_msg = query_param(req, "commit_msg").strip()
 
-    if choice == "__custom__" or choice == "":
-        path = query_param(req, "custom_path").strip()
-    elif choice == "__same__":
-        # republish to the current publish path
-        path = query_param(req, "current_path").strip()
-    else:
-        # The choice is a destination glob; its fixed part (up to the first
-        # wildcard) plus the app name forms the path. A glob without
-        # wildcards is used as is
-        suffix = query_param(req, "publish_suffix").strip()
-        fixed = choice.split("*")[0]
-        if "*" in choice:
-            path = fixed.rstrip("/") + "/" + suffix.strip("/")
-        else:
-            path = choice
+    config, error = builder_publish_config(session_id=id)
+    if error:
+        return builder_publish_form_error(req, error)
+    path = builder_publish_target_path(req, config)
+    if not path:
+        return builder_publish_form_error(req, "Enter a publish destination")
     ret = build.publish_app(id, path=path, commit_msg=commit_msg)
     error = ret.error
-    data = builder_detail_data(req)
     if error:
-        data["FlashError"] = error
-        return data
+        return builder_publish_form_error(req, error)
+    data = builder_detail_data(req)
     # PublishResult renders its own success alert (with mode + commit); a
     # Flash here would be a redundant second success message
     data["PublishResult"] = ret.value
     # Local publishes land on staging (except a first publish, whose initial
-    # version is live on create): offer promotion as the next step
+    # version is live on create): offer promotion as the next step. App
+    # operations use the RESOLVED path (a relative-domain declaration
+    # expands to this instance's default domain)
     if ret.value.get("mode") == "local":
-        app_ret = openrun.get_app(ret.value.get("publish_path"))
+        app_ret = openrun.get_app(ret.value.get("resolved_path"))
         if not app_ret.error and app_ret.value.get("staged_changes"):
-            data["AskPromotePath"] = ret.value.get("publish_path")
+            data["AskPromotePath"] = ret.value.get("resolved_path")
     return data
+
+
+def builder_publish_check_handler(req):
+    # Validate the publish destination without publishing: the same
+    # normalization, profile restriction and app RBAC checks as the real
+    # publish, rendered into the dialog's #publish-check-result slot
+    id = query_param(req, "id").strip()
+    result = {"CheckError": "", "CheckPath": "", "CheckExists": False}
+    config, error = builder_publish_config(session_id=id)
+    if error:
+        result["CheckError"] = error
+        return ace.response(result, block="publish_check_result")
+    path = builder_publish_target_path(req, config)
+    if not path:
+        result["CheckError"] = "Enter a publish destination"
+        return ace.response(result, block="publish_check_result")
+    ret = build.check_publish_path(id, path=path)
+    error = ret.error
+    if error:
+        result["CheckError"] = error
+        return ace.response(result, block="publish_check_result")
+    result["CheckPath"] = ret.value["path"]
+    result["CheckResolved"] = ret.value["resolved"]
+    result["CheckExists"] = ret.value["exists"]
+    return ace.response(result, block="publish_check_result")
 
 
 def builder_promote_handler(req):

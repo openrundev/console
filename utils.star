@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 load("openrun.in", "openrun")
 
 # Shared helpers for the console handlers: parsing/formatting utilities and

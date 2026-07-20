@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 // <builder-chat> - live chat pane for the app builder session workspace.
 //
 //   <builder-chat stream="/console/builder/events?id=X" session="X">
@@ -28,6 +29,10 @@
 			// compact chat: tighter bubbles, line height and row rhythm than
 			// the daisyUI chat defaults (dense transcripts read better)
 			'builder-chat .chat{padding-top:1px;padding-bottom:1px}' +
+			// transcript text carries unbreakable tokens (workspace paths,
+			// urls) in bubbles AND chips; pre-wrap alone lets them poke out
+			// of the bubble. overflow-wrap inherits to all rows
+			'builder-chat .bc-transcript{overflow-wrap:anywhere}' +
 			'builder-chat .chat-bubble{padding:0.3rem 0.6rem;font-size:0.8125rem;line-height:1.4;min-height:0}' +
 			// agent replies are multi-paragraph: tighter leading than the
 			// short user messages, and paragraph gaps at reduced height
@@ -133,6 +138,7 @@
 			this.pendingBreak = false;
 			this.aborter = null;
 			this.failures = 0;
+			this.toolChips = {}; // tool call id -> chip entry, for status updates
 			this.turnActive = this.hasAttribute('turn-active');
 			if (this.turnActive) this.setStatus('The agent is working…');
 
@@ -151,8 +157,23 @@
 			this.sendLocked = !!(sendBtn && sendBtn.disabled);
 			if (this.turnActive) this.setTurnActive(true);
 			this.onAfterRequest = (e) => {
+				// The Stop button lives in the chat header (outside the
+				// composer) and posts with hx-swap=none: place its retargeted
+				// error ourselves (htmx drops header overrides on swap=none)
+				// and surface an accepted stop as a status line - the turn
+				// keeps running until the agent acknowledges the cancel
+				if (e.target.matches('[data-builder-cancel]')) {
+					if (!e.detail.successful) return;
+					const slot = document.getElementById('bc-send-error');
+					if (e.detail.xhr && e.detail.xhr.getResponseHeader('HX-Retarget')) {
+						if (slot) slot.innerHTML = e.detail.xhr.responseText;
+					} else {
+						if (slot) slot.innerHTML = '';
+						this.setStatus('Stopping the agent…');
+					}
+					return;
+				}
 				if (!this.composer || !this.composer.contains(e.target)) return;
-				if (e.target.matches('[data-builder-cancel]')) return;
 				if (!e.detail.successful) return;
 				// A rejected send (agent busy, session still starting) comes
 				// back HTTP 200 with HX-Retarget and the rendered error block;
@@ -174,21 +195,6 @@
 				}
 			};
 			document.body.addEventListener('htmx:afterRequest', this.onAfterRequest);
-
-			// Publish dialog: destination radios toggle the app-name input
-			// (glob destinations) vs the custom path input
-			this.onPublishChange = (e) => {
-				const radio = e.target.closest('[data-builder-publish] input[name=publish_choice]');
-				if (!radio) return;
-				const form = radio.closest('form');
-				const custom = radio.value === '__custom__';
-				const hasWildcard = !custom && radio.value.indexOf('*') >= 0;
-				const suffix = form.querySelector('[data-publish-suffix]');
-				const customField = form.querySelector('[data-publish-custom]');
-				if (suffix) suffix.hidden = !hasWildcard;
-				if (customField) customField.hidden = !custom;
-			};
-			document.body.addEventListener('change', this.onPublishChange);
 
 			// Preview refresh on demand
 			this.onRefreshClick = (e) => {
@@ -215,6 +221,9 @@
 			// is already rendered and Resume re-establishes the stream
 			if (this.hasAttribute('live')) {
 				this.connect();
+				// A page load mid-turn shows the agent as working right away
+				// (skipped when a partial streaming bubble already shows it)
+				if (this.turnActive) this.showTyping();
 			} else {
 				this.setStatus('Sandbox stopped - resume to continue');
 			}
@@ -225,7 +234,6 @@
 			if (this.aborter) this.aborter.abort();
 			document.body.removeEventListener('htmx:afterRequest', this.onAfterRequest);
 			document.body.removeEventListener('click', this.onRefreshClick);
-			document.body.removeEventListener('change', this.onPublishChange);
 		}
 
 		setStatus(text) {
@@ -239,6 +247,22 @@
 			if (this.sendLocked || !this.composer) return;
 			const btn = this.composer.querySelector('button[type=submit]');
 			if (btn) btn.disabled = active;
+		}
+
+		// endTurn resets every piece of live-turn state: composer unlocked,
+		// Stop hidden, typing gone, tool run and streaming bubble closed
+		endTurn() {
+			this.turnActive = false;
+			this.setTurnActive(false);
+			this.hideTyping();
+			this.lastTool = null;
+			this.toolLine = null;
+			if (this.streaming) {
+				this.streaming.closest('.chat').removeAttribute('data-bc-streaming');
+				this.streaming = null;
+				this.streamRaw = '';
+			}
+			this.setStatus('');
 		}
 
 		scrollToEnd() {
@@ -278,16 +302,19 @@
 		// ONE line: repeats bump a ×N counter on the last chip, different
 		// tools append a new chip to the same line; bubbles and errors end
 		// the run
-		appendToolChip(title) {
+		appendToolChip(title, callId) {
 			this.hideTyping();
 			if (this.lastTool && this.lastTool.label === title && this.lastTool.line.isConnected) {
 				this.lastTool.count++;
 				const badge = this.lastTool.badge;
 				badge.textContent = '×' + this.lastTool.count;
-				badge.setAttribute('data-tip', this.lastTool.count + ' ' + title + ' tool calls');
+				// count only: a raw command title inside the bubble would be
+				// unbounded (same reason the chip itself is ellipsis-capped)
+				badge.setAttribute('data-tip', this.lastTool.count + ' tool calls');
 				badge.classList.remove('hidden', 'bc-pop');
 				void badge.offsetWidth; // restart the pop animation
 				badge.classList.add('bc-pop');
+				if (callId) this.toolChips[callId] = this.lastTool;
 				this.scrollToEnd();
 				if (this.turnActive) this.showTyping();
 				return;
@@ -307,14 +334,32 @@
 			const chip = document.createElement('span');
 			chip.className = 'inline-flex items-center gap-1 font-mono bc-anim';
 			const label = document.createElement('span');
+			// raw agent commands can be very long: ellipsis-capped chip, full
+			// text on the native title (accessibility.css .bc-tool-title)
+			label.className = 'bc-tool-title';
+			label.title = title;
 			label.textContent = title;
 			const badge = document.createElement('span');
 			badge.className = 'badge badge-soft badge-primary badge-xs font-mono hidden tooltip tooltip-top';
 			chip.append(label, badge);
 			this.toolLine.appendChild(chip);
-			this.lastTool = { label: title, line: this.toolLine, count: 1, badge: badge };
+			this.lastTool = { label: title, line: this.toolLine, count: 1, badge: badge, el: label };
+			if (callId) this.toolChips[callId] = this.lastTool;
 			this.scrollToEnd();
 			if (this.turnActive) this.showTyping();
+		}
+
+		// A failed tool call marks its chip in place; when the chip is not on
+		// screen (the viewer connected mid-turn) the update renders standalone
+		// - the server guarantees a title on update events for exactly this
+		markToolFailed(event) {
+			const entry = this.toolChips[event.tool_call_id];
+			if (entry && entry.el && entry.el.isConnected) {
+				entry.el.classList.add('text-error');
+				entry.el.title = (event.title || entry.label) + ' failed';
+			} else if (event.title) {
+				this.appendChip(event.title + ' failed', 'text-error text-xs');
+			}
 		}
 
 		// Typing indicator: a small bouncing-dots bubble shown while the
@@ -373,8 +418,11 @@
 					break;
 				case 'tool_call':
 					this.pendingBreak = true;
-					this.appendToolChip(event.title || event.tool_kind || 'tool call');
+					this.appendToolChip(event.title || event.tool_kind || 'tool call', event.tool_call_id);
 					this.setStatus('The agent is working…');
+					break;
+				case 'tool_call_update':
+					if (event.tool_status === 'failed') this.markToolFailed(event);
 					break;
 				case 'turn_started':
 					this.turnActive = true;
@@ -383,30 +431,37 @@
 					this.showTyping();
 					break;
 				case 'turn_done':
-					this.turnActive = false;
-					this.setTurnActive(false);
-					this.hideTyping();
-					this.lastTool = null;
-					this.toolLine = null;
-					if (this.streaming) {
-						this.streaming.closest('.chat').removeAttribute('data-bc-streaming');
-						this.streaming = null;
-						this.streamRaw = '';
+					this.endTurn();
+					// Non-natural endings deserve a visible mark: without one a
+					// stopped/limited turn just goes quiet mid-thought
+					if (event.stop_reason === 'cancelled') {
+						this.appendChip('Turn stopped', 'text-base-content/50 text-xs');
+					} else if (event.stop_reason === 'refusal') {
+						this.appendChip('The agent declined to continue', 'text-error text-xs');
+					} else if (event.stop_reason === 'max_tokens' || event.stop_reason === 'max_turn_requests') {
+						this.appendChip('The turn hit the agent’s ' +
+							(event.stop_reason === 'max_tokens' ? 'token' : 'request') +
+							' limit - send a message to continue', 'text-warning text-xs');
 					}
-					this.setStatus('');
 					this.refreshPreview();
 					// pick up preview creation / status changes
 					if (window.htmx) window.htmx.trigger('#session-content', 'builder-turn-done');
 					break;
 				case 'error':
-					this.hideTyping();
+					// A failed turn emits error + a ready status but no
+					// turn_done: unlock the composer here or Send stays dead
+					// until a manual page refresh
+					this.endTurn();
 					this.appendChip(event.text, 'text-error text-xs whitespace-pre-wrap');
-					this.setStatus('');
 					break;
 				case 'status':
 					if (event.status === 'building image') this.setStatus('Building the sandbox image (first run can take a few minutes)…');
 					else if (event.status === 'starting sandbox') this.setStatus('Starting the agent sandbox…');
-					else if (event.status === 'detached' || event.status === 'error') this.setStatus('Sandbox stopped');
+					else if (event.status === 'detached' || event.status === 'error') {
+						// the sandbox is gone: no turn can be running
+						this.endTurn();
+						this.setStatus('Sandbox stopped');
+					}
 					break;
 			}
 		}

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 // Shared console page behaviors: theme toggle persistence, app filter chips,
 // the nav drawer toggle, the Cmd/Ctrl-K search shortcut, and the
 // <secret-input> / kv-table form components.

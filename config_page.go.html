@@ -58,108 +58,21 @@
                   </div>
                   <div class="card-body p-4 gap-4">
                     {{ range .Data.Settings }}
-                      <form
-                        hx-post="{{ $actionPath }}"
-                        hx-target="#page-content"
-                        hx-swap="innerHTML transition:true"
-                        hx-indicator="#page-progress"
-                        class="flex items-start gap-3 flex-wrap">
-                        <input type="hidden" name="action" value="set_value" />
-                        <input type="hidden" name="section" value="{{ .section }}" />
-                        <input type="hidden" name="key" value="{{ .key }}" />
-                        <input type="hidden" name="kind" value="{{ .kind }}" />
-                        <input type="hidden" name="version_id" value="{{ $.Data.VersionId }}" />
-                        <input type="hidden" name="is_dynamic" value="{{ if .is_dynamic }}true{{ else }}false{{ end }}" />
-                        <div class="w-56 pt-1.5">
-                          <label class="text-sm font-medium" for="setting-{{ .section }}-{{ .key }}"
-                            >{{ .label }}</label
-                          >
-                          <div class="text-[11px] text-base-content/50 font-mono">
-                            {{ .section }}.{{ .key }}
-                          </div>
-                        </div>
-                        <div class="flex-1 min-w-52">
-                          {{ if eq .kind "bool" }}
-                            <input
-                              id="setting-{{ .section }}-{{ .key }}"
-                              type="checkbox"
-                              name="value"
-                              class="toggle toggle-sm toggle-primary mt-1.5"
-                              {{ if .value }}checked{{ end }}
-                              {{ if not $canEdit }}disabled{{ end }} />
-                          {{ else if eq .kind "select" }}
-                            <select
-                              id="setting-{{ .section }}-{{ .key }}"
-                              name="value"
-                              class="select select-sm w-full font-mono text-xs"
-                              {{ if not $canEdit }}disabled{{ end }}>
-                              <option value="" {{ if not .value }}selected{{ end }}>
-                                (not set)
-                              </option>
-                              {{ $current := .value }}
-                              {{ range .option_list }}
-                                <option
-                                  value="{{ . }}"
-                                  {{ if eq . $current }}selected{{ end }}>
-                                  {{ . }}
-                                </option>
-                              {{ end }}
-                            </select>
-                          {{ else if eq .kind "textarea" }}
-                            <textarea
-                              id="setting-{{ .section }}-{{ .key }}"
-                              name="value"
-                              rows="4"
-                              class="textarea w-full font-mono text-xs leading-relaxed"
-                              {{ if not $canEdit }}disabled{{ end }}>{{ .value }}</textarea>
-                          {{ else }}
-                            <input
-                              id="setting-{{ .section }}-{{ .key }}"
-                              name="value"
-                              type="text"
-                              value="{{ .value }}"
-                              class="input input-sm w-full font-mono text-xs"
-                              {{ if not $canEdit }}disabled{{ end }} />
-                          {{ end }}
-                          {{ if .help }}
-                            <p class="text-xs text-base-content/70 mt-1">
-                              {{ .help }}
-                            </p>
+                      {{ template "config_setting_row" (dict "Row" . "ActionPath" $actionPath "VersionId" $.Data.VersionId "CanEdit" $canEdit) }}
+                    {{ end }}
+                    {{ if .Data.AdvancedSettings }}
+                      <details class="group">
+                        <summary
+                          class="cursor-pointer text-sm font-medium text-base-content/70 hover:text-base-content list-none flex items-center gap-1">
+                          <span aria-hidden="true" class="inline-block transition-transform duration-200 group-open:rotate-90">›</span>
+                          Additional settings
+                        </summary>
+                        <div class="flex flex-col gap-4 mt-4 pl-3 border-l border-base-300">
+                          {{ range .Data.AdvancedSettings }}
+                            {{ template "config_setting_row" (dict "Row" . "ActionPath" $actionPath "VersionId" $.Data.VersionId "CanEdit" $canEdit) }}
                           {{ end }}
                         </div>
-                        <div class="flex items-center gap-1 pt-0.5">
-                          {{ if .is_dynamic }}
-                            <span
-                              class="badge badge-soft badge-primary badge-xs tooltip tooltip-left"
-                              data-tip="dynamic value, overrides openrun.toml{{ if .static_value }} ({{ .static_value }}){{ end }}"
-                              >dynamic</span
-                            >
-                          {{ end }}
-                          <button
-                            type="submit"
-                            class="btn btn-xs btn-outline {{ if not $canEdit }}tooltip tooltip-left{{ end }}"
-                            {{ if not $canEdit }}disabled data-tip="requires config:update"{{ end }}>
-                            Save
-                          </button>
-                          {{ if .is_dynamic }}
-                            <button
-                              type="button"
-                              class="btn btn-xs btn-ghost tooltip tooltip-left"
-                              data-tip="remove the dynamic value, revert to openrun.toml"
-                              {{ if $canEdit }}
-                                hx-post="{{ $actionPath }}"
-                                hx-vals='{"action": "delete_value", "section": "{{ .section }}", "key": "{{ .key }}", "version_id": "{{ $.Data.VersionId }}"}'
-                                hx-target="#page-content"
-                                hx-swap="innerHTML transition:true"
-                                hx-indicator="#page-progress"
-                              {{ else }}
-                                disabled
-                              {{ end }}>
-                              reset
-                            </button>
-                          {{ end }}
-                        </div>
-                      </form>
+                      </details>
                     {{ end }}
                   </div>
                 </div>
@@ -360,3 +273,122 @@
     </div>
   </body>
 </html>
+
+{{/* config_setting_row: one settings field form. Page-local define (used
+  only by this file's page_content block). Context dict: Row (the setting
+  row), ActionPath, VersionId, CanEdit */}}
+{{ define "config_setting_row" }}
+  {{ $row := .Row }}
+  {{ $canEdit := .CanEdit }}
+  <form
+    hx-post="{{ .ActionPath }}"
+    hx-target="#page-content"
+    hx-swap="innerHTML transition:true"
+    hx-indicator="#page-progress"
+    class="flex items-start gap-3 flex-wrap">
+    <input type="hidden" name="action" value="set_value" />
+    <input type="hidden" name="section" value="{{ $row.section }}" />
+    <input type="hidden" name="key" value="{{ $row.key }}" />
+    <input type="hidden" name="kind" value="{{ $row.kind }}" />
+    <input type="hidden" name="version_id" value="{{ .VersionId }}" />
+    <input type="hidden" name="is_dynamic" value="{{ if $row.is_dynamic }}true{{ else }}false{{ end }}" />
+    <div class="w-56 pt-1.5">
+      <label class="text-sm font-medium" for="setting-{{ $row.section }}-{{ $row.key }}"
+        >{{ $row.label }}</label
+      >
+      <div class="text-[11px] text-base-content/50 font-mono">
+        {{ $row.section }}.{{ $row.key }}
+      </div>
+    </div>
+    <div class="flex-1 min-w-52">
+      {{ if eq $row.kind "bool" }}
+        <input
+          id="setting-{{ $row.section }}-{{ $row.key }}"
+          type="checkbox"
+          name="value"
+          class="toggle toggle-sm toggle-primary mt-1.5"
+          {{ if $row.value }}checked{{ end }}
+          {{ if not $canEdit }}disabled{{ end }} />
+      {{ else if eq $row.kind "select" }}
+        <select
+          id="setting-{{ $row.section }}-{{ $row.key }}"
+          name="value"
+          class="select select-sm w-full font-mono text-xs min-w-0"
+          {{ if not $canEdit }}disabled{{ end }}>
+          <option value="" {{ if not $row.value }}selected{{ end }}>
+            (not set)
+          </option>
+          {{ $current := $row.value }}
+          {{ range $row.option_list }}
+            <option
+              value="{{ . }}"
+              {{ if eq . $current }}selected{{ end }}>
+              {{ . }}
+            </option>
+          {{ end }}
+          {{ if $current }}
+            {{ $found := false }}
+            {{ range $row.option_list }}
+              {{ if eq . $current }}{{ $found = true }}{{ end }}
+            {{ end }}
+            {{ if not $found }}
+              <option value="{{ $current }}" selected>{{ $current }} (not found)</option>
+            {{ end }}
+          {{ end }}
+        </select>
+      {{ else if eq $row.kind "textarea" }}
+        <textarea
+          id="setting-{{ $row.section }}-{{ $row.key }}"
+          name="value"
+          rows="4"
+          class="textarea w-full font-mono text-xs leading-relaxed"
+          {{ if not $canEdit }}disabled{{ end }}>{{ $row.value }}</textarea>
+      {{ else }}
+        <input
+          id="setting-{{ $row.section }}-{{ $row.key }}"
+          name="value"
+          type="text"
+          value="{{ $row.value }}"
+          class="input input-sm w-full font-mono text-xs"
+          {{ if not $canEdit }}disabled{{ end }} />
+      {{ end }}
+      {{ if $row.help }}
+        <p class="text-xs text-base-content/70 mt-1">
+          {{ $row.help }}
+        </p>
+      {{ end }}
+    </div>
+    <div class="flex items-center gap-1 pt-0.5">
+      {{ if $row.is_dynamic }}
+        <span
+          class="badge badge-soft badge-primary badge-xs tooltip tooltip-left"
+          data-tip="dynamic value, overrides openrun.toml{{ if $row.static_value }} ({{ $row.static_value }}){{ end }}"
+          >dynamic</span
+        >
+      {{ end }}
+      <button
+        type="submit"
+        class="btn btn-xs btn-outline {{ if not $canEdit }}tooltip tooltip-left{{ end }}"
+        {{ if not $canEdit }}disabled data-tip="requires config:update"{{ end }}>
+        Save
+      </button>
+      {{ if $row.is_dynamic }}
+        <button
+          type="button"
+          class="btn btn-xs btn-ghost tooltip tooltip-left"
+          data-tip="remove the dynamic value, revert to openrun.toml"
+          {{ if $canEdit }}
+            hx-post="{{ .ActionPath }}"
+            hx-vals='{"action": "delete_value", "section": "{{ $row.section }}", "key": "{{ $row.key }}", "version_id": "{{ .VersionId }}"}'
+            hx-target="#page-content"
+            hx-swap="innerHTML transition:true"
+            hx-indicator="#page-progress"
+          {{ else }}
+            disabled
+          {{ end }}>
+          reset
+        </button>
+      {{ end }}
+    </div>
+  </form>
+{{ end }}

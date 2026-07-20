@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 load("handler.star",
      "apps_data", "apps_detail_data", "apps_switch_handler", "apps_promote_handler",
      "apps_approve_handler", "apps_detail_reload_handler", "apps_detail_delete_handler",
@@ -31,10 +32,13 @@ load("handler.star",
      "services_create_submit_handler", "services_delete_handler",
      "secrets_store_handler", "secrets_delete_handler",
      "builder_data", "builder_create_page_handler", "builder_create_submit_handler",
+     "builder_create_services_handler",
      "builder_detail_data", "builder_detail_action", "builder_delete_handler",
-     "builder_publish_handler", "builder_unpublish_handler", "builder_promote_handler",
+     "builder_publish_handler", "builder_publish_check_handler", "builder_unpublish_handler",
+     "builder_promote_handler",
      "builder_events_handler", "builder_file_handler", "builder_rows_action",
      "builder_download_handler")
+load("ext.star", "ext_routes", "ext_permissions")
 
 # OpenRun management console. Routes mirror the UI layout: one route per
 # screen, each screen template defines a partial block which HTMX requests
@@ -58,6 +62,15 @@ ENABLE_UPDATES = param.enable_all or param.enable_updates
 ENABLE_CONTAINER = param.enable_all or param.enable_container
 ENABLE_CONFIG = param.enable_all or param.enable_config
 ENABLE_BUILDER = param.enable_all or param.enable_builder
+
+# Context passed to the ext.star extension hooks (see ext.star): a dict, so
+# future additions never change the hook signatures
+EXT_CTX = {
+    "enable_updates": ENABLE_UPDATES,
+    "enable_container": ENABLE_CONTAINER,
+    "enable_config": ENABLE_CONFIG,
+    "enable_builder": ENABLE_BUILDER,
+}
 
 
 def error_handler(req, ret):
@@ -199,27 +212,27 @@ def build_routes():
     if ENABLE_UPDATES:
         # App/sync/binding/service write subpages
         routes += [
-            ace.html("/apps/create", full="app_form.go.html", handler=apps_create_page_handler,
+            ace.html("/apps/create", full="app_form.go.html", partial="op_form", handler=apps_create_page_handler,
                      fragments=[
                          ace.fragment("", method="POST", handler=apps_create_submit_handler),
                      ]),
-            ace.html("/apps/update", full="app_form.go.html", handler=apps_update_page_handler,
+            ace.html("/apps/update", full="app_form.go.html", partial="op_form", handler=apps_update_page_handler,
                      fragments=[
                          ace.fragment("", method="POST", handler=apps_update_submit_handler),
                      ]),
-            ace.html("/syncs/create", full="sync_form.go.html", handler=syncs_create_page_handler,
+            ace.html("/syncs/create", full="sync_form.go.html", partial="op_form", handler=syncs_create_page_handler,
                      fragments=[
                          ace.fragment("", method="POST", handler=syncs_create_submit_handler),
                      ]),
-            ace.html("/bindings/services/create", full="service_form.go.html", handler=services_create_page_handler,
+            ace.html("/bindings/services/create", full="service_form.go.html", partial="op_form", handler=services_create_page_handler,
                      fragments=[
                          ace.fragment("", method="POST", handler=services_create_submit_handler),
                      ]),
-            ace.html("/bindings/create", full="binding_form.go.html", handler=bindings_create_page_handler,
+            ace.html("/bindings/create", full="binding_form.go.html", partial="op_form", handler=bindings_create_page_handler,
                      fragments=[
                          ace.fragment("", method="POST", handler=bindings_create_submit_handler),
                      ]),
-            ace.html("/bindings/update", full="binding_form.go.html", handler=bindings_update_page_handler,
+            ace.html("/bindings/update", full="binding_form.go.html", partial="op_form", handler=bindings_update_page_handler,
                      fragments=[
                          ace.fragment("", method="POST", handler=bindings_update_submit_handler),
                      ]),
@@ -265,19 +278,19 @@ def build_routes():
     if ENABLE_CONFIG and ENABLE_UPDATES:
         # Config entry and RBAC edit subpages (config writes)
         routes += [
-            ace.html("/config/entry", full="config_entry_form.go.html", handler=config_entry_page_handler,
+            ace.html("/config/entry", full="config_entry_form.go.html", partial="op_form", handler=config_entry_page_handler,
                      fragments=[
                          ace.fragment("", method="POST", handler=config_entry_submit_handler),
                      ]),
-            ace.html("/config/rbac/group", full="config_form.go.html", handler=config_group_page_handler,
+            ace.html("/config/rbac/group", full="config_form.go.html", partial="op_form", handler=config_group_page_handler,
                      fragments=[
                          ace.fragment("", method="POST", handler=config_group_submit_handler),
                      ]),
-            ace.html("/config/rbac/role", full="config_form.go.html", handler=config_role_page_handler,
+            ace.html("/config/rbac/role", full="config_form.go.html", partial="op_form", handler=config_role_page_handler,
                      fragments=[
                          ace.fragment("", method="POST", handler=config_role_submit_handler),
                      ]),
-            ace.html("/config/rbac/grant", full="config_form.go.html", handler=config_grant_page_handler,
+            ace.html("/config/rbac/grant", full="config_form.go.html", partial="op_form", handler=config_grant_page_handler,
                      fragments=[
                          ace.fragment("", method="POST", handler=config_grant_submit_handler),
                      ]),
@@ -303,6 +316,8 @@ def build_routes():
                          ace.fragment("approve", method="POST", handler=lambda req: builder_detail_action(req, "approve")),
                          ace.fragment("delete", method="POST", handler=builder_delete_handler),
                          ace.fragment("publish", method="POST", handler=builder_publish_handler),
+                         # Validate the publish target without publishing
+                         ace.fragment("publish_check", method="POST", handler=builder_publish_check_handler),
                          ace.fragment("unpublish", method="POST", handler=builder_unpublish_handler),
                          # Promote the staging app after a local-mode publish
                          ace.fragment("promote", method="POST", handler=builder_promote_handler),
@@ -316,9 +331,11 @@ def build_routes():
         ]
         if ENABLE_UPDATES:
             routes += [
-                ace.html("/builder/create", full="builder_form.go.html", handler=builder_create_page_handler,
+                ace.html("/builder/create", full="builder_form.go.html", partial="op_form", handler=builder_create_page_handler,
                          fragments=[
                              ace.fragment("", method="POST", handler=builder_create_submit_handler),
+                             # Services checklist re-render when the profile changes
+                             ace.fragment("services", handler=builder_create_services_handler),
                          ]),
             ]
 
@@ -451,6 +468,7 @@ def build_permissions():
             perm("build.in", "read_file"),
             perm("build.in", "get_source_zip"),
             perm("build.in", "get_publish_config"),
+            perm("build.in", "check_publish_path"),
             perm("build.in", "list_activity"),
         ]
 
@@ -494,8 +512,8 @@ def build_permissions():
 
 app = ace.app(param.name,
               custom_layout=True,
-              routes=build_routes(),
-              permissions=build_permissions(),
+              routes=build_routes() + ext_routes(EXT_CTX),
+              permissions=build_permissions() + ext_permissions(EXT_CTX),
               style=ace.style("daisyui",
                               light="openrun-light",
                               dark="openrun-dark",

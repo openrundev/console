@@ -8,7 +8,11 @@ Console is a management UI for managing OpenRun.
 
 Copyright 2026 ClaceIO, LLC
 
-Released under the PolyForm Free Trial License 1.0.0, see LICENSE file.
+Released under the Apache License 2.0, see LICENSE file.
 
-
-
+The Pro distribution (github.com/openrundev/console-pro, PolyForm Free
+Trial licensed) adds the Analytics feature on top of this console. It plugs
+in through the extension hooks in `ext.star` and
+`base_templates/ext.go.html` — both files ship here as empty stubs and are
+swapped wholesale by the pro repo's sync; keep their hook signatures and
+define names stable.

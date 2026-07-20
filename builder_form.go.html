@@ -31,13 +31,17 @@
           {{ template "page_progress" }}
 
 
+          {{ block "op_form" . }}
+          <div id="op-form-wrap">
           {{ template "error_alert" .Data.Error }}
 
           <form
             method="post"
             action="{{ .AppPath }}/builder/create"
             id="op-form"
-            hx-boost="true"
+            hx-post="{{ .AppPath }}/builder/create"
+            hx-target="#op-form-wrap"
+            hx-swap="outerHTML"
             hx-indicator="#page-progress, #op-form"
             class="card bg-base-100 border border-base-300">
             <div class="card-body p-5 gap-5">
@@ -89,46 +93,39 @@
                   </div>
                 </label>
 
-                {{ if not .Data.EditApp }}
-                <label class="form-control w-full">
-                  <div class="label"><span class="label-text">Framework</span></div>
-                  <select name="spec" class="select w-full">
-                    <option value="">Let the agent choose</option>
-                    {{ range .Data.Specs }}
-                      <option value="{{ . }}" {{ if eq . $.Data.Values.spec }}selected{{ end }}>{{ . }}</option>
-                    {{ end }}
-                  </select>
-                </label>
-                {{ end }}
-
-                {{ if and .Data.Prompts (not .Data.EditApp) }}
+                {{/* One profile applies silently, none uses the built-in
+                  default - the choice only renders when there is one. The
+                  configured default profile is preselected */}}
+                {{ if gt (len .Data.Profiles) 1 }}
+                  {{ $selected := or .Data.Values.profile .Data.DefaultProfile }}
                   <label class="form-control w-full">
-                    <div class="label"><span class="label-text">Prompt preset</span></div>
-                    <select name="prompt_preset" class="select w-full">
-                      <option value="">None - default prompt</option>
-                      {{ range .Data.Prompts }}
-                        <option value="{{ .name }}" {{ if eq .name $.Data.Values.preset }}selected{{ end }}>
-                          {{ .name }}{{ if .description }} - {{ .description }}{{ end }}{{ if .replace }} (replaces system prompt){{ end }}{{ if .git_config }} [publishes to {{ .git_config }}]{{ end }}
+                    <div class="label"><span class="label-text">Builder profile</span></div>
+                    <select
+                      name="profile"
+                      required
+                      class="select w-full min-w-0"
+                      hx-get="{{ .AppPath }}/builder/create/services"
+                      hx-target="#services-offer"
+                      hx-swap="outerHTML"
+                      hx-trigger="change"
+                      hx-indicator="#page-progress">
+                      {{ range .Data.Profiles }}
+                        <option value="{{ .name }}" {{ if eq .name $selected }}selected{{ end }}>
+                          {{- .name }}{{ if .description }} - {{ .description }}{{ end -}}
                         </option>
                       {{ end }}
                     </select>
                     <div class="label">
                       <span class="label-text-alt text-base-content/70">
-                        Admin-configured prompt added for this app (Configuration → App builder)
+                        Configured in Configuration → App builder: agent, git
+                        target, publish destination and default spec
                       </span>
                     </div>
                   </label>
                 {{ end }}
 
-                {{ if gt (len .Data.Agents) 1 }}
-                  <label class="form-control w-full">
-                    <div class="label"><span class="label-text">Agent profile</span></div>
-                    <select name="agent" class="select w-full">
-                      {{ range .Data.Agents }}
-                        <option value="{{ . }}" {{ if eq . $.Data.DefaultAgent }}selected{{ end }}>{{ . }}</option>
-                      {{ end }}
-                    </select>
-                  </label>
+                {{ if not .Data.EditApp }}
+                  {{ template "builder_services_checklist" . }}
                 {{ end }}
               </div>
 
@@ -145,6 +142,8 @@
               </div>
             </div>
           </form>
+          </div>
+          {{ end }}
         </main>
       </div>
 

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 */
 /* Accessibility overrides layered on top of the generated styles and
    style.css (loaded after both in the head define). Manual-edit file:
    the dev server only regenerates static/gen/. */
@@ -154,52 +155,70 @@ a.btn-disabled {
   }
 }
 
-/* ---- Cross-document navigation ------------------------------------------
-   Same-origin page navigations crossfade via view transitions instead of
-   flashing a repaint (audit -> containers etc.). The static chrome gets its
-   own named transition groups so it stays rock solid while only the content
-   crossfades: pinning those groups to no animation renders them as a no-op.
-   Reduced motion opts out (the reduced-motion block above also zeroes
-   animation durations). Chrome 126+; other browsers ignore all of this and
-   keep plain navigation */
+/* ---- View transitions ----------------------------------------------------
+   Same-origin page navigations fade via view transitions instead of
+   flashing a repaint (audit -> containers etc.). The model is
+   ANIMATE-NOTHING-BY-DEFAULT: the root snapshot (all chrome - sidebar,
+   logo, page background) is pinned static, and only the named content
+   region (main) and the header text pair fade. Anything new added to a
+   page is static in transitions unless it is explicitly named. Reduced
+   motion opts out (the reduced-motion block above also zeroes animation
+   durations). Chrome 126+; other browsers ignore all of this and keep
+   plain navigation */
 @media (prefers-reduced-motion: no-preference) {
+  /* The custom animations below are for CROSS-DOCUMENT navigations only,
+     so they are gated on the cross-doc active type: htmx partial swaps with
+     transition:true start SAME-document view transitions against this very
+     stylesheet, and ungated they made every chip/tab swap dip the whole
+     page - sidebar logo and header included - to the background and back
+     (the root fade-through + title rise/settle read as chrome flicker).
+     Same-document transitions carry no types, match nothing here, and fall
+     back to the UA default plus-lighter crossfade: unchanged pixels stay
+     EXACTLY static (opacities sum to 1) while the swapped content
+     crossfades - which is the wanted partial-swap look. Browsers that
+     ignore the types descriptor simply keep default crossfades */
   @view-transition {
     navigation: auto;
+    types: cross-doc;
   }
-  /* Content fade-through: the old body fades fully out to the page
-     background before the new one fades in. A plain crossfade double-
-     exposes two dissimilar pages (audit's dense table over config's
-     cards) which reads as a bright flash; sequencing through the solid
-     background never overlaps them */
+  /* THE ROOT IS PINNED: chrome is static because it is never animated,
+     not because each piece is individually exempted. Everything without a
+     view-transition-name below - the sidebar INCLUDING the logo above
+     #main-nav, the drawer chrome, the page background - lives in the root
+     snapshot, which snaps straight to the new state on every transition.
+     Only the NEW snapshot shows: snapshots composite with plus-lighter,
+     so keeping both visible double-exposes anything that differs (the
+     sidebar menu-active highlight glowed on two nav entries at once).
+     Before this, chrome was pinned piecemeal (console-sidebar on
+     #main-nav, console-header on .page-header) while root faded - and
+     every unnamed piece of chrome, like the logo, flickered with the root
+     fade */
   ::view-transition-old(root) {
-    animation: vt-page-out 90ms ease-out both;
+    display: none;
   }
   ::view-transition-new(root) {
+    animation: none;
+  }
+  /* The page content region is the ONLY thing that fades on navigation.
+     Fade-through: the old content fades fully out to the page background
+     before the new one fades in. A plain crossfade double-exposes two
+     dissimilar pages (audit's dense table over config's cards) which
+     reads as a bright flash; sequencing through the solid background
+     never overlaps them. The group box does not tween (transparent box,
+     a size snap is invisible) */
+  main {
+    view-transition-name: console-content;
+  }
+  ::view-transition-group(console-content) {
+    animation: none;
+  }
+  html:active-view-transition-type(cross-doc)::view-transition-old(
+      console-content) {
+    animation: vt-page-out 90ms ease-out both;
+  }
+  html:active-view-transition-type(cross-doc)::view-transition-new(
+      console-content) {
     animation: vt-page-in 150ms ease-out 60ms both;
-  }
-  /* the sidebar does not move or fade between pages */
-  #main-nav {
-    view-transition-name: console-sidebar;
-  }
-  ::view-transition-group(console-sidebar) {
-    animation-duration: 0ms;
-  }
-  ::view-transition-old(console-sidebar),
-  ::view-transition-new(console-sidebar) {
-    animation: none;
-  }
-  /* the page header band (brand title, description, page actions) snaps
-     instead of crossfading, same as the sidebar: the shared layout reads
-     as static chrome even when the text changes */
-  .page-header {
-    view-transition-name: console-header;
-  }
-  ::view-transition-group(console-header) {
-    animation-duration: 0ms;
-  }
-  ::view-transition-old(console-header),
-  ::view-transition-new(console-header) {
-    animation: none;
   }
 
   /* title and description animate as a pair: both carry the same
@@ -227,7 +246,9 @@ a.btn-disabled {
      popup opened from inside it (a daisyUI dropdown, a menu) is painted
      UNDER the content that follows it in the DOM - the menu opens but is
      hidden behind later cards. This bit .page-header (app detail Actions)
-     and .page-actions (builder Publish) separately.
+     and .page-actions (builder Publish) separately. `main` is named too
+     (console-content), so every popup host inside it competes within
+     main's own stacking context - the lift below resolves order there.
 
      Fix, in ONE place: every console chrome element that carries a
      view-transition-name is lifted above page content here. When you add a
@@ -248,18 +269,23 @@ a.btn-disabled {
      (Containers vs Configuration) never stretch the text. The fades run in
      sequence - old fully out, new landing just after - so two readable
      texts never overlap */
-  ::view-transition-group(*.console-pair) {
+  html:active-view-transition-type(cross-doc)::view-transition-group(
+      *.console-pair) {
     animation: none;
   }
-  ::view-transition-old(*.console-pair),
-  ::view-transition-new(*.console-pair) {
+  html:active-view-transition-type(cross-doc)::view-transition-old(
+      *.console-pair),
+  html:active-view-transition-type(cross-doc)::view-transition-new(
+      *.console-pair) {
     width: auto;
     height: auto;
   }
-  ::view-transition-old(*.console-pair) {
+  html:active-view-transition-type(cross-doc)::view-transition-old(
+      *.console-pair) {
     animation: vt-title-out 90ms ease-out both;
   }
-  ::view-transition-new(*.console-pair) {
+  html:active-view-transition-type(cross-doc)::view-transition-new(
+      *.console-pair) {
     animation: vt-title-in 160ms cubic-bezier(0.2, 0.8, 0.2, 1) 70ms both;
   }
 }
@@ -455,3 +481,19 @@ form.htmx-request button[type="submit"] {
   height: auto;
   min-height: var(--size);
 }
+
+/* ---- Builder chat: tool-call chips --------------------------------------
+   Agent tool titles are raw shell commands that can run hundreds of
+   characters; cap the chip with an ellipsis (the full command stays
+   readable via the native title= tooltip - unbounded text keeps native
+   titles by convention). Used by the server-rendered transcript and the
+   live chips appended by builderchat.js. */
+builder-chat .bc-tool-title {
+  display: inline-block;
+  max-width: 26rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+

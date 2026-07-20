@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 // <log-tail> - streaming log viewer custom element.
 //
 //   <log-tail src="/app/containers/logs_stream?id=X&tail=500" max-lines="5000"></log-tail>

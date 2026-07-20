@@ -10,6 +10,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    {{/* htmx halts requests from invalid forms; without this setting the
+      halt is SILENT (no bubble, no focus) and reads as a dead button */}}
+    <meta name="htmx-config" content='{"reportValidityOfForms":true}' />
     <title>OpenRun - {{ .Data.Title }}</title>
 
     <script>
@@ -77,6 +80,7 @@
     {{ template "openrun_gen_import" . }}
     <!-- Accessibility overrides, loaded after the generated + design styles -->
     <link rel="stylesheet" href="{{ static "css/accessibility.css" }}" />
+    {{ template "ext_head" . }}
   </head>
 {{ end }}
 
@@ -144,7 +148,7 @@
 {{ define "page_title" }}
   <h1
     class="page-title text-2xl md:text-3xl font-extrabold italic tracking-tight">
-    {{ . }}
+    {{ . }}{{ template "ext_brand" }}
   </h1>
 {{ end }}
 
@@ -798,12 +802,67 @@ InputId, Placeholder, Masked, File, Description, Error */}}
 {{/* sync_result renders the detailed results of a sync run.
   Context: the SyncResult summary dict
 */}}
-{{ define "bc_send_error" }}
-  {{ if .Data.SendError }}
-    <div class="pb-1 text-error text-xs whitespace-pre-wrap" role="alert">
-      Message not sent:
-      {{ .Data.SendError }}
+{{/* op_redirect: empty body for form-success responses that navigate via
+  HX-Redirect (form_redirect in handler.star) */}}
+{{ define "op_redirect" }}{{ end }}
+
+{{/* builder_services_checklist: the new-app form's service auto-binding
+  choice, shaped by the selected profile's services offer. Re-rendered as a
+  fragment when the profile select changes. Context: .Data.ServicesOffer
+  (list of {id,type,name,is_default}) and .Data.ServicesChecked (id->bool,
+  error re-render state) */}}
+{{ define "builder_services_checklist" }}
+  <div id="services-offer">
+    {{ if .Data.ServicesOffer }}
+      <div class="label"><span class="label-text">Services</span></div>
+      <div class="flex flex-col gap-1">
+        {{ $checked := .Data.ServicesChecked }}
+        {{ range .Data.ServicesOffer }}
+          <label class="flex items-center gap-2 cursor-pointer text-sm">
+            <input
+              type="checkbox"
+              name="services"
+              value="{{ .id }}"
+              class="checkbox checkbox-xs checkbox-primary"
+              {{ if index $checked .id }}checked{{ end }} />
+            <span class="font-mono text-xs">{{ .id }}</span>
+            <span class="badge badge-ghost badge-xs">{{ .type }}</span>
+            {{ if .is_default }}<span class="badge badge-soft badge-primary badge-xs">default</span>{{ end }}
+          </label>
+        {{ end }}
+      </div>
+      <div class="label">
+        <span class="label-text-alt text-base-content/70">
+          Each picked service is auto-bound to the app; its credentials
+          arrive as environment variables (one service per type)
+        </span>
+      </div>
+    {{ end }}
+  </div>
+{{ end }}
+
+{{/* publish_check_result: outcome of the builder publish dialog's Validate
+  button, rendered into #publish-check-result (fragment block-only render,
+  so the define must live in the base templates) */}}
+{{ define "publish_check_result" }}
+  {{ if .Data.CheckError }}
+    <div class="text-error text-xs whitespace-pre-wrap" role="alert">✕ {{ .Data.CheckError }}</div>
+  {{ else if .Data.CheckPath }}
+    <div class="text-success text-xs" role="status">
+      ✓ will publish at <span class="font-mono">{{ .Data.CheckPath }}</span
+      >{{ if and .Data.CheckResolved (ne .Data.CheckResolved .Data.CheckPath) }}
+        (<span class="font-mono">{{ .Data.CheckResolved }}</span> on this server){{ end
+      }}{{ if .Data.CheckExists }} (updates the existing app){{ end }}
     </div>
+  {{ end }}
+{{ end }}
+
+{{ define "bc_send_error" }}
+  {{/* generic chat-action error slot: the handlers pass the full text
+    ("Message not sent: ...", "Not stopped: ...") since both the composer
+    and the Stop button retarget their failures here */}}
+  {{ if .Data.SendError }}
+    <div class="pb-1 text-error text-xs whitespace-pre-wrap" role="alert">{{ .Data.SendError }}</div>
   {{ end }}
 {{ end }}
 
@@ -1204,6 +1263,7 @@ InputId, Placeholder, Masked, File, Description, Error */}}
               >Audit Logs</a
             >
           </li>
+          {{ template "ext_nav" . }}
           {{/* Configuration screens are install-gated (enable_config
             param); a disabled install has no /config routes at all
           */}}
@@ -1283,4 +1343,154 @@ InputId, Placeholder, Masked, File, Description, Error */}}
       </div>
     </aside>
   </div>
+{{ end }}
+
+
+{{/* publish_form: the builder publish dialog form. Lives in the base
+  templates so a failed publish re-renders JUST the form in place
+  (retarget #publish-form, outerHTML) - the dropdown stays open with the
+  submitted values and the error inline; success swaps #session-content
+  with the publish result */}}
+{{ define "publish_form" }}
+  {{ $s := .Data.Session }}
+  {{ $canPublish := index .Data.Perms "builder:publish" }}
+                        <form
+                          id="publish-form"
+                          class="card-body p-4 gap-3"
+                          hx-post="{{ .AppPath }}/builder/detail/publish?id={{ $s.id }}"
+                          hx-target="#session-content"
+                          hx-swap="innerHTML transition:true"
+                          hx-disabled-elt="find button[type=submit]"
+                          data-builder-publish>
+                          <h3 class="font-semibold text-sm">
+                            {{ if $s.edit_app }}Update{{ else }}Publish{{ end }}
+                          </h3>
+                          {{ if .Data.PublishError }}
+                            <div class="text-error text-xs whitespace-pre-wrap" role="alert">✕ {{ .Data.PublishError }}</div>
+                          {{ end }}
+                          <p class="text-xs text-base-content/70">
+                            Writing code to
+                            {{ if eq .Data.PublishMode "git" }}<span class="font-mono break-all">{{ .Data.GitRepo }}</span>{{ else }}this server{{ end }}
+                          </p>
+                          {{ if and $s.edit_app $s.publish_path }}
+                            <p class="text-xs text-base-content/70">
+                              The app source is updated in place; the app
+                              declaration in apps.star is not changed.
+                            </p>
+                          {{ else if $s.edit_app }}
+                            <p class="text-xs text-base-content/70">
+                              Publishes a new app copied from
+                              <span class="font-mono">{{ $s.edit_app }}</span> (settings
+                              carried over, fresh auto bindings); the original app is
+                              not changed and cannot be the destination.
+                            </p>
+                          {{ end }}
+                          {{ if $s.publish_path }}
+                            {{/* Republish targets the same path */}}
+                            <input type="hidden" name="publish_choice" value="__same__" />
+                            <input type="hidden" name="current_path" value="{{ $s.publish_path }}" />
+                            <p class="text-xs">
+                              App path: <span class="font-mono">{{ $s.publish_path }}</span>
+                            </p>
+                          {{ else }}
+                            {{/* One input shaped by the profile's publish
+                              destination mode, prefilled from the session name */}}
+                            {{ if eq .Data.PublishDestMode "subdomain" }}
+                              <label class="form-control">
+                                <div class="label py-1"><span class="label-text text-xs">Subdomain</span></div>
+                                <div class="flex items-center gap-1 min-w-0">
+                                  <input
+                                    type="text"
+                                    name="publish_input"
+                                    required
+                                    value="{{ or .Data.PublishInput .Data.PublishPrefill }}"
+                                    class="input input-bordered input-sm font-mono min-w-0 flex-1"
+                                    placeholder="my-app"
+                                    aria-label="Subdomain the app publishes at" />
+                                  <span class="font-mono text-xs shrink-0">.{{ .Data.PublishDestTarget }}</span>
+                                </div>
+                                {{ if and .Data.PublishDestResolved (ne .Data.PublishDestResolved .Data.PublishDestTarget) }}
+                                  <div class="label py-1"><span class="label-text-alt text-base-content/60">
+                                    <span class="font-mono">.{{ .Data.PublishDestTarget }}</span> is relative -
+                                    resolves to <span class="font-mono">.{{ .Data.PublishDestResolved }}</span> on this
+                                    server, so other instances can sync the app under their own domain
+                                  </span></div>
+                                {{ end }}
+                              </label>
+                            {{ else if eq .Data.PublishDestMode "path" }}
+                              <label class="form-control">
+                                <div class="label py-1"><span class="label-text text-xs">App name</span></div>
+                                <div class="flex items-center gap-1 min-w-0">
+                                  <span class="font-mono text-xs shrink-0">{{ .Data.PublishDestTarget }}/</span>
+                                  <input
+                                    type="text"
+                                    name="publish_input"
+                                    required
+                                    value="{{ or .Data.PublishInput .Data.PublishPrefill }}"
+                                    class="input input-bordered input-sm font-mono min-w-0 flex-1"
+                                    placeholder="my-app"
+                                    aria-label="App name under the publish path prefix" />
+                                </div>
+                              </label>
+                            {{ else }}
+                              <label class="form-control">
+                                <div class="label py-1"><span class="label-text text-xs">App path</span></div>
+                                <input
+                                  type="text"
+                                  name="publish_input"
+                                  required
+                                  value="{{ or .Data.PublishInput .Data.PublishPrefill }}"
+                                  class="input input-bordered input-sm font-mono"
+                                  placeholder="{{ if eq .Data.PublishDestMode "glob" }}{{ .Data.PublishDestTarget }}{{ else }}/tools/my-app or apps.example.com:/my-app{{ end }}"
+                                  aria-label="Publish path" />
+                              </label>
+                              {{ if eq .Data.PublishDestMode "glob" }}
+                                <p class="text-[11px] text-base-content/60">
+                                  must match <span class="font-mono">{{ .Data.PublishDestTarget }}</span>
+                                </p>
+                              {{ end }}
+                            {{ end }}
+                            {{ if .Data.PublishDestDesc }}
+                              <p class="text-[11px] text-base-content/60">{{ .Data.PublishDestDesc }}</p>
+                            {{ end }}
+                          {{ end }}
+                          {{ if eq .Data.PublishMode "git" }}
+                            <label class="form-control">
+                              <div class="label py-1"><span class="label-text text-xs">Commit message</span></div>
+                              <input
+                                type="text"
+                                name="commit_msg"
+                                value="{{ .Data.PublishCommitMsg }}"
+                                class="input input-bordered input-sm"
+                                placeholder="Add app (built with OpenRun Builder)" />
+                            </label>
+                          {{ end }}
+                          <div id="publish-check-result">{{ template "publish_check_result" . }}</div>
+                          <p class="text-xs text-base-content/70">
+                            {{ if eq .Data.PublishMode "git" }}
+                              The app goes live when the prod instance syncs
+                              the repo's apps.star
+                            {{ else }}
+                              The app is created on this server immediately
+                            {{ end }}
+                          </p>
+                          <div class="flex items-center gap-2">
+                            {{/* hx-disabled-elt=this OVERRIDES the form's
+                              inherited "find button[type=submit]": find is
+                              relative to the requesting element (this
+                              button), matches nothing, and htmx throws on
+                              the null before sending the request */}}
+                            <button
+                              type="button"
+                              class="btn btn-ghost btn-sm"
+                              hx-post="{{ .AppPath }}/builder/detail/publish_check?id={{ $s.id }}"
+                              hx-target="#publish-check-result"
+                              hx-swap="innerHTML"
+                              hx-disabled-elt="this"
+                              hx-indicator="#page-progress">
+                              Validate
+                            </button>
+                            <button type="submit" class="btn btn-primary btn-sm">Publish app</button>
+                          </div>
+                        </form>
 {{ end }}

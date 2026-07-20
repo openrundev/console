@@ -39,6 +39,8 @@
           {{ template "page_progress" }}
 
 
+{{ block "op_form" . }}
+          <div id="op-form-wrap">
           {{ template "error_alert" .Data.Error }}
 
           {{ if eq .Data.Step "approve" }}
@@ -63,7 +65,9 @@
               method="post"
               action="{{ .AppPath }}/apps/create"
               id="op-form"
-              hx-boost="true"
+              hx-post="{{ .AppPath }}/apps/create"
+              hx-target="#op-form-wrap"
+              hx-swap="outerHTML"
               hx-indicator="#page-progress, #op-form"
               class="flex justify-end gap-2">
               <input type="hidden" name="path" value="{{ .Data.Values.path }}" />
@@ -147,7 +151,9 @@
               method="post"
               action="{{ .AppPath }}/apps/{{ .Data.Mode }}"
               id="op-form"
-              hx-boost="true"
+              hx-post="{{ .AppPath }}/apps/{{ .Data.Mode }}"
+              hx-target="#op-form-wrap"
+              hx-swap="outerHTML"
               hx-indicator="#page-progress, #op-form"
               class="card bg-base-100 border border-base-300">
               <div class="card-body p-5 gap-5">
@@ -422,6 +428,8 @@
                 </div>
               </div>
             </form>
+          {{ end }}
+          </div>
           {{ end }}
         </main>
       </div>

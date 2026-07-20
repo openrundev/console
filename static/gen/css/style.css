@@ -3767,6 +3767,9 @@
   .resize-y {
     resize: vertical;
   }
+  .list-none {
+    list-style-type: none;
+  }
   .stats-horizontal {
     @layer daisyui.l1.l2 {
       grid-auto-flow: column;
@@ -3968,6 +3971,10 @@
   .border-b {
     border-bottom-style: var(--tw-border-style);
     border-bottom-width: 1px;
+  }
+  .border-l {
+    border-left-style: var(--tw-border-style);
+    border-left-width: 1px;
   }
   .border-dashed {
     --tw-border-style: dashed;
@@ -4839,6 +4846,11 @@
       }
     }
   }
+  .group-open\:rotate-90 {
+    &:is(:where(.group):is([open], :popover-open, :open) *) {
+      rotate: 90deg;
+    }
+  }
   .group-hover\:translate-x-0\.5 {
     &:is(:where(.group):hover *) {
       @media (hover: hover) {
@@ -4871,16 +4883,6 @@
       width: calc(var(--spacing) * 60);
     }
   }
-  .hover\:border-primary\/50 {
-    &:hover {
-      @media (hover: hover) {
-        border-color: var(--color-primary);
-        @supports (color: color-mix(in lab, red, red)) {
-          border-color: color-mix(in oklab, var(--color-primary) 50%, transparent);
-        }
-      }
-    }
-  }
   .hover\:bg-base-200 {
     &:hover {
       @media (hover: hover) {
@@ -4908,6 +4910,13 @@
       }
     }
   }
+  .hover\:text-base-content {
+    &:hover {
+      @media (hover: hover) {
+        color: var(--color-base-content);
+      }
+    }
+  }
   .focus\:opacity-100 {
     &:focus {
       opacity: 100%;
@@ -4928,19 +4937,6 @@
       --tw-scale-y: 95%;
       --tw-scale-z: 95%;
       scale: var(--tw-scale-x) var(--tw-scale-y);
-    }
-  }
-  .has-\[\:checked\]\:border-primary {
-    &:has(*:is(:checked)) {
-      border-color: var(--color-primary);
-    }
-  }
-  .has-\[\:checked\]\:bg-primary\/5 {
-    &:has(*:is(:checked)) {
-      background-color: var(--color-primary);
-      @supports (color: color-mix(in lab, red, red)) {
-        background-color: color-mix(in oklab, var(--color-primary) 5%, transparent);
-      }
     }
   }
   .sm\:flex {

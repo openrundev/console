@@ -60,6 +60,8 @@
           {{ template "page_progress" }}
 
 
+{{ block "op_form" . }}
+          <div id="op-form-wrap">
           {{ template "error_alert" .Data.Error }}
 
 
@@ -67,7 +69,9 @@
             method="post"
             action="{{ .AppPath }}/config/entry"
             id="op-form"
-            hx-boost="true"
+            hx-post="{{ .AppPath }}/config/entry"
+            hx-target="#op-form-wrap"
+            hx-swap="outerHTML"
             hx-indicator="#page-progress, #op-form"
             class="card bg-base-100 border border-base-300">
             <div class="card-body p-5 gap-5">
@@ -150,6 +154,74 @@
                       name="{{ .name }}"
                       rows="3"
                       class="textarea w-full font-mono text-sm leading-relaxed">{{ if $value }}{{ range $i, $item := $value }}{{ if $i }}&#10;{{ end }}{{ $item }}{{ end }}{{ end }}</textarea>
+                  {{ else if eq $kind "select" }}
+                    <label class="block text-sm font-medium mb-1" for="entry-{{ .name }}"
+                      >{{ .label }}{{ if .required }} <span class="text-error" aria-hidden="true">*</span>{{ end }}</label
+                    >
+                    {{ $opts := index $.Data.FieldOptions .name }}
+                    {{ $current := printf "%s" (or $value "") }}
+                    <select
+                      id="entry-{{ .name }}"
+                      name="{{ .name }}"
+                      {{ if .required }}required{{ end }}
+                      class="select w-full font-mono text-sm min-w-0">
+                      {{ if not .required }}
+                        <option value="" {{ if not $current }}selected{{ end }}>
+                          {{ or .empty_label "none" }}
+                        </option>
+                      {{ else if not $current }}
+                        <option value="" selected disabled>choose...</option>
+                      {{ end }}
+                      {{ range $opts }}
+                        <option value="{{ . }}" {{ if eq . $current }}selected{{ end }}>{{ . }}</option>
+                      {{ end }}
+                      {{ if $current }}
+                        {{ $found := false }}
+                        {{ range $opts }}
+                          {{ if eq . $current }}{{ $found = true }}{{ end }}
+                        {{ end }}
+                        {{ if not $found }}
+                          <option value="{{ $current }}" selected>{{ $current }} (not found)</option>
+                        {{ end }}
+                      {{ end }}
+                    </select>
+                  {{ else if eq $kind "checklist" }}
+                    <span class="block text-sm font-medium mb-1">{{ .label }}</span>
+                    {{ $opts := index $.Data.FieldOptions .name }}
+                    {{ $current := $value }}
+                    {{ $fieldName := .name }}
+                    <div class="flex flex-col gap-1">
+                      {{ range $opts }}
+                        {{ $opt := . }}
+                        {{ $checked := false }}
+                        {{ range $current }}{{ if eq . $opt }}{{ $checked = true }}{{ end }}{{ end }}
+                        <label class="flex items-center gap-2 cursor-pointer text-sm">
+                          <input
+                            type="checkbox"
+                            name="{{ $fieldName }}"
+                            value="{{ $opt }}"
+                            class="checkbox checkbox-xs checkbox-primary"
+                            {{ if $checked }}checked{{ end }} />
+                          <span class="font-mono text-xs">{{ $opt }}</span>
+                        </label>
+                      {{ end }}
+                      {{ if not $opts }}
+                        <span class="text-xs text-base-content/60">no services exist yet</span>
+                      {{ end }}
+                      {{/* a stored entry missing from the options (deleted
+                        service) still round-trips as a checked fallback */}}
+                      {{ range $current }}
+                        {{ $cur := . }}
+                        {{ $found := false }}
+                        {{ range $opts }}{{ if eq . $cur }}{{ $found = true }}{{ end }}{{ end }}
+                        {{ if not $found }}
+                          <label class="flex items-center gap-2 cursor-pointer text-sm">
+                            <input type="checkbox" name="{{ $fieldName }}" value="{{ $cur }}" class="checkbox checkbox-xs checkbox-primary" checked />
+                            <span class="font-mono text-xs">{{ $cur }} (not found)</span>
+                          </label>
+                        {{ end }}
+                      {{ end }}
+                    </div>
                   {{ else if eq $kind "textarea" }}
                     <label class="block text-sm font-medium mb-1" for="entry-{{ .name }}"
                       >{{ .label }}</label
@@ -249,6 +321,8 @@
               </div>
             </div>
           </form>
+          </div>
+          {{ end }}
         </main>
       </div>
 
