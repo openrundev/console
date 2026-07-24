@@ -636,6 +636,13 @@ function toggleNavDrawer(btn) {
 	}
 }
 
+// Dismiss the mobile sign-in strip for the rest of the browser session. The
+// pre-paint head snippet reads the flag, so later pages never flash the strip
+function dismissSigninStrip() {
+	sessionStorage.setItem('signin-strip-dismissed', '1');
+	document.documentElement.setAttribute('data-signin-dismissed', '');
+}
+
 // Show an error toast for failed API calls; replaces the previous message
 // and auto-dismisses
 function showApiError(message) {

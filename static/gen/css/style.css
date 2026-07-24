@@ -1280,42 +1280,6 @@
   .visible {
     visibility: visible;
   }
-  .radial-progress {
-    @layer daisyui.l1.l2.l3 {
-      position: relative;
-      display: inline-grid;
-      height: var(--size);
-      width: var(--size);
-      place-content: center;
-      border-radius: calc(infinity * 1px);
-      background-color: transparent;
-      vertical-align: middle;
-      box-sizing: content-box;
-      --value: 0;
-      --size: 5rem;
-      --thickness: calc(var(--size) / 10);
-      --radialprogress: calc(var(--value) * 1%);
-      transition: --radialprogress 0.3s linear;
-      &:before {
-        position: absolute;
-        inset: 0;
-        border-radius: calc(infinity * 1px);
-        content: "";
-        background: radial-gradient(farthest-side, currentColor 98%, #0000) top/var(--thickness) var(--thickness) no-repeat, conic-gradient(currentColor var(--radialprogress), #0000 0);
-        webkit-mask: radial-gradient( farthest-side, #0000 calc(100% - var(--thickness)), #000 calc(100% + 0.5px - var(--thickness)) );
-        mask: radial-gradient( farthest-side, #0000 calc(100% - var(--thickness)), #000 calc(100% + 0.5px - var(--thickness)) );
-      }
-      &:after {
-        position: absolute;
-        border-radius: calc(infinity * 1px);
-        background-color: currentcolor;
-        transition: transform 0.3s linear;
-        content: "";
-        inset: calc(50% - var(--thickness) / 2);
-        transform: rotate(calc(var(--value) * 3.6deg - 90deg)) translate(calc(var(--size) / 2 - 50%));
-      }
-    }
-  }
   .list {
     @layer daisyui.l1.l2.l3 {
       display: flex;
@@ -3566,9 +3530,6 @@
   .w-5 {
     width: calc(var(--spacing) * 5);
   }
-  .w-6 {
-    width: calc(var(--spacing) * 6);
-  }
   .w-7 {
     width: calc(var(--spacing) * 7);
   }
@@ -5292,7 +5253,7 @@
   :where(:root),:root:has(input.theme-controller[value=openrun-light]:checked),[data-theme="openrun-light"] {
     color-scheme: light;
     --color-base-100: #ffffff;
-    --color-base-200: #f1f6f1;
+    --color-base-200: #f9fcf9;
     --color-base-300: #dce8dc;
     --color-base-content: #142319;
     --color-primary: #00c200;

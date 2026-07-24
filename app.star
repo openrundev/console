@@ -99,7 +99,7 @@ OPENRUN_THEMES = {
     "openrun-light": {
         "color-scheme": "light",
         "--color-base-100": "#ffffff",  # cards, sidebar
-        "--color-base-200": "#f1f6f1",  # page background, green-tinted
+        "--color-base-200": "#f9fcf9",  # page background, faint green tint
         "--color-base-300": "#dce8dc",  # borders, dividers
         "--color-base-content": "#142319",
         "--color-primary": "#00c200",  # brand light green, actions

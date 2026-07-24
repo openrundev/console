@@ -144,9 +144,30 @@ secret-input:not(:defined) {
 a.btn-disabled {
   color: color-mix(in oklab, var(--color-base-content) 35%, transparent) !important;
 }
+/* Dropdown menu entries (app detail Actions) are NOT .btn: a disabled
+   Delete kept its text-error (bright red) and the entry icons their
+   text-primary. Inherit the li.menu-disabled muted color instead. */
+.menu li.menu-disabled :is(.text-error, .text-primary) {
+  color: inherit !important;
+}
+/* Mobile sign-in strip: hidden for the session once dismissed via its ✕
+   button (sessionStorage flag stamped on <html> by the pre-paint head
+   snippet, so no page in the session flashes the strip) */
+html[data-signin-dismissed] #signin-strip {
+  display: none;
+}
+
+/* Mobile page header: the hamburger is a 3.5rem btn-xl square around a
+   1.75rem icon, so the icon sat visually inset from the content edge; the
+   negative margin swallows the button's left padding so the icon lines up
+   flush with the page content (the button is lg:hidden, desktop unaffected) */
+.page-header > button[aria-controls='main-nav'] {
+  margin-left: -0.875rem;
+}
+
 /* Keep the wide sidebar brand legible without crowding the 15rem drawer. */
 .sidebar-logo {
-  height: 2.5rem;
+  height: 3.75rem;
 }
 
 @media (min-width: 48rem) {
@@ -386,6 +407,19 @@ a.btn-disabled {
 .tooltip:before {
   max-width: 18rem;
   white-space: normal;
+}
+/* On narrow screens an 18rem bubble is wider than the space beside its
+   anchor: table badges (tooltip-left mid-screen) and row actions ran past
+   the viewport edge. Cap tighter so the bubble wraps and stays on screen;
+   dropdown menus sit hard against the screen edge and need the narrowest
+   cap (the dropdown itself is ~15rem of the 390px viewport). */
+@media (max-width: 47.9375rem) {
+  .tooltip:before {
+    max-width: 10rem;
+  }
+  .dropdown-content .tooltip:before {
+    max-width: 8rem;
+  }
 }
 
 /* Disabled buttons keep hover so their "requires <perm>" tooltip shows:

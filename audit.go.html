@@ -239,9 +239,12 @@
                       role="alert"
                       class="alert alert-info alert-soft py-2 text-sm">
                       <span aria-hidden="true">🔍</span>
-                      <span>
+                      {{/* min-w-0 + break-all: the rid is one unbreakable
+                        token, without them it pushes Clear trace off screen
+                        on mobile */}}
+                      <span class="min-w-0">
                         Showing all events for request
-                        <span class="font-mono text-xs">{{ .Data.Filters.rid }}</span>
+                        <span class="font-mono text-xs break-all">{{ .Data.Filters.rid }}</span>
                       </span>
                       <button
                         type="button"

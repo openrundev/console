@@ -25,13 +25,18 @@
       if (theme == "light" || theme == "dark") {
         document.documentElement.setAttribute("data-theme", "openrun-" + theme);
       }
+      // A dismissed mobile sign-in strip stays hidden for the session; the
+      // attribute is stamped pre-paint so later pages never flash the strip
+      if (sessionStorage.getItem("signin-strip-dismissed")) {
+        document.documentElement.setAttribute("data-signin-dismissed", "");
+      }
     </script>
     <style>
       /* Paint the page background before the stylesheets apply, so
          navigating between pages does not flash white in dark mode.
          Values match base-200 of the openrun themes */
       html {
-        background-color: #f1f6f1;
+        background-color: #f9fcf9;
       }
       html[data-theme="openrun-dark"] {
         background-color: #101a13;
@@ -1030,23 +1035,35 @@ InputId, Placeholder, Masked, File, Description, Error */}}
     detailed notice in it) is hidden under lg, so a slim bottom strip gives
     the cue there; activating it (tap or keyboard, a real button unlike the
     pointer-only drawer overlay label) opens the drawer with the full
-    explanation
+    explanation. The ✕ dismisses it for the browser session (sessionStorage
+    flag, applied pre-paint in the head snippet)
   */}}
   {{ if and .Data.Perms (index .Data.Perms "feature:system_blocked") }}
-    <button
-      type="button"
-      aria-controls="main-nav"
-      aria-expanded="false"
-      onclick="toggleNavDrawer(this)"
-      class="lg:hidden fixed inset-x-0 bottom-0 z-[60] bg-error text-error-content px-4 py-2 text-xs font-medium flex items-center gap-2 text-left cursor-pointer shadow-lg">
-      <span role="alert" class="flex items-center gap-2 min-w-0">
-        <span aria-hidden="true">⚠</span>
-        <span class="min-w-0"
-          >Sign-in required - management actions are disabled. Tap for
-          details.</span
-        >
-      </span>
-    </button>
+    <div
+      id="signin-strip"
+      class="lg:hidden fixed inset-x-0 bottom-0 z-[60] bg-error text-error-content flex shadow-lg">
+      <button
+        type="button"
+        aria-controls="main-nav"
+        aria-expanded="false"
+        onclick="toggleNavDrawer(this)"
+        class="flex-1 min-w-0 px-4 py-2 text-xs font-medium flex items-center gap-2 text-left cursor-pointer">
+        <span role="alert" class="flex items-center gap-2 min-w-0">
+          <span aria-hidden="true">⚠</span>
+          <span class="min-w-0"
+            >Sign-in required - management actions are disabled. Tap for
+            details.</span
+          >
+        </span>
+      </button>
+      <button
+        type="button"
+        aria-label="Dismiss the sign-in notice"
+        onclick="dismissSigninStrip()"
+        class="px-3 py-2 text-sm cursor-pointer">
+        ✕
+      </button>
+    </div>
   {{ end }}
   <div class="drawer-side z-20">
     <label for="nav-drawer" aria-hidden="true" class="drawer-overlay"></label>

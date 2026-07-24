@@ -119,8 +119,11 @@
                               {{ end }}
                             </td>
                             <td>
+                              {{/* break-all needs a min-width floor: table
+                                auto-layout otherwise squeezes the column to
+                                one-character slivers on mobile */}}
                               <span
-                                class="font-mono text-xs font-medium break-all"
+                                class="font-mono text-xs font-medium break-all inline-block min-w-40 align-bottom"
                                 >{{ .repo }}</span
                               >
                               {{ if .branch }}
