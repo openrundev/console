@@ -14,10 +14,10 @@ def features():
     # Feature flags from the install params (params.star); mirror the
     # ENABLE_* flags in app.star which gate the routes and plugin permissions
     return {
-        "updates": param.enable_all or param.enable_updates,
-        "container": param.enable_all or param.enable_container,
-        "config": param.enable_all or param.enable_config,
-        "builder": param.enable_all or param.enable_builder,
+        "updates": param.enable_updates,
+        "container": param.enable_all_features or param.enable_container,
+        "config": param.enable_all_features or param.enable_config,
+        "builder": param.enable_all_features or param.enable_builder,
     }
 
 

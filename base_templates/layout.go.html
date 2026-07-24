@@ -1325,21 +1325,61 @@ InputId, Placeholder, Masked, File, Description, Error */}}
           </p>
         </div>
       {{ end }}
-      <div
-        class="px-4 py-3 border-t border-base-300 flex items-center gap-2 text-sm">
-        {{ if .UserId }}
-          <div class="avatar avatar-placeholder">
-            <div class="w-7 rounded-full bg-neutral text-neutral-content">
-              <span class="text-xs">{{ upper (trunc 1 .UserId) }}</span>
+      {{/* User footer: avatar + actions row, the id on its own full-width
+        line below. SSO ids (okta_prod:fname.lname@mycompany.com) are far
+        wider than the space left beside the avatar and buttons (~96px, 13
+        chars), so the id line spans the footer and wraps to two lines
+        (~70 chars) before clamping - typical SAML/builtin ids display in
+        full, pathological ones end in an ellipsis */}}
+      <div class="px-4 py-3 border-t border-base-300 text-sm space-y-1">
+        <div class="flex items-center gap-2">
+          {{ if .UserId }}
+            <div class="avatar avatar-placeholder">
+              <div class="w-7 rounded-full bg-neutral text-neutral-content">
+                <span class="text-xs">{{ upper (trunc 1 .UserId) }}</span>
+              </div>
             </div>
+          {{ end }}
+          <div class="ml-auto flex items-center gap-1">
+          {{/* Sign out links the server's universal logout page (clears every
+            OpenRun session cookie regardless of auth type). Anonymous users
+            (none auth) have no session to end, so no link. Plain navigation:
+            the logout page is a full server-rendered page outside the app.
+          */}}
+            {{ if and .UserId (ne .UserId "anonymous") }}
+              <a
+                href="/_openrun/logout?redirect={{ .AppPath }}/"
+                class="btn btn-sm btn-ghost btn-circle tooltip tooltip-left"
+                data-tip="Sign out"
+                aria-label="Sign out {{ .UserId }}">
+                <svg
+                  aria-hidden="true"
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" x2="9" y1="12" y2="12" />
+                </svg>
+              </a>
+            {{ end }}
+            {{ template "theme_toggle" . }}
           </div>
-          <div class="min-w-0">
-            <div class="truncate tooltip tooltip-top" data-tip="{{ .UserId }}">{{ .UserId }}</div>
+        </div>
+        {{ if .UserId }}
+          {{/* Native title, not a daisyui tooltip: the id is unbounded and a
+            clamp's hidden overflow clips a ::before bubble of its own
+            element, so a daisyui tooltip here can never show */}}
+          <div class="text-xs break-all line-clamp-2" title="{{ .UserId }}">
+            {{ .UserId }}
           </div>
         {{ end }}
-        <div class="ml-auto">
-          {{ template "theme_toggle" . }}
-        </div>
       </div>
     </aside>
   </div>

@@ -46,22 +46,26 @@ load("ext.star", "ext_routes", "ext_permissions")
 # handler.star, shared helpers in utils.star.
 
 # Feature flags from params.star, set at app install time (openrun app
-# create --param enable_all=true ...). The default install is a read-only
-# console: write routes are not registered and the corresponding plugin
-# permissions are not requested, so a disabled area needs no approval and
-# cannot be invoked at all.
+# create --param enable_all_features=true ...). The default install is a
+# read-only console: write routes are not registered and the corresponding
+# plugin permissions are not requested, so a disabled area needs no approval
+# and cannot be invoked at all.
 #   enable_updates:   the write switch: app/sync/binding/service changes,
 #                     storing secrets, and - combined with the area flags -
-#                     container start/stop and config/RBAC changes
+#                     container start/stop, config/RBAC changes and builder
+#                     session mutations
 #   enable_container: the containers screens; start/stop additionally needs
 #                     enable_updates
 #   enable_config:    the configuration screens; changes (restore, entry and
 #                     RBAC edits) additionally need enable_updates
-#   enable_all:       everything
-ENABLE_UPDATES = param.enable_all or param.enable_updates
-ENABLE_CONTAINER = param.enable_all or param.enable_container
-ENABLE_CONFIG = param.enable_all or param.enable_config
-ENABLE_BUILDER = param.enable_all or param.enable_builder
+#   enable_builder:   the AI app builder screens; session create/chat/publish
+#                     additionally need enable_updates
+#   enable_all_features: every feature area (container, config, builder) -
+#                     but NOT enable_updates, which stays a separate switch
+ENABLE_UPDATES = param.enable_updates
+ENABLE_CONTAINER = param.enable_all_features or param.enable_container
+ENABLE_CONFIG = param.enable_all_features or param.enable_config
+ENABLE_BUILDER = param.enable_all_features or param.enable_builder
 
 # Context passed to the ext.star extension hooks (see ext.star): a dict, so
 # future additions never change the hook signatures
