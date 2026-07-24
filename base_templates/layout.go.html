@@ -1,3 +1,5 @@
+{{/* Copyright (c) ClaceIO, LLC */}}
+{{/* SPDX-License-Identifier: Apache-2.0 */}}
 {{/* Shared layout pieces for all console pages. Defines used across page
   templates must live here (page-local defines are not visible to other
   pages)
@@ -1054,8 +1056,7 @@ InputId, Placeholder, Masked, File, Description, Error */}}
         class="px-3 py-1.5 flex items-center justify-center border-b border-base-300">
         <a
           href="{{ .AppPath }}/apps"
-          data-tip="OpenRun home"
-          class="logo-mark inline-block tooltip tooltip-bottom">
+          class="logo-mark inline-block">
           <img
             src="{{ static "openrun.png" }}"
             alt="OpenRun"
@@ -1310,19 +1311,12 @@ InputId, Placeholder, Masked, File, Description, Error */}}
           class="mx-2 mb-2 px-3 py-2 rounded-box bg-error/10 border border-error/40 text-xs space-y-1">
           <div class="flex items-center gap-1 font-semibold text-error">
             <span aria-hidden="true">⚠</span>
-            Console app requires sign in.
+            Sign-in required
           </div>
           <p>
             Management and builder operations are disabled for anonymous users.
           </p>
-          <p>
-            Configure auth for the Console app, or (for dev only) set
-            <code class="font-mono break-all"
-              >security.unsafe_allow_system_plugins_anon = true</code
-            >
-            in <code class="font-mono">openrun.toml</code> and restart the
-            server.
-          </p>
+          <p>Enable authentication for the Console app.</p>
         </div>
       {{ end }}
       {{/* User footer: avatar + actions row, the id on its own full-width

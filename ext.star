@@ -1,3 +1,4 @@
+# Copyright (c) ClaceIO, LLC
 # SPDX-License-Identifier: Apache-2.0
 # Extension point for optional feature packs (e.g. the Analytics feature in
 # the console-pro distribution). The pro repo swaps this file WHOLESALE for

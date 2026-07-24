@@ -1,3 +1,4 @@
+# Copyright (c) ClaceIO, LLC
 # SPDX-License-Identifier: Apache-2.0
 param("name", type=STRING, description="Name for the app", default="OpenRun Console")
 

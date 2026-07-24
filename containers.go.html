@@ -1,3 +1,5 @@
+{{/* Copyright (c) ClaceIO, LLC */}}
+{{/* SPDX-License-Identifier: Apache-2.0 */}}
 {{/* Containers page (/containers): managed containers with running/stopped
      filter chips and search. HTMX partial: block container_rows */}}
 <!DOCTYPE html>
@@ -272,7 +274,7 @@
                               <a
                                 href="{{ $.AppPath }}/containers/detail?id={{ .id }}"
                                 class="btn btn-xs btn-ghost btn-square tooltip tooltip-right"
-                                data-tip="Expand: {{ .name }} - details, stats and logs"
+                                data-tip="Expand: container details, stats and logs"
                                 aria-label="View details for container {{ .name }}">
                                 {{ template "drilldown_icon" }}
                               </a>
@@ -298,19 +300,18 @@
                               {{ if .app_path }}
                                 <span
                                   class="font-mono text-xs inline-block min-w-40 break-all whitespace-normal align-bottom"
-                                  >{{ .app_path }}</span
-                                ><a
-                                  href="{{ $.AppPath }}/apps/detail?path={{ .app_path }}"
-                                  data-tip="View app details"
-                                  aria-label="View details for {{ .app_path }}"
-                                  class="inline-block text-primary text-xs opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-200 ml-0.5"
-                                  ><span aria-hidden="true">↗</span></a
+                                  >{{ .app_path }}<a
+                                    href="{{ $.AppPath }}/apps/detail?path={{ .app_path }}"
+                                    data-tip="View app details"
+                                    aria-label="View details for {{ .app_path }}"
+                                    class="inline-block text-primary text-xs opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-200 ml-0.5"
+                                    ><span aria-hidden="true">↗</span></a
+                                  >{{ if and .env (ne .env "prod") }}
+                                    <span class="badge badge-ghost badge-xs"
+                                      >{{ .env }}</span
+                                    >
+                                  {{ end }}</span
                                 >
-                                {{ if and .env (ne .env "prod") }}
-                                  <span class="badge badge-ghost badge-xs"
-                                    >{{ .env }}</span
-                                  >
-                                {{ end }}
                               {{ else }}
                                 <span class="text-base-content/70 text-xs"
                                   >-</span

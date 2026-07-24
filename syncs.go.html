@@ -1,23 +1,29 @@
+{{/* Copyright (c) ClaceIO, LLC */}}
+{{/* SPDX-License-Identifier: Apache-2.0 */}}
 {{/* Syncs page (/syncs): sync entries table with run/delete actions.
-     HTMX partial: block sync_rows */}}
+  HTMX partial: block sync_rows
+*/}}
 <!DOCTYPE html>
 <html lang="en">
   {{ template "head" . }}
+
 
   <body class="min-h-screen bg-base-200">
     <div class="drawer lg:drawer-open">
       {{ template "drawer_toggle" }}
 
+
       <div class="drawer-content">
         <main class="p-4 lg:p-6 space-y-4 max-w-6xl">
           <!-- Header -->
-          <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+          <div
+            class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" }}
             <div>
               {{ template "page_title" "OpenRun Syncs" }}
               <p class="page-desc text-sm text-base-content/70">
-                Declarative sources of truth - apps are created and updated
-                from these repos
+                Declarative sources of truth - apps are created and updated from
+                these repos
               </p>
             </div>
             <div class="page-actions ml-auto flex items-center gap-2">
@@ -39,11 +45,14 @@
                   hx-indicator="#page-progress" />
               </label>
               <a
-                class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "sync:create") }}btn-disabled tooltip tooltip-bottom{{ end }}"
+                class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "sync:create") }}
+                  btn-disabled tooltip tooltip-bottom
+                {{ end }}"
                 {{ if index .Data.Perms "sync:create" }}
                   href="{{ .AppPath }}/syncs/create"
                 {{ else }}
-                  data-tip="requires sync:create" aria-disabled="true" tabindex="-1"
+                  data-tip="requires sync:create" aria-disabled="true"
+                  tabindex="-1"
                 {{ end }}>
                 + Add sync source
               </a>
@@ -52,10 +61,9 @@
 
           {{ template "page_progress" }}
 
+
           <!-- Sync source rows -->
-          <div
-            id="sync-rows"
-            class="space-y-4">
+          <div id="sync-rows" class="space-y-4">
             {{ block "sync_rows" . }}
               {{ template "flash_alerts" .Data }}
               {{ if .Data.SyncResult }}
@@ -68,13 +76,21 @@
                     <table class="table table-sm">
                       <thead>
                         <tr>
-                          <th scope="col" class="w-8"><span class="sr-only">Details</span></th>
+                          <th scope="col" class="w-8">
+                            <span class="sr-only">Details</span>
+                          </th>
                           <th scope="col">State</th>
                           <th scope="col">Source</th>
-                          <th scope="col" class="hidden md:table-cell">Trigger</th>
-                          <th scope="col" class="hidden lg:table-cell">Flags</th>
+                          <th scope="col" class="hidden md:table-cell">
+                            Trigger
+                          </th>
+                          <th scope="col" class="hidden lg:table-cell">
+                            Flags
+                          </th>
                           <th scope="col" class="hidden lg:table-cell">By</th>
-                          <th scope="col" class="hidden sm:table-cell">Last sync</th>
+                          <th scope="col" class="hidden sm:table-cell">
+                            Last sync
+                          </th>
                           <th scope="col" class="text-right">Actions</th>
                         </tr>
                       </thead>
@@ -85,7 +101,7 @@
                               <a
                                 href="{{ $.AppPath }}/syncs/detail?id={{ .id }}"
                                 class="btn btn-xs btn-ghost btn-square tooltip tooltip-right"
-                                data-tip="Expand: {{ .repo }} - details and last run results"
+                                data-tip="Expand: sync details and last run results"
                                 aria-label="View details for sync {{ .repo }}">
                                 {{ template "drilldown_icon" }}
                               </a>
@@ -103,7 +119,8 @@
                               {{ end }}
                             </td>
                             <td>
-                              <span class="font-mono text-xs font-medium break-all"
+                              <span
+                                class="font-mono text-xs font-medium break-all"
                                 >{{ .repo }}</span
                               >
                               {{ if .branch }}
@@ -168,18 +185,16 @@
                               {{ end }}
                             </td>
                             <td class="text-right whitespace-nowrap">
-                              <div
-                                class="inline-flex items-center gap-0.5">
+                              <div class="inline-flex items-center gap-0.5">
                                 <button
                                   class="btn btn-xs btn-ghost text-primary tooltip tooltip-left"
                                   aria-label="Run sync {{ .repo }} now"
                                   {{ if index $.Data.Perms "sync:run" }}
-                                    data-tip="Fetch from the source and apply now"
-                                    hx-post="{{ $.AppPath }}/syncs/run"
+                                    data-tip="Fetch from the source and apply
+                                    now" hx-post="{{ $.AppPath }}/syncs/run"
                                     hx-vals='{"sync_id": "{{ .id }}"}'
-                                    hx-target="#sync-rows"
-                                    hx-swap="innerHTML transition:true"
-                                    hx-include="#page-search"
+                                    hx-target="#sync-rows" hx-swap="innerHTML
+                                    transition:true" hx-include="#page-search"
                                     hx-disabled-elt="this"
                                     hx-indicator="#page-progress"
                                   {{ else }}
@@ -191,13 +206,14 @@
                                   class="btn btn-xs btn-ghost text-error tooltip tooltip-left"
                                   aria-label="Delete sync {{ .repo }}"
                                   {{ if index $.Data.Perms "sync:delete" }}
-                                    data-tip="Remove this sync source (apps are not deleted)"
+                                    data-tip="Remove this sync source (apps are
+                                    not deleted)"
                                     hx-post="{{ $.AppPath }}/syncs/delete"
                                     hx-vals='{"sync_id": "{{ .id }}"}'
-                                    hx-confirm="Remove sync source {{ .repo }}? Apps applied by it are not deleted."
-                                    hx-target="#sync-rows"
-                                    hx-swap="innerHTML transition:true"
-                                    hx-include="#page-search"
+                                    hx-confirm="Remove sync source {{ .repo }}?
+                                    Apps applied by it are not deleted."
+                                    hx-target="#sync-rows" hx-swap="innerHTML
+                                    transition:true" hx-include="#page-search"
                                     hx-disabled-elt="this"
                                     hx-indicator="#page-progress"
                                   {{ else }}
@@ -236,10 +252,12 @@
                       <p>No sync sources configured yet</p>
                       <p class="text-xs text-base-content/70">
                         Manage apps declaratively - point OpenRun at a git repo
-                        with app definitions
+                        with app declarations
                       </p>
                       <a
-                        class="btn btn-xs btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "sync:create") }}btn-disabled tooltip tooltip-top{{ end }}"
+                        class="btn btn-xs btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "sync:create") }}
+                          btn-disabled tooltip tooltip-top
+                        {{ end }}"
                         {{ if index .Data.Perms "sync:create" }}
                           href="{{ .AppPath }}/syncs/create"
                         {{ else }}

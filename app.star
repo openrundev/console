@@ -1,3 +1,4 @@
+# Copyright (c) ClaceIO, LLC
 # SPDX-License-Identifier: Apache-2.0
 load("handler.star",
      "apps_data", "apps_detail_data", "apps_switch_handler", "apps_promote_handler",
