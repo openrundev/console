@@ -243,6 +243,25 @@
                   Image builds
                 </button>
               {{ end }}
+              {{/* Litestream replication sidecars run as separate labeled
+                containers on docker/podman only (kubernetes runs them as
+                in-pod sidecars, not their own rows) */}}
+              {{ if ne .Data.Runtime "kubernetes" }}
+                <button
+                  class="btn btn-sm join-item transition-transform duration-150 active:scale-95 tooltip tooltip-bottom {{ if eq .Data.Filter "litestream" }}btn-primary{{ end }}"
+                  aria-pressed="{{ if eq .Data.Filter "litestream" }}true{{ else }}false{{ end }}"
+                  data-tip="Litestream replication sidecar containers"
+                  data-filter="litestream"
+                hx-get="{{ $.AppPath }}/containers"
+                hx-vals='{"filter": "litestream"}'
+                hx-include="#page-search"
+                hx-target="#container-rows"
+                hx-swap="innerHTML transition:true"
+                hx-push-url="true"
+                hx-indicator="#page-progress">
+                  Litestream
+                </button>
+              {{ end }}
             </div>
             <span class="text-xs text-base-content/70 ml-auto hidden md:inline"
               >auto-refresh 30s</span

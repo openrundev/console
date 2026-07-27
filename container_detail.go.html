@@ -42,10 +42,22 @@
               </div>
               <div class="page-actions ml-auto flex items-center gap-2">
                 {{ if .Data.Container }}
+                  {{/* Always rendered: agent sandboxes link their session's
+                       published app, litestream sidecars their replicated
+                       app; with no associated app (e.g. an unpublished
+                       session) the button renders disabled, per convention */}}
                   {{ if .Data.Container.app_path }}
                     <a
                       href="{{ .AppPath }}/apps/detail?path={{ .Data.Container.app_path }}"
                       class="btn btn-sm btn-outline transition-transform duration-150 active:scale-95">
+                      View app
+                    </a>
+                  {{ else }}
+                    <a
+                      class="btn btn-sm btn-outline btn-disabled tooltip tooltip-bottom"
+                      data-tip="no app is associated with this container"
+                      aria-disabled="true"
+                      tabindex="-1">
                       View app
                     </a>
                   {{ end }}
@@ -393,6 +405,25 @@
                         <span class="text-base-content/70">-</span>
                       {{ end }}
                     </span>
+
+                    {{ if $c.builder_session }}
+                      <span class="text-xs text-base-content/70 pt-0.5"
+                        >Builder session</span
+                      >
+                      <span class="pt-1">
+                        {{/* /builder routes exist only on builder-enabled
+                             installs */}}
+                        {{ if index .Data.Perms "feature:builder" }}
+                          <a
+                            href="{{ .AppPath }}/builder/detail?id={{ $c.builder_session }}"
+                            class="link link-hover font-mono text-xs break-all"
+                            >{{ $c.builder_session }}</a
+                          >
+                        {{ else }}
+                          <span class="font-mono text-xs break-all">{{ $c.builder_session }}</span>
+                        {{ end }}
+                      </span>
+                    {{ end }}
 
                     <span class="text-xs text-base-content/70 pt-0.5"
                       >Image</span

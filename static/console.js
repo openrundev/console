@@ -746,10 +746,41 @@ document.addEventListener('DOMContentLoaded', () => {
 		) {
 			return;
 		}
-		// Current-page links do not need a document teardown/repaint. This is
-		// especially noticeable on the sidebar logo when Apps is already open.
-		if (link.href === location.href) {
+		// Current-page links refresh the content in place instead of
+		// navigating: a same-URL cross-document navigation repaints
+		// WITHOUT a reliable view transition (Chrome intermittently skips
+		// it), which flashes the page - and a preventDefault-only block
+		// (the earlier anti-flicker fix) read as a dead control. The swap
+		// re-renders <main> from a fresh GET (every page has exactly one
+		// main), so the click visibly refreshes the data with the same
+		// progress bar as a navigation
+		// Done by hand rather than htmx.ajax: its select option applied to
+		// a full-document response swapped in NOTHING (htmx 2.0.3), so the
+		// fresh main is picked out of the parsed response here. htmx.process
+		// re-arms the hx- attributes (lazy tiles, polling) on the new tree
+		if (link.href === location.href && window.htmx) {
 			event.preventDefault();
+			const bar = document.getElementById('nav-progress');
+			if (bar) {
+				bar.classList.add('active');
+			}
+			fetch(location.href, { headers: { Accept: 'text/html' } })
+				.then((resp) => resp.text())
+				.then((text) => {
+					const doc = new DOMParser().parseFromString(text, 'text/html');
+					const fresh = doc.querySelector('main');
+					const current = document.querySelector('main');
+					if (fresh && current) {
+						current.replaceWith(fresh);
+						window.htmx.process(fresh);
+					}
+				})
+				.catch(() => {})
+				.finally(() => {
+					if (bar) {
+						bar.classList.remove('active');
+					}
+				});
 			return;
 		}
 		showNavProgress();

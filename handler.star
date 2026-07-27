@@ -17,6 +17,386 @@ load("utils.star", "query_param", "query_param_list", "get_perms", "params_to_te
 # missed.
 
 
+# ---------- Overview ----------
+
+
+def ov_can(perms, perm):
+    # True when the caller holds perm (or the admin super-user permission)
+    return bool(perms.get(perm) or perms.get("admin"))
+
+
+def ov_running(entries):
+    # Count of container entries in the running state
+    running = 0
+    for entry in entries:
+        if entry["state"] == "running":
+            running += 1
+    return running
+
+
+def ov_uptime(secs):
+    # Compact uptime for the stat tile: "42m", "3h 12m", "12d 4h"
+    secs = int(secs)
+    if secs < 3600:
+        return "%dm" % (secs // 60)
+    if secs < 86400:
+        return "%dh %dm" % (secs // 3600, (secs % 3600) // 60)
+    return "%dd %dh" % (secs // 86400, (secs % 86400) // 3600)
+
+
+def ov_trim_time(t):
+    # RFC3339 with fractional seconds -> second precision for the time_ago
+    # template (its toDate layout takes none). The zone suffix is kept:
+    # in-process timestamps (server_info, litestream) carry a local UTC
+    # offset, not the audit log's "Z"
+    t = nonzero_time(t or "")
+    if "." not in t:
+        return t
+    base, rest = t.split(".", 1)
+    zone = "Z"
+    for i in range(len(rest)):
+        if not rest[i].isdigit():
+            zone = rest[i:]
+            break
+    return base + zone
+
+
+def ov_apps_tile(perms):
+    # Big apps tile: totals, prod/dev/declarative split, pending promotion
+    # count and a by-spec mini bar chart. Uses plain list_apps (the
+    # check_approval audit sweep is too slow for a landing page; the
+    # needs-approval chip lazy-loads via overview_approvals_handler).
+    # Tiles the user cannot read return None and are OMITTED from the
+    # page (overview shows only accessible info, unlike the
+    # disabled-with-tooltip convention for action controls)
+    if not ov_can(perms, "app:read"):
+        return None
+    ret = openrun.list_apps(include_internal=True)
+    if ret.error:
+        return {"Error": ret.error}
+    rows = build_app_rows(ret.value)
+
+    dev = 0
+    promote = 0
+    spec_counts = {}
+    for row in rows:
+        if row["is_dev"]:
+            dev += 1
+        if row["staging"] and row["staging"]["ahead"]:
+            promote += 1
+        spec = row["spec"] or "custom"
+        spec_counts[spec] = spec_counts.get(spec, 0) + 1
+
+    specs = sorted(spec_counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    top = specs[:4]
+    other = 0
+    for _, count in specs[4:]:
+        other += count
+    max_count = other
+    for _, count in top:
+        max_count = max(max_count, count)
+    by_spec = []
+    for name, count in top:
+        by_spec.append({"label": name, "count": count,
+                        "pct": count * 100 // max_count, "other": False})
+    if other:
+        by_spec.append({"label": "other", "count": other,
+                        "pct": other * 100 // max_count, "other": True})
+
+    return {
+        "Total": len(rows),
+        "Prod": len(rows) - dev,
+        "Dev": dev,
+        "Promote": promote,
+        "BySpec": by_spec,
+    }
+
+
+def ov_syncs_tile(perms):
+    # Sync health: one status dot per sync entry, failing entries first
+    if not ov_can(perms, "sync:read"):
+        return None
+    ret = openrun.list_sync()
+    if ret.error:
+        return {"Error": ret.error}
+
+    entries = []
+    failing = 0
+    disabled = 0
+    for entry in ret.value:
+        state = entry["status"]["state"]  # Enabled / Disabled / Failing
+        if state == "Failing":
+            failing += 1
+        elif state == "Disabled":
+            disabled += 1
+        entries.append({
+            "id": entry["id"],
+            "repo": entry["path"],
+            "state": state,
+            "last_exec": ov_trim_time(entry["status"]["last_execution_time"]),
+            "error": entry["status"].get("error") or "",
+        })
+    order = {"Failing": 0, "Enabled": 1, "Disabled": 2}
+    entries = sorted(entries, key=lambda e: (order.get(e["state"], 3), e["repo"]))
+    return {
+        "Total": len(entries),
+        "Failing": failing,
+        "Disabled": disabled,
+        "Ok": len(entries) - failing - disabled,
+        "Syncs": entries[:12],
+        "More": max(0, len(entries) - 12),
+    }
+
+
+def ov_services_tile(perms):
+    # Services and bindings counts (tiny table scans)
+    tile = {}
+    if ov_can(perms, "service:read"):
+        ret = openrun.list_services()
+        if not ret.error:
+            tile["Services"] = len(ret.value)
+    if ov_can(perms, "binding:read"):
+        ret = openrun.list_bindings()
+        if not ret.error:
+            bindings = ret.value
+            auto = 0
+            for b in bindings:
+                if b["path"].startswith("/auto/"):
+                    auto += 1
+            tile["Bindings"] = len(bindings)
+            tile["Auto"] = auto
+    if "Services" not in tile and "Bindings" not in tile:
+        return None
+    return tile
+
+
+def ov_server_tile(perms):
+    # Server identity chips + metadata replication state, all in-memory
+    # server-side (server_info never touches the DB or external services).
+    # config:basic_read is implied by config:read, but get_permissions
+    # reports held permissions literally, so both are checked
+    if not (ov_can(perms, "config:basic_read") or perms.get("config:read")):
+        return None
+    ret = openrun.server_info()
+    if ret.error:
+        return {"Error": ret.error}
+    info = ret.value
+    repl = []
+    for entry in info["metadata_replication"]:
+        repl.append({
+            "target": entry["target"],
+            "state": entry["state"],
+            "last_sync": ov_trim_time(entry.get("last_sync") or ""),
+            "error": entry.get("error") or "",
+        })
+    commit = info["commit"]
+    return {
+        "Version": info["version"],
+        # short_sha would mangle the "dev_build" placeholder of unreleased
+        # binaries into "dev_bui"
+        "Commit": commit if commit == "dev_build" else short_sha(commit),
+        "Uptime": ov_uptime(info["uptime_secs"]),
+        "MetadataDB": info["metadata_db_type"],
+        "AuditDB": info["audit_db_type"],
+        "Runtime": info.get("container_runtime") or "",
+        "IsLeader": info["is_leader"],
+        "MetadataRepl": repl,
+    }
+
+
+def ov_activity_tile(perms, scope):
+    # Recent activity ticker: the last few audit events. The default
+    # "system" scope lists management operations only; "all" includes
+    # http/action/custom events (the scope chips re-render via the
+    # /overview/activity fragment)
+    if not ov_can(perms, "audit:read"):
+        return None
+    event_type = "system" if scope != "all" else ""
+    # start_date is a required arg in the plugin signature (empty = no
+    # filter). 100 events, ~20 visible - the ticker box scrolls the rest
+    ret = openrun.list_audit_events(event_type=event_type, start_date="", limit=100)
+    if ret.error:
+        return {"Error": ret.error}
+    events = []
+    for entry in ret.value:
+        status = entry.get("status") or ""
+        is_error = bool(status) and status != "Success" and \
+            not status.startswith("2") and not status.startswith("3")
+        events.append({
+            "user": entry.get("user_id") or "",
+            "operation": entry.get("operation") or entry.get("event_type") or "",
+            "target": entry.get("target") or "",
+            "time": ov_trim_time(entry.get("create_time") or ""),
+            "is_error": is_error,
+        })
+    return {"Events": events, "Scope": "all" if scope == "all" else "system"}
+
+
+def ov_repl_tile(perms, server):
+    # Replication tile: the metadata state (from server_info, so visible
+    # with config:basic_read) plus the lazy-loaded app binding rows
+    # (app:read - the server filters rows to the caller's readable apps).
+    # None - and no tile - when the user can see neither. The
+    # "not configured" metadata note renders only when the caller could
+    # actually read the metadata state (ShowMetadata), never as a guess
+    show_bindings = ov_can(perms, "app:read")
+    show_metadata = bool(server) and not server.get("Error")
+    metadata = server["MetadataRepl"] if show_metadata else []
+    if not show_metadata and not show_bindings:
+        return None
+    return {"Metadata": metadata, "ShowMetadata": show_metadata,
+            "ShowBindings": show_bindings}
+
+
+def overview_data(req):
+    # Overview home page: fleet counts and health at a glance. Tiles the
+    # user cannot read - or whose feature is disabled for this install -
+    # are omitted entirely (each ov_*_tile returns None). Every plugin
+    # call here must be cheap (in-memory or one small table read):
+    # container state and binding replication cost external calls, so
+    # those tiles lazy-load via the /overview/containers and
+    # /overview/replication fragments
+    perms = get_perms()
+    server = ov_server_tile(perms)
+    data = {
+        "Title": "Overview",
+        "Nav": "overview",
+        "Perms": perms,
+        "Apps": ov_apps_tile(perms),
+        "Syncs": ov_syncs_tile(perms),
+        "ServicesTile": ov_services_tile(perms),
+        "Server": server,
+        "Repl": ov_repl_tile(perms, server),
+        "Activity": ov_activity_tile(perms, "system"),
+        "ShowContainers": bool(perms.get("feature:container") and
+                               ov_can(perms, "container:read")),
+    }
+    data["Empty"] = not (data["Apps"] or data["Syncs"] or data["ServicesTile"] or
+                         data["Server"] or data["Repl"] or data["Activity"] or
+                         data["ShowContainers"])
+    return data
+
+
+def ov_container_kind_row(label, ctype):
+    # One "X of Y running" stat row for a special container listing
+    ret = openrun.list_containers(type=ctype)
+    if ret.error:
+        return {"label": label, "error": ret.error}
+    return {"label": label, "running": ov_running(ret.value),
+            "total": len(ret.value)}
+
+
+def overview_containers_handler(req):
+    # Lazy containers tile: list_containers shells out to the container
+    # daemon, so it renders as a skeleton first and loads here
+    perms = get_perms()
+    data = {"Perms": perms, "Loaded": True}
+    if not perms.get("feature:container"):
+        # Only reachable by a direct fragment request: the page does not
+        # render the lazy loader when the container feature is disabled
+        data["Error"] = "containers are disabled for this install"
+        return data
+    if not ov_can(perms, "container:read"):
+        data["Error"] = "requires the container:read or admin permission"
+        return data
+    ret = openrun.list_containers()
+    if ret.error:
+        data["Error"] = ret.error
+        return data
+
+    # The managed list includes the litestream replication sidecars (they
+    # carry the app.id label); split them out by their -ls name suffix -
+    # the same heuristic the replication status API uses (ContainerInfo
+    # does not expose labels)
+    apps_total = 0
+    apps_running = 0
+    ls_total = 0
+    ls_running = 0
+    runtime = ""
+    for entry in ret.value:
+        runtime = entry["runtime"]
+        is_running = entry["state"] == "running"
+        if entry["name"].endswith("-ls"):
+            ls_total += 1
+            ls_running += 1 if is_running else 0
+        else:
+            apps_total += 1
+            apps_running += 1 if is_running else 0
+    data["Total"] = apps_total
+    data["Running"] = apps_running
+
+    rows = []
+    if perms.get("feature:builder"):
+        # Builder agent sandboxes and (on kubernetes) kaniko build pods:
+        # one more daemon call each, fine in this lazy fragment
+        rows.append(ov_container_kind_row("builder agents", "agent"))
+        if runtime == "kubernetes":
+            rows.append(ov_container_kind_row("kaniko builds", "kaniko"))
+    rows.append({"label": "litestream sidecars", "running": ls_running,
+                 "total": ls_total})
+    data["Rows"] = rows
+    return data
+
+
+def overview_activity_handler(req):
+    # Re-renders the activity tile when the System/All scope chips change
+    perms = get_perms()
+    scope = query_param(req, "scope") or "system"
+    return {"Perms": perms, "Activity": ov_activity_tile(perms, scope)}
+
+
+def overview_approvals_handler(req):
+    # Lazy needs-approval chip on the apps tile: check_approval audits
+    # staging per app (cached server-side by app version + binding
+    # generation), too slow for the overview first paint
+    perms = get_perms()
+    data = {"Perms": perms, "Loaded": True}
+    if not ov_can(perms, "app:read"):
+        return data
+    ret = openrun.list_apps(include_internal=True, check_approval=True)
+    if ret.error:
+        return data
+    approval = 0
+    for row in build_app_rows(ret.value):
+        if row["needs_approval"]:
+            approval += 1
+    data["Approval"] = approval
+    return data
+
+
+def overview_replication_handler(req):
+    # Lazy binding replication rows: replication_status sweeps the replica
+    # store (S3) and the container daemon on a cache miss (30s server-side
+    # cache), so the tile shows the free metadata state first and the
+    # binding rows load here. The server filters rows per caller (app rows
+    # to readable apps via app:read, metadata rows to config:basic_read);
+    # the metadata rows are dropped here regardless - they already
+    # rendered with the server tile
+    perms = get_perms()
+    data = {"Perms": perms, "Loaded": True}
+    if not ov_can(perms, "app:read"):
+        data["Error"] = "requires the app:read or admin permission"
+        return data
+    ret = openrun.replication_status()
+    if ret.error:
+        data["Error"] = ret.error
+        return data
+    rows = []
+    for entry in ret.value:
+        if entry["kind"] != "app":
+            continue
+        rows.append({
+            "target": entry["target"],
+            "env": entry.get("env") or "",
+            "state": entry["state"],
+            "last_sync": ov_trim_time(entry.get("last_sync") or ""),
+            "apps": ", ".join(entry.get("app_paths") or []),
+            "error": entry.get("error") or "",
+        })
+    data["Rows"] = rows
+    return data
+
+
 # ---------- Apps ----------
 
 
@@ -1045,10 +1425,11 @@ def services_delete_handler(req):
 
 def containers_data(req):
     # Containers page: managed containers with state/search filters, plus
-    # the app builder's agent containers and (on Kubernetes) kaniko image
-    # build pods as their own views
+    # the app builder's agent containers, (on Kubernetes) kaniko image
+    # build pods and the litestream replication sidecars as their own views
     query = query_param(req, "query").lower()
-    filter = query_param(req, "filter") or "running"  # running / exited / all / agent / kaniko
+    # running / exited / all / agent / kaniko / litestream
+    filter = query_param(req, "filter") or "running"
 
     data = {
         "Title": "Containers",
@@ -1097,7 +1478,13 @@ def containers_data(req):
         running = entry["state"] == "running"
         if running:
             data["Running"] += 1
-        if (filter == "running" and not running) or (filter == "exited" and running):
+        if filter == "litestream":
+            # Replication sidecars are part of the managed list (they carry
+            # the app.id label), identified by their -ls name suffix (same
+            # heuristic as the replication status API)
+            if not entry["name"].endswith("-ls"):
+                continue
+        elif (filter == "running" and not running) or (filter == "exited" and running):
             continue
         if query and query not in entry["name"].lower() and \
            query not in entry["app_path"].lower() and query not in entry["image"].lower() and \

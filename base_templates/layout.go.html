@@ -352,6 +352,27 @@ InputId, Placeholder, Masked, File, Description, Error */}}
   when a partial (HTMX) request fails unexpectedly; referenced by define
   name from ace.response in app.star
 */}}
+{{/* ov_head: overview-style tile header - the .ov-label heading plus an
+  optional right-aligned link into the area's full page. Used by the
+  overview tiles and the pro analytics cards (styling: the .ov-* layer in
+  static/css/accessibility.css). Context: Id, Label, optional Href + Link
+*/}}
+{{ define "ov_head" }}
+  <div class="flex items-center gap-2 mb-2">
+    <h2 id="{{ .Id }}" class="ov-label">{{ .Label }}</h2>
+    {{ if .Href }}
+      {{ template "ov_area_link" . }}
+    {{ end }}
+  </div>
+{{ end }}
+
+{{/* Right-aligned link into an area's full page. Context: Href, Link */}}
+{{ define "ov_area_link" }}
+  <a class="link link-hover text-xs text-primary ml-auto" href="{{ .Href }}"
+    >{{ .Link }} <span aria-hidden="true">→</span></a
+  >
+{{ end }}
+
 {{ define "error_toast" }}
   <div role="alert" class="alert alert-error py-2 text-sm shadow-lg">
     <span aria-hidden="true">✕</span>
@@ -1095,6 +1116,40 @@ InputId, Placeholder, Masked, File, Description, Error */}}
             it. With RBAC inactive get_perms returns all permissions, so every
             item is enabled as before.
           */}}
+          {{/* Overview is never permission-gated: every tile on it gates
+            on its own read permission, so any signed-in role sees the page
+            with its readable tiles
+          */}}
+          <li
+            class="tooltip tooltip-bottom"
+            data-tip="System status overview">
+            <a
+              href="{{ .AppPath }}/overview"
+              {{ if eq .Data.Nav "overview" }}aria-current="page"{{ end }}
+              class="{{ if eq .Data.Nav "overview" }}menu-active{{ end }}"
+              ><svg
+                aria-hidden="true"
+                focusable="false"
+                class="w-5 h-5 text-primary"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round">
+                <path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" />
+                <path
+                  d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg
+              >Overview</a
+            >
+          </li>
+          {{/* The nav groups: Deploy (apps and the resources they use),
+            Operate (runtime state, logs and server admin - the pro
+            Analytics item lands here through the ext_nav hook). Plain
+            menu-title separators in the SAME ul, so the ext_nav hook
+            position and the li enumeration in tests stay unchanged
+          */}}
+          <li class="menu-title">Deploy</li>
           {{ $appsView := or (not .Data.Perms) (index .Data.Perms "app:read") (index .Data.Perms "admin") }}
           <li
             class="tooltip tooltip-bottom {{ if not $appsView }}menu-disabled{{ end }}"
@@ -1217,6 +1272,7 @@ InputId, Placeholder, Masked, File, Description, Error */}}
               >Builder</a
             >
           </li>
+          <li class="menu-title">Operate</li>
           {{/* Containers screens are install-gated (enable_container param);
             a disabled install has no /containers routes at all
           */}}

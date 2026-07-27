@@ -1,6 +1,8 @@
 # Copyright (c) ClaceIO, LLC
 # SPDX-License-Identifier: Apache-2.0
 load("handler.star",
+     "overview_data", "overview_containers_handler", "overview_replication_handler",
+     "overview_activity_handler", "overview_approvals_handler",
      "apps_data", "apps_detail_data", "apps_switch_handler", "apps_promote_handler",
      "apps_approve_handler", "apps_detail_reload_handler", "apps_detail_delete_handler",
      "apps_files_handler", "apps_files_download_handler",
@@ -169,7 +171,23 @@ OPENRUN_THEMES = {
 # the read pages always register (with no action fragments when disabled)
 def build_routes():
     routes = [
-        ace.html("/", full="apps.go.html", partial="app_groups", handler=apps_data),
+        # Overview home page: fleet counts and health. Registered at both "/"
+        # (the landing page) and /overview (the nav URL). The lazy fragments
+        # live on /overview so their paths (/overview/containers) cannot
+        # collide with the real /containers page
+        ace.html("/", full="overview.go.html", partial="overview_content", handler=overview_data),
+        ace.html("/overview", full="overview.go.html", partial="overview_content", handler=overview_data,
+                 fragments=[
+                     # External-call tiles (container daemon, replica store):
+                     # skeleton first, loaded async
+                     ace.fragment("containers", partial="ov_containers_tile", handler=overview_containers_handler),
+                     ace.fragment("replication", partial="ov_replication_tile", handler=overview_replication_handler),
+                     # The apps tile's needs-approval chip (check_approval
+                     # audit sweep, cached server-side) loads async too
+                     ace.fragment("approvals", partial="ov_approval_chip", handler=overview_approvals_handler),
+                     # Activity tile re-render for the System/All scope chips
+                     ace.fragment("activity", partial="ov_activity_tile", handler=overview_activity_handler),
+                 ]),
         # Apps list, with the row actions posting back to the list
         ace.html("/apps", full="apps.go.html", partial="app_groups", handler=apps_data,
                  fragments=[
@@ -410,6 +428,8 @@ def build_permissions():
         perm("openrun.in", "get_version_zip"),
         perm("openrun.in", "audit_app"),
         perm("openrun.in", "list_services"),
+        perm("openrun.in", "server_info"),
+        perm("openrun.in", "replication_status"),
     ]
 
     if ENABLE_UPDATES:

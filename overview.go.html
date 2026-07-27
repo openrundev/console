@@ -1,0 +1,544 @@
+{{/* Copyright (c) ClaceIO, LLC */}}
+{{/* SPDX-License-Identifier: Apache-2.0 */}}
+{{/* Overview home page (/ and /overview): fleet counts and health in a
+     bento grid. The page shows ONLY what the caller can read and what the
+     install has enabled: tiles for other areas are omitted entirely (the
+     handler passes None), not rendered disabled. Every tile links into
+     the full page for its area (apps/syncs/bindings/containers/audit) -
+     there are no drill-down views here. Tiles backed by external calls
+     (container daemon, replica store) lazy-load via the
+     /overview/containers and /overview/replication fragments; everything
+     else renders from in-memory or single small-table reads. The grid
+     auto-refreshes every 60s (HTMX partial: block overview_content).
+     Chart/tile styling is the console-owned .ov-* layer in
+     static/css/accessibility.css */}}
+<!DOCTYPE html>
+<html lang="en">
+  {{ template "head" . }}
+
+
+  <body class="min-h-screen bg-base-200">
+    <div class="drawer lg:drawer-open">
+      {{ template "drawer_toggle" }}
+
+      <div class="drawer-content">
+        <main class="p-4 lg:p-6 space-y-4 max-w-6xl">
+          <!-- Header -->
+          <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+            {{ template "hamburger" }}
+            <div>
+              {{ template "page_title" "OpenRun Overview" }}
+              <p class="page-desc text-sm text-base-content/70">
+                Overall system status at a glance
+              </p>
+            </div>
+            <div class="page-actions ml-auto flex items-center gap-2">
+              <button
+                class="btn btn-sm btn-ghost"
+                hx-get="{{ .AppPath }}/overview"
+                hx-target="#overview-root"
+                hx-swap="innerHTML transition:true"
+                hx-indicator="#page-progress">
+                <svg
+                  aria-hidden="true"
+                  focusable="false"
+                  class="w-4 h-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round">
+                  <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+                  <path d="M21 3v5h-5" />
+                  <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+                  <path d="M8 16H3v5" /></svg
+                >Refresh
+              </button>
+            </div>
+          </div>
+
+          {{ template "page_progress" }}
+
+          <!-- The polling element stays outside the swapped content so the
+               60s refresh survives its own swaps. NO hx-target here: an
+               element's own hx-get already targets itself, and hx-target
+               is INHERITED - a "this" set here would retarget the lazy
+               tile fragments at this root, wiping the whole grid -->
+          <div
+            id="overview-root"
+            class="ov-viz"
+            hx-get="{{ .AppPath }}/overview"
+            hx-trigger="every 60s"
+            hx-swap="innerHTML transition:true">
+            {{ block "overview_content" . }}
+              {{ template "flash_alerts" .Data }}
+              {{ if .Data.Empty }}
+                <div class="ov-tile p-6 text-center text-sm text-base-content/70">
+                  Nothing to show — your role has no read permissions for
+                  this console
+                </div>
+              {{ end }}
+              <div class="ov-grid">
+                <!-- Apps: the hero tile -->
+                {{ with .Data.Apps }}
+                  <section class="ov-tile ov-apps" aria-labelledby="ov-apps-h">
+                    {{ if .Error }}
+                      {{ template "ov_head" (dict "Id" "ov-apps-h" "Label" "Apps") }}
+                      {{ template "ov_error" .Error }}
+                    {{ else }}
+                      {{ template "ov_head" (dict "Id" "ov-apps-h" "Label" "Apps" "Href" (print $.AppPath "/apps") "Link" "all apps") }}
+                      <div class="ov-num">{{ .Total }}</div>
+                      <div class="flex items-center gap-1.5 flex-wrap mt-1">
+                        <span class="badge badge-ghost badge-sm">{{ .Prod }} prod</span>
+                        <span class="badge badge-ghost badge-sm">{{ .Dev }} dev</span>
+                        {{ if .Promote }}
+                          <a
+                            class="badge badge-warning badge-soft badge-sm"
+                            href="{{ $.AppPath }}/apps?tab=promote"
+                            >{{ .Promote }} pending promotion</a
+                          >
+                        {{ end }}
+                        <!-- The needs-approval count audits staging per app
+                             (server-side cached), so the chip loads async -->
+                        <span
+                          hx-get="{{ $.AppPath }}/overview/approvals"
+                          hx-trigger="load"
+                          hx-swap="outerHTML">
+                          {{ block "ov_approval_chip" $ }}
+                            {{ if kindIs "invalid" .Data.Approval }}
+                              {{ if not .Data.Loaded }}
+                                <span class="skeleton inline-block h-5 w-28 align-middle"></span>
+                              {{ end }}
+                            {{ else if .Data.Approval }}
+                              <a
+                                class="badge badge-error badge-soft badge-sm"
+                                href="{{ .AppPath }}/apps?tab=approval"
+                                >{{ .Data.Approval }} need approval</a
+                              >
+                            {{ else }}
+                              <span class="badge badge-ghost badge-sm">0 need approval</span>
+                            {{ end }}
+                          {{ end }}
+                          <!-- End of "ov_approval_chip" block -->
+                        </span>
+                      </div>
+                      {{ if .BySpec }}
+                        <div class="mt-4 space-y-1.5" role="list" aria-label="Apps by spec">
+                          {{ range .BySpec }}
+                            <div
+                              class="flex items-center gap-2 text-xs w-full"
+                              role="listitem">
+                              <span
+                                class="w-24 truncate text-left text-base-content/80"
+                                title="{{ .label }}"
+                                >{{ .label }}</span
+                              >
+                              <div class="ov-track flex-1">
+                                <div
+                                  class="ov-bar {{ if .other }}ov-bar-other{{ end }}"
+                                  style="width: {{ .pct }}%"></div>
+                              </div>
+                              <span class="w-8 text-right tabular-nums">{{ .count }}</span>
+                            </div>
+                          {{ end }}
+                        </div>
+                      {{ else }}
+                        <p class="mt-4 text-sm text-base-content/70">
+                          No apps deployed yet
+                        </p>
+                      {{ end }}
+                    {{ end }}
+                  </section>
+                {{ end }}
+
+                <!-- Sync health -->
+                {{ with .Data.Syncs }}
+                  <section class="ov-tile ov-syncs" aria-labelledby="ov-syncs-h">
+                    {{ if .Error }}
+                      {{ template "ov_head" (dict "Id" "ov-syncs-h" "Label" "Syncs") }}
+                      {{ template "ov_error" .Error }}
+                    {{ else }}
+                      {{ template "ov_head" (dict "Id" "ov-syncs-h" "Label" "Syncs" "Href" (print $.AppPath "/syncs") "Link" "all syncs") }}
+                      <div class="flex items-end gap-3">
+                        <div class="ov-num-sm">{{ .Total }}</div>
+                        <div class="flex items-center gap-1.5 flex-wrap pb-1">
+                          {{ if .Failing }}
+                            <span class="badge badge-error badge-soft badge-sm">{{ .Failing }} failing</span>
+                          {{ end }}
+                          {{ if .Ok }}
+                            <span class="badge badge-success badge-soft badge-sm">{{ .Ok }} ok</span>
+                          {{ end }}
+                          {{ if .Disabled }}
+                            <span class="badge badge-ghost badge-sm">{{ .Disabled }} disabled</span>
+                          {{ end }}
+                        </div>
+                      </div>
+                      {{ if .Syncs }}
+                        {{/* Basic status table, failing entries first;
+                             errors stay on native title (unbounded text) */}}
+                        <div class="overflow-x-auto mt-2">
+                          <table class="table table-xs">
+                            <thead>
+                              <tr>
+                                <th scope="col">Source</th>
+                                <th scope="col">Status</th>
+                                <th scope="col" class="text-right">Last run</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {{ range .Syncs }}
+                                <tr>
+                                  <td class="font-mono text-xs">
+                                    <a
+                                      class="link link-hover"
+                                      href="{{ $.AppPath }}/syncs/detail?id={{ .id }}"
+                                      title="{{ .repo }}"
+                                      ><span class="inline-block truncate max-w-56 align-bottom">{{ .repo }}</span></a
+                                    >
+                                  </td>
+                                  <td
+                                    class="text-xs whitespace-nowrap"
+                                    {{ if .error }}title="{{ .error }}"{{ end }}>
+                                    <span class="flex items-center gap-1.5">
+                                      <span
+                                        class="ov-dot {{ if eq .state "Failing" }}ov-dot-err{{ else if eq .state "Disabled" }}ov-dot-off{{ else }}ov-dot-ok{{ end }}"
+                                        aria-hidden="true"></span>
+                                      <span {{ if eq .state "Failing" }}class="text-error"{{ end }}>{{ .state }}</span>
+                                    </span>
+                                  </td>
+                                  <td class="text-xs text-base-content/70 text-right whitespace-nowrap">
+                                    {{ if .last_exec }}{{ template "time_ago" .last_exec }}{{ else }}-{{ end }}
+                                  </td>
+                                </tr>
+                              {{ end }}
+                            </tbody>
+                          </table>
+                        </div>
+                        {{ if .More }}
+                          <div class="text-xs text-base-content/70 mt-1">
+                            +{{ .More }} more on the
+                            <a class="link text-primary" href="{{ $.AppPath }}/syncs">syncs page</a>
+                          </div>
+                        {{ end }}
+                      {{ else }}
+                        <p class="mt-3 text-sm text-base-content/70">
+                          No sync entries — apps are managed imperatively
+                        </p>
+                      {{ end }}
+                    {{ end }}
+                  </section>
+                {{ end }}
+
+                <!-- Replication: metadata state renders inline (in-memory),
+                     binding rows lazy-load (replica store sweep). Omitted
+                     when metadata replication is off AND the caller cannot
+                     read the binding rows -->
+                {{ with .Data.Repl }}
+                  <section class="ov-tile ov-repl" aria-labelledby="ov-repl-h">
+                    {{ template "ov_head" (dict "Id" "ov-repl-h" "Label" "Replication") }}
+                    {{ if .Metadata }}
+                      <div class="space-y-2">
+                        {{ range .Metadata }}
+                          {{ template "ov_repl_row" (dict "Row" . "Context" (print "metadata · " .state) "Pulse" true) }}
+                        {{ end }}
+                      </div>
+                    {{ else if .ShowMetadata }}
+                      <p class="text-sm text-base-content/70">
+                        Metadata replication is not configured
+                      </p>
+                    {{ end }}
+                    {{ if .ShowBindings }}
+                      <div
+                        class="mt-3"
+                        hx-get="{{ $.AppPath }}/overview/replication"
+                        hx-trigger="load"
+                        hx-swap="innerHTML">
+                        {{ block "ov_replication_tile" $ }}
+                          {{ if .Data.Error }}
+                            {{ template "ov_error" .Data.Error }}
+                          {{ else if .Data.Rows }}
+                            <div class="space-y-2">
+                              {{ range .Data.Rows }}
+                                {{ template "ov_repl_row" (dict "Row" . "Context" (print .env " · " .state)) }}
+                              {{ end }}
+                            </div>
+                          {{ else if .Data.Loaded }}
+                            <p class="text-sm text-base-content/70">
+                              No replicated sqlite bindings
+                            </p>
+                          {{ else }}
+                            <!-- Initial skeleton until the async load fills
+                                 in; one line, matching the common loaded
+                                 height (empty notice or one binding row) so
+                                 the swap-in does not shift the grid -->
+                            <div class="skeleton h-5 w-64"></div>
+                          {{ end }}
+                        {{ end }}
+                        <!-- End of "ov_replication_tile" block -->
+                      </div>
+                    {{ end }}
+                  </section>
+                {{ end }}
+
+                <!-- Containers: lazy, the listing shells out to the daemon.
+                     Omitted when the feature is disabled or not readable -->
+                {{ if .Data.ShowContainers }}
+                  <section class="ov-tile ov-containers" aria-labelledby="ov-containers-h">
+                    <div
+                      hx-get="{{ .AppPath }}/overview/containers"
+                      hx-trigger="load"
+                      hx-swap="innerHTML">
+                      {{ block "ov_containers_tile" . }}
+                        {{ if .Data.Error }}
+                          {{ template "ov_head" (dict "Id" "ov-containers-h" "Label" "Containers") }}
+                          {{ template "ov_error" .Data.Error }}
+                        {{ else if .Data.Loaded }}
+                          {{ template "ov_head" (dict "Id" "ov-containers-h" "Label" "Containers" "Href" (print $.AppPath "/containers") "Link" "all containers") }}
+                          <div class="flex items-end gap-3">
+                            <div class="ov-num-sm">
+                              {{ .Data.Running }}<span class="text-base-content/70 text-xl font-semibold">/{{ .Data.Total }}</span>
+                            </div>
+                            <div class="text-xs text-base-content/70 pb-1">app containers running</div>
+                          </div>
+                          {{ if .Data.Rows }}
+                            <div class="mt-3 space-y-1">
+                              {{ range .Data.Rows }}
+                                <div class="flex items-center gap-2 text-xs">
+                                  {{ if .error }}
+                                    <span class="ov-dot ov-dot-err" aria-hidden="true"></span>
+                                    <span class="text-base-content/80">{{ .label }}</span>
+                                    <span class="text-error truncate" title="{{ .error }}">{{ trunc 60 .error }}</span>
+                                  {{ else }}
+                                    <span
+                                      class="ov-dot {{ if .running }}ov-dot-ok{{ else }}ov-dot-off{{ end }}"
+                                      aria-hidden="true"></span>
+                                    <span class="text-base-content/80">{{ .label }}</span>
+                                    <span class="ml-auto tabular-nums text-base-content/70">
+                                      {{ .running }} of {{ .total }} running
+                                    </span>
+                                  {{ end }}
+                                </div>
+                              {{ end }}
+                            </div>
+                          {{ end }}
+                        {{ else }}
+                          {{ template "ov_head" (dict "Id" "ov-containers-h" "Label" "Containers") }}
+                          <!-- Initial skeleton until the async load fills in.
+                               Mirrors the loaded layout (hero row + one line
+                               per stat row) so the swap-in does not shift
+                               the tiles below -->
+                          <div class="flex items-end gap-3">
+                            {{/* The ov-num-sm wrapper gives the skeleton
+                                 the real hero line height (font strut) */}}
+                            <div class="ov-num-sm">
+                              <span class="skeleton inline-block h-6 w-24 align-middle"></span>
+                            </div>
+                          </div>
+                          <div class="mt-3 space-y-1">
+                            {{ if index .Data.Perms "feature:builder" }}
+                              <div class="skeleton h-4 w-48"></div>
+                            {{ end }}
+                            <div class="skeleton h-4 w-48"></div>
+                          </div>
+                        {{ end }}
+                      {{ end }}
+                      <!-- End of "ov_containers_tile" block -->
+                    </div>
+                  </section>
+                {{ end }}
+
+                <!-- Services and bindings -->
+                {{ with .Data.ServicesTile }}
+                  <section class="ov-tile ov-services" aria-labelledby="ov-services-h">
+                    {{ template "ov_head" (dict "Id" "ov-services-h" "Label" "Services & bindings" "Href" (print $.AppPath "/bindings") "Link" "bindings") }}
+                    <div class="flex items-end gap-6">
+                      {{/* kindIs: a section the user cannot read is absent
+                           from the tile dict (0 is a real count) */}}
+                      {{ if not (kindIs "invalid" .Services) }}
+                        <div>
+                          <div class="ov-num-sm">{{ .Services }}</div>
+                          <div class="text-xs text-base-content/70">services</div>
+                        </div>
+                      {{ end }}
+                      {{ if not (kindIs "invalid" .Bindings) }}
+                        <div>
+                          <div class="ov-num-sm">{{ .Bindings }}</div>
+                          <div class="text-xs text-base-content/70">
+                            bindings{{ if .Auto }} · {{ .Auto }} auto{{ end }}
+                          </div>
+                        </div>
+                      {{ end }}
+                    </div>
+                  </section>
+                {{ end }}
+
+                <!-- Recent activity ticker: management (system) events by
+                     default, the scope chips re-render via the
+                     /overview/activity fragment -->
+                {{ with .Data.Activity }}
+                  <section class="ov-tile ov-activity" aria-labelledby="ov-activity-h">
+                    <div id="ov-activity-body">
+                      {{ block "ov_activity_tile" $ }}
+                        {{ with .Data.Activity }}
+                          {{ if .Error }}
+                            {{ template "ov_head" (dict "Id" "ov-activity-h" "Label" "Recent activity") }}
+                            {{ template "ov_error" .Error }}
+                          {{ else }}
+                            <div class="flex items-center gap-2 mb-2 flex-wrap">
+                              <h2 id="ov-activity-h" class="ov-label">Recent activity</h2>
+                              {{/* Solid btn-primary marks the active scope
+                                   (same join pattern as the containers
+                                   filter chips; the earlier soft/ghost
+                                   pair did not read as a selection) */}}
+                              <div
+                                role="group"
+                                aria-label="Activity scope"
+                                class="join">
+                                {{ range $scope := list "system" "all" }}
+                                  <button
+                                    class="btn btn-xs join-item {{ if eq $.Data.Activity.Scope $scope }}btn-primary{{ end }}"
+                                    aria-pressed="{{ if eq $.Data.Activity.Scope $scope }}true{{ else }}false{{ end }}"
+                                    hx-get="{{ $.AppPath }}/overview/activity"
+                                    hx-vals='{"scope": "{{ $scope }}"}'
+                                    hx-target="#ov-activity-body"
+                                    hx-swap="innerHTML">
+                                    {{ if eq $scope "system" }}System{{ else }}All events{{ end }}
+                                  </button>
+                                {{ end }}
+                              </div>
+                              {{ template "ov_area_link" (dict "Href" (print $.AppPath "/audit") "Link" "audit log") }}
+                            </div>
+                            {{ if .Events }}
+                              {{/* Compact table, header sticky; ~10 rows
+                                   visible, the rest scroll inside the box
+                                   (tabindex: scrollable regions must be
+                                   keyboard reachable) */}}
+                              <div
+                                class="ov-ticker"
+                                tabindex="0"
+                                role="group"
+                                aria-label="Recent events">
+                                <table class="table table-xs">
+                                  <thead>
+                                    <tr>
+                                      <th scope="col">User</th>
+                                      <th scope="col">Operation</th>
+                                      <th scope="col">Target</th>
+                                      <th scope="col" class="text-right">Time</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {{ range .Events }}
+                                      <tr>
+                                        <td class="font-mono text-xs whitespace-nowrap">{{ .user }}</td>
+                                        <td class="text-xs whitespace-nowrap {{ if .is_error }}text-error{{ end }}">{{ .operation }}</td>
+                                        <td class="font-mono text-xs">
+                                          <span
+                                            class="inline-block truncate max-w-72 align-bottom"
+                                            title="{{ .target }}"
+                                            >{{ .target }}</span
+                                          >
+                                        </td>
+                                        <td class="text-xs text-base-content/70 text-right whitespace-nowrap">
+                                          {{ if .time }}{{ template "time_ago" .time }}{{ end }}
+                                        </td>
+                                      </tr>
+                                    {{ end }}
+                                  </tbody>
+                                </table>
+                              </div>
+                            {{ else }}
+                              <p class="text-sm text-base-content/70">
+                                No {{ if eq .Scope "system" }}management operations{{ else }}activity{{ end }} recorded yet
+                              </p>
+                            {{ end }}
+                          {{ end }}
+                        {{ end }}
+                      {{ end }}
+                      <!-- End of "ov_activity_tile" block -->
+                    </div>
+                  </section>
+                {{ end }}
+
+                <!-- Server identity minis -->
+                {{ with .Data.Server }}
+                  {{ if .Error }}
+                    <section class="ov-tile ov-mini" aria-label="Server">
+                      <div class="ov-label">Server</div>
+                      {{ template "ov_error" .Error }}
+                    </section>
+                  {{ else }}
+                    <section class="ov-tile ov-mini" aria-label="Uptime">
+                      <div class="ov-label">Uptime</div>
+                      <div class="ov-mini-num">{{ .Uptime }}</div>
+                      {{ if .IsLeader }}
+                        <div class="text-xs text-base-content/70">leader node</div>
+                      {{ end }}
+                    </section>
+                    <section class="ov-tile ov-mini" aria-label="Version">
+                      <div class="ov-label">Version</div>
+                      <div class="ov-mini-num truncate" title="{{ .Version }}">{{ .Version }}</div>
+                      {{ if .Commit }}
+                        <div class="text-xs text-base-content/70 font-mono">{{ .Commit }}</div>
+                      {{ end }}
+                    </section>
+                    <section class="ov-tile ov-mini" aria-label="Database">
+                      <div class="ov-label">Database</div>
+                      <div class="ov-mini-num">{{ .MetadataDB }}</div>
+                      <div class="text-xs text-base-content/70">
+                        {{ if ne .AuditDB .MetadataDB }}audit: {{ .AuditDB }}{{ else }}metadata + audit{{ end }}
+                      </div>
+                    </section>
+                    <section class="ov-tile ov-mini" aria-label="Container runtime">
+                      <div class="ov-label">Runtime</div>
+                      <div class="ov-mini-num">{{ or .Runtime "none" }}</div>
+                      <div class="text-xs text-base-content/70">containers</div>
+                    </section>
+                  {{ end }}
+                {{ end }}
+
+              </div>
+            {{ end }}
+            <!-- End of "overview_content" block -->
+          </div>
+        </main>
+      </div>
+
+      {{ template "sidebar" . }}
+    </div>
+  </body>
+</html>
+
+{{/* ---- Page-local pieces ---- */}}
+{{/* The ov_head / ov_area_link tile-header defines live in
+     base_templates/layout.go.html: the pro analytics page shares them */}}
+
+{{/* One replication status row: state dot, mono target, muted context,
+     optional last-sync age and error line. Context keys: Row (target/
+     state/last_sync/error, binding rows add apps), Context (the muted
+     middle text), Pulse (heartbeat ring on the live states) */}}
+{{ define "ov_repl_row" }}
+  {{ $s := .Row.state }}
+  <div class="flex items-center gap-2 text-sm">
+    <span
+      class="ov-dot {{ if or (eq $s "healthy") (eq $s "idle") }}ov-dot-ok{{ else if eq $s "syncing" }}ov-dot-warn{{ else if eq $s "pending" }}ov-dot-off{{ else }}ov-dot-err{{ end }}{{ if and .Pulse (or (eq $s "healthy") (eq $s "syncing")) }} ov-pulse{{ end }}"
+      aria-hidden="true"></span>
+    <span
+      class="font-mono text-xs truncate"
+      {{ if .Row.apps }}title="used by {{ .Row.apps }}"{{ end }}
+      >{{ .Row.target }}</span
+    >
+    <span class="text-xs text-base-content/70">{{ .Context }}</span>
+    {{ if .Row.last_sync }}
+      <span class="text-xs text-base-content/70 ml-auto">{{ template "time_ago" .Row.last_sync }}</span>
+    {{ end }}
+  </div>
+  {{ if .Row.error }}
+    <div class="text-xs text-error break-all">{{ .Row.error }}</div>
+  {{ end }}
+{{ end }}
+
+{{ define "ov_error" }}
+  <p class="text-sm text-error break-all">{{ . }}</p>
+{{ end }}
