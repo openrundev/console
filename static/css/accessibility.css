@@ -172,7 +172,7 @@ html[data-signin-dismissed] #signin-strip {
 
 @media (min-width: 48rem) {
   .sidebar-logo {
-    height: 6.5rem;
+    height: 5rem;
   }
 }
 
