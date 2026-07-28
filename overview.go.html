@@ -257,11 +257,23 @@
                         {{ block "ov_replication_tile" $ }}
                           {{ if .Data.Error }}
                             {{ template "ov_error" .Data.Error }}
-                          {{ else if .Data.Rows }}
+                          {{ else if .Data.Total }}
+                            <!-- Prod-app summary only (staged state lives on
+                                 the app detail page): healthy / unhealthy
+                                 counts, not per-app rows -->
                             <div class="space-y-2">
-                              {{ range .Data.Rows }}
-                                {{ template "ov_repl_row" (dict "Row" . "Context" (print .env " · " .state)) }}
-                              {{ end }}
+                              <div class="flex items-center gap-2 text-sm">
+                                <span class="ov-dot ov-dot-ok" aria-hidden="true"></span>
+                                <span>{{ .Data.HealthyText }}</span>
+                              </div>
+                              <div class="flex items-center gap-2 text-sm">
+                                <span
+                                  class="ov-dot {{ if .Data.HasUnhealthy }}ov-dot-err{{ else }}ov-dot-off{{ end }}"
+                                  aria-hidden="true"></span>
+                                <span {{ if .Data.HasUnhealthy }}class="text-error"{{ end }}
+                                  >{{ .Data.UnhealthyText }}</span
+                                >
+                              </div>
                             </div>
                           {{ else if .Data.Loaded }}
                             <p class="text-sm text-base-content/70">

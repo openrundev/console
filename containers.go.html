@@ -173,8 +173,9 @@
               value="{{ .Data.Filter }}" />
             <div class="join" role="group" aria-label="Filter containers by state">
               <button
-                class="btn btn-sm join-item transition-transform duration-150 active:scale-95 {{ if eq .Data.Filter "running" }}btn-primary{{ end }}"
+                class="btn btn-sm join-item transition-transform duration-150 active:scale-95 tooltip tooltip-bottom tooltip-anchor-start {{ if eq .Data.Filter "running" }}btn-primary{{ end }}"
                 aria-pressed="{{ if eq .Data.Filter "running" }}true{{ else }}false{{ end }}"
+                data-tip="Running app containers"
                 data-filter="running"
                 hx-get="{{ $.AppPath }}/containers"
                 hx-vals='{"filter": "running"}'
@@ -186,8 +187,9 @@
                 Running
               </button>
               <button
-                class="btn btn-sm join-item transition-transform duration-150 active:scale-95 {{ if eq .Data.Filter "exited" }}btn-primary{{ end }}"
+                class="btn btn-sm join-item transition-transform duration-150 active:scale-95 tooltip tooltip-bottom {{ if eq .Data.Filter "exited" }}btn-primary{{ end }}"
                 aria-pressed="{{ if eq .Data.Filter "exited" }}true{{ else }}false{{ end }}"
+                data-tip="Stopped app containers"
                 data-filter="exited"
                 hx-get="{{ $.AppPath }}/containers"
                 hx-vals='{"filter": "exited"}'
@@ -199,8 +201,9 @@
                 Stopped
               </button>
               <button
-                class="btn btn-sm join-item transition-transform duration-150 active:scale-95 {{ if eq .Data.Filter "all" }}btn-primary{{ end }}"
+                class="btn btn-sm join-item transition-transform duration-150 active:scale-95 tooltip tooltip-bottom {{ if eq .Data.Filter "all" }}btn-primary{{ end }}"
                 aria-pressed="{{ if eq .Data.Filter "all" }}true{{ else }}false{{ end }}"
+                data-tip="All app containers, running and stopped"
                 data-filter="all"
                 hx-get="{{ $.AppPath }}/containers"
                 hx-vals='{"filter": "all"}'
@@ -240,7 +243,7 @@
                 hx-swap="innerHTML transition:true"
                 hx-push-url="true"
                 hx-indicator="#page-progress">
-                  Image builds
+                  Kaniko Builds
                 </button>
               {{ end }}
               {{/* Litestream replication sidecars run as separate labeled

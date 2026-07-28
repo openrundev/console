@@ -364,14 +364,20 @@ def overview_approvals_handler(req):
     return data
 
 
+# Replication states that mean attention is needed; everything else
+# (healthy, idle, syncing, pending) is a working or quiet-but-fine state
+REPL_UNHEALTHY_STATES = ("sidecar_down", "misconfigured", "error")
+
+
 def overview_replication_handler(req):
-    # Lazy binding replication rows: replication_status sweeps the replica
-    # store (S3) and the container daemon on a cache miss (30s server-side
-    # cache), so the tile shows the free metadata state first and the
-    # binding rows load here. The server filters rows per caller (app rows
-    # to readable apps via app:read, metadata rows to config:basic_read);
-    # the metadata rows are dropped here regardless - they already
-    # rendered with the server tile
+    # Lazy binding replication summary: replication_status sweeps the
+    # replica store (S3) and the container daemon on a cache miss (30s
+    # server-side cache), so the tile shows the free metadata state first
+    # and this summary loads here. Only PROD app entries are counted
+    # (staged replication state is on the app detail page); the server
+    # filters entries per caller (app rows to readable apps via app:read,
+    # metadata rows to config:basic_read) - metadata rows are dropped here
+    # regardless, they already rendered with the server tile
     perms = get_perms()
     data = {"Perms": perms, "Loaded": True}
     if not ov_can(perms, "app:read"):
@@ -381,19 +387,22 @@ def overview_replication_handler(req):
     if ret.error:
         data["Error"] = ret.error
         return data
-    rows = []
+    # An app is unhealthy when ANY of its prod replication targets is in a
+    # bad state (an app has at most one sqlite binding today, but keep the
+    # fold safe if that changes)
+    app_healthy = {}
     for entry in ret.value:
-        if entry["kind"] != "app":
+        if entry["kind"] != "app" or entry.get("env") != "prod":
             continue
-        rows.append({
-            "target": entry["target"],
-            "env": entry.get("env") or "",
-            "state": entry["state"],
-            "last_sync": ov_trim_time(entry.get("last_sync") or ""),
-            "apps": ", ".join(entry.get("app_paths") or []),
-            "error": entry.get("error") or "",
-        })
-    data["Rows"] = rows
+        bad = entry["state"] in REPL_UNHEALTHY_STATES
+        for app_path in entry.get("app_paths") or []:
+            app_healthy[app_path] = app_healthy.get(app_path, True) and not bad
+    healthy = len([1 for ok in app_healthy.values() if ok])
+    unhealthy = len(app_healthy) - healthy
+    data["Total"] = len(app_healthy)
+    data["HealthyText"] = "%d app%s healthy" % (healthy, "" if healthy == 1 else "s")
+    data["UnhealthyText"] = "%d app%s unhealthy" % (unhealthy, "" if unhealthy == 1 else "s")
+    data["HasUnhealthy"] = unhealthy > 0
     return data
 
 
@@ -628,10 +637,13 @@ def apps_detail_data(req):
 
     data["ParamsText"] = params_to_text(app["params"])
 
-    # Containers running (or recently run) for this app, current env first
+    # Containers running (or recently run) for this app, current env first.
+    # The litestream sidecars (-ls suffix) are excluded: they would render
+    # as duplicate env chips, and the Replication row links to them instead
     cont_ret = openrun.list_containers()
     if not cont_ret.error:
-        containers = [c for c in cont_ret.value if c["app_path"] == path]
+        containers = [c for c in cont_ret.value
+                      if c["app_path"] == path and not c["name"].endswith("-ls")]
         data["Containers"] = sorted(containers, key=app_container_sort_key)
 
     # Audit the app's code for the plugin permissions it requests and whether
@@ -654,6 +666,61 @@ def apps_detail_data(req):
     data["ProdVersionsError"] = prod_err
     data["StageVersions"] = stage_versions
     data["StageVersionsError"] = stage_err
+    return data
+
+
+def apps_detail_replication_handler(req):
+    # Lazy replication status for the app detail Overview card:
+    # replication_status sweeps the replica store on a server cache miss,
+    # so it must not block the detail page's first paint. Renders nothing
+    # when the app has no replicated sqlite binding
+    path = query_param(req, "path")
+    data = {"Perms": get_perms(path), "Loaded": True, "Path": path}
+    ret = openrun.get_app(path)
+    error = ret.error
+    if error:
+        # No access or app gone: render nothing (the page itself already
+        # surfaced the error)
+        return data
+    stage_path = ret.value.get("stage_path") or ""
+
+    rs = openrun.replication_status()
+    error = rs.error
+    if error:
+        data["Error"] = error
+        return data
+
+    # The litestream sidecars are separate labeled containers on docker/
+    # podman (-ls name suffix, prod vs staged told apart by the app id in
+    # the container name); each status chip links to its sidecar's
+    # container detail when one exists (on kubernetes the sidecar runs
+    # inside the app pod, so there is no separate container to link)
+    sidecars = {}
+    cont_ret = openrun.list_containers()
+    cont_error = cont_ret.error
+    if not cont_error:
+        for c in cont_ret.value:
+            if c["app_path"] != path or not c["name"].endswith("-ls"):
+                continue
+            sidecars["prod" if "app_prd_" in c["name"] else "staged"] = c["id"]
+
+    rows = []
+    for entry in rs.value:
+        if entry["kind"] != "app":
+            continue
+        env = entry.get("env") or ""
+        paths = entry.get("app_paths") or []
+        if (env == "prod" and path in paths) or \
+           (env == "staged" and stage_path and stage_path in paths):
+            rows.append({
+                "env": "prod" if env == "prod" else "stage",
+                "state": entry["state"],
+                "last_sync": ov_trim_time(entry.get("last_sync") or ""),
+                "error": entry.get("error") or "",
+                "container_id": sidecars.get(env) or "",
+            })
+    # prod first, matching the containers chip order
+    data["Rows"] = sorted(rows, key=lambda r: r["env"] != "prod")
     return data
 
 
@@ -1451,8 +1518,11 @@ def containers_data(req):
 
     if filter in ("agent", "kaniko"):
         # Runtime and counts still come from the managed list (drives the
-        # header and the kaniko tab visibility)
+        # header and the kaniko tab visibility); litestream sidecars are
+        # excluded from the header counts like on the app-container views
         for entry in app_containers:
+            if entry["name"].endswith("-ls"):
+                continue
             data["Total"] += 1
             data["Runtime"] = entry["runtime"]
             if entry["state"] == "running":
@@ -1473,18 +1543,21 @@ def containers_data(req):
 
     containers = []
     for entry in app_containers:
-        data["Total"] += 1
-        data["Runtime"] = entry["runtime"]
+        # Replication sidecars are part of the managed list (they carry the
+        # app.id label), identified by their -ls name suffix (same heuristic
+        # as the replication status API). They have their own tab and are
+        # excluded from the app-container views AND the header counts
+        is_sidecar = entry["name"].endswith("-ls")
         running = entry["state"] == "running"
-        if running:
-            data["Running"] += 1
+        if not is_sidecar:
+            data["Total"] += 1
+            data["Runtime"] = entry["runtime"]
+            if running:
+                data["Running"] += 1
         if filter == "litestream":
-            # Replication sidecars are part of the managed list (they carry
-            # the app.id label), identified by their -ls name suffix (same
-            # heuristic as the replication status API)
-            if not entry["name"].endswith("-ls"):
+            if not is_sidecar:
                 continue
-        elif (filter == "running" and not running) or (filter == "exited" and running):
+        elif is_sidecar or (filter == "running" and not running) or (filter == "exited" and running):
             continue
         if query and query not in entry["name"].lower() and \
            query not in entry["app_path"].lower() and query not in entry["image"].lower() and \

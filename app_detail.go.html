@@ -394,6 +394,75 @@
                     </span>
                   {{ end }}
 
+                  <!-- Replication status loads lazily (replica store sweep
+                       on a server cache miss must not block first paint);
+                       display:contents keeps the swapped-in label/value
+                       spans as items of the surrounding grid. Renders
+                       nothing for apps without a replicated binding -->
+                  <div
+                    class="contents"
+                    hx-get="{{ $.AppPath }}/apps/detail/replication?path={{ .Data.Path }}"
+                    hx-trigger="load"
+                    hx-swap="innerHTML">
+                    {{ block "app_repl_status" $ }}
+                      {{ if .Data.Rows }}
+                        <span class="text-xs text-base-content/70 pt-0.5"
+                          >Replication</span
+                        >
+                        <span class="pt-1 flex items-center gap-3 flex-wrap">
+                          {{ range .Data.Rows }}
+                            {{ $s := .state }}
+                            {{ $dot := "status-error" }}
+                            {{ if or (eq $s "healthy") (eq $s "idle") }}
+                              {{ $dot = "status-success" }}
+                            {{ else if or (eq $s "syncing") (eq $s "pending") }}
+                              {{ $dot = "status-warning" }}
+                            {{ end }}
+                            {{ if .container_id }}
+                              <a
+                                href="{{ $.AppPath }}/containers/detail?id={{ .container_id }}"
+                                class="link link-hover inline-flex items-center gap-1.5 text-xs"
+                                title="litestream sidecar - stats and logs{{ if .error }} · {{ .error }}{{ end }}">
+                                <span class="status {{ $dot }}"></span>
+                                <span class="font-mono"
+                                  >{{ .env }} · {{ $s }}</span
+                                >
+                                {{ if .last_sync }}
+                                  <span class="text-base-content/70"
+                                    >{{ template "time_ago" .last_sync }}</span
+                                  >
+                                {{ end }}
+                                <span class="text-base-content/70">→</span>
+                              </a>
+                            {{ else }}
+                              <span
+                                class="inline-flex items-center gap-1.5 text-xs"
+                                {{ if .error }}title="{{ .error }}"{{ end }}>
+                                <span class="status {{ $dot }}"></span>
+                                <span class="font-mono"
+                                  >{{ .env }} · {{ $s }}</span
+                                >
+                                {{ if .last_sync }}
+                                  <span class="text-base-content/70"
+                                    >{{ template "time_ago" .last_sync }}</span
+                                  >
+                                {{ end }}
+                              </span>
+                            {{ end }}
+                          {{ end }}
+                        </span>
+                      {{ else if .Data.Error }}
+                        <span class="text-xs text-base-content/70 pt-0.5"
+                          >Replication</span
+                        >
+                        <span class="pt-1 text-xs text-error break-all"
+                          >{{ .Data.Error }}</span
+                        >
+                      {{ end }}
+                    {{ end }}
+                    <!-- End of "app_repl_status" block -->
+                  </div>
+
                   <span class="text-xs text-base-content/70 pt-0.5">Id</span>
                   <span class="font-mono text-xs text-base-content/70 break-all pt-1"
                     >{{ .Data.App.id }}</span

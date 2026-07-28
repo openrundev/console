@@ -3,7 +3,8 @@
 load("handler.star",
      "overview_data", "overview_containers_handler", "overview_replication_handler",
      "overview_activity_handler", "overview_approvals_handler",
-     "apps_data", "apps_detail_data", "apps_switch_handler", "apps_promote_handler",
+     "apps_data", "apps_detail_data", "apps_detail_replication_handler",
+     "apps_switch_handler", "apps_promote_handler",
      "apps_approve_handler", "apps_detail_reload_handler", "apps_detail_delete_handler",
      "apps_files_handler", "apps_files_download_handler",
      "apps_create_page_handler", "apps_create_submit_handler",
@@ -202,12 +203,15 @@ def build_routes():
         # detail content
         ace.html("/apps/detail", full="app_detail.go.html", partial="detail_content", handler=apps_detail_data,
                  fragments=[
+                     # Lazy replication status chips (read-only, always on)
+                     ace.fragment("replication", partial="app_repl_status", handler=apps_detail_replication_handler),
+                 ] + ([
                      ace.fragment("switch", method="POST", handler=apps_switch_handler),
                      ace.fragment("promote", method="POST", handler=apps_promote_handler),
                      ace.fragment("approve", method="POST", handler=apps_approve_handler),
                      ace.fragment("reload", method="POST", handler=apps_detail_reload_handler),
                      ace.fragment("delete", method="POST", handler=apps_detail_delete_handler),
-                 ] if ENABLE_UPDATES else []),
+                 ] if ENABLE_UPDATES else [])),
         ace.html("/apps/files", full="app_files.go.html", handler=apps_files_handler,
                  fragments=[
                      # Zip download of the version files (redirects to a

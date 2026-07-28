@@ -570,6 +570,27 @@ builder-chat .bc-tool-title {
 .ov-tile:focus-within {
   z-index: 10;
 }
+/* THE STACKING INVARIANT, sibling flavor, generalized: a tooltip bubble
+   from a host in static flow paints UNDER any later positioned sibling at
+   z auto - daisyui .card is position:relative, so a tooltip-bottom bubble
+   on the containers filter chips disappeared behind the list card below.
+   daisyui .tooltip is position:relative, so lifting the host while its
+   bubble shows puts the bubble above later siblings; transient, so it
+   cannot mask dropdown/menu layers at rest */
+.tooltip:hover,
+.tooltip.tooltip-open,
+.tooltip:has(:focus-visible) {
+  z-index: 30;
+}
+/* Bottom bubble anchored to the host's LEFT edge instead of centered: for
+   tooltip hosts near the content's left edge (containers page's Running
+   chip), whose centered bubble would reach under the sidebar (DOM-last,
+   paints above everything in main). Overrides daisyui's left:50% +
+   translateX(--tt-trans) centering; the arrow stays centered on the host */
+.tooltip-anchor-start.tooltip-bottom[data-tip]::before {
+  left: 0;
+  --tt-trans: 0%;
+}
 /* Belt for the dot bubbles: the tips are tail-truncated server-side, the
    cap keeps any remaining long tip from running off the tile */
 .ov-viz .tooltip:before {
