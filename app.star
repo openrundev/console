@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 load("handler.star",
      "overview_data", "overview_containers_handler", "overview_replication_handler",
-     "overview_activity_handler", "overview_approvals_handler",
+     "overview_activity_handler", "overview_approvals_handler", "replication_data",
      "apps_data", "apps_detail_data", "apps_detail_replication_handler",
      "apps_switch_handler", "apps_promote_handler",
      "apps_approve_handler", "apps_detail_reload_handler", "apps_detail_delete_handler",
@@ -229,6 +229,9 @@ def build_routes():
                      ace.fragment("delete", method="POST", handler=syncs_detail_delete_handler),
                  ] if ENABLE_UPDATES else []),
         ace.html("/audit", full="audit.go.html", partial="audit_rows", handler=audit_data),
+        # Replication detail (linked from the overview replication tile):
+        # read-only, always registered like the overview it extends
+        ace.html("/replication", full="replication.go.html", partial="repl_rows", handler=replication_data),
         ace.html("/bindings", full="bindings.go.html", partial="binding_groups", handler=bindings_data,
                  fragments=[
                      ace.fragment("delete", method="POST", handler=bindings_delete_handler),

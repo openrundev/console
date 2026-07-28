@@ -1,0 +1,241 @@
+{{/* Copyright (c) ClaceIO, LLC */}}
+{{/* SPDX-License-Identifier: Apache-2.0 */}}
+{{/* Replication detail page (/replication): one row per prod app
+  replication target with the full entry detail, searchable by app
+  path. Linked from the overview replication tile.
+  HTMX partial: block repl_rows
+*/}}
+<!DOCTYPE html>
+<html lang="en">
+  {{ template "head" . }}
+
+
+  <body class="min-h-screen bg-base-200">
+    <div class="drawer lg:drawer-open">
+      {{ template "drawer_toggle" }}
+
+
+      <div class="drawer-content">
+        <main class="p-4 lg:p-6 space-y-4 max-w-6xl">
+          <!-- Header -->
+          <div
+            class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+            {{ template "hamburger" . }}
+            <div>
+              {{ template "page_title" "OpenRun Replication" }}
+              <p class="page-desc text-sm text-base-content/70">
+                Replication status details
+              </p>
+            </div>
+            <div class="page-actions ml-auto flex items-center gap-2">
+              <label
+                class="input input-sm flex-1 min-w-0 sm:flex-none sm:w-48 sm:focus-within:w-60 transition-[width] duration-300 flex">
+                <kbd class="kbd kbd-xs hidden sm:inline-flex" aria-hidden="true"
+                  >⌘K</kbd
+                >
+                <input
+                  id="page-search"
+                  type="search"
+                  name="query"
+                  aria-label="Filter by app"
+                  value="{{ .Data.Query }}"
+                  placeholder="Filter by app…"
+                  hx-get="{{ .AppPath }}/replication"
+                  hx-trigger="input changed delay:300ms, search"
+                  hx-push-url="true"
+                  hx-target="#repl-rows"
+                  hx-swap="innerHTML transition:true"
+                  hx-indicator="#page-progress" />
+              </label>
+            </div>
+          </div>
+
+          {{ template "page_progress" }}
+
+
+          <!-- Replication target rows -->
+          <div id="repl-rows" class="space-y-4">
+            {{ block "repl_rows" . }}
+              {{ template "flash_alerts" .Data }}
+
+              {{ if .Data.Rows }}
+                <div class="card bg-base-100 border border-base-300">
+                  <div
+                    class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
+                    <h2 class="text-sm font-medium">Prod app replication</h2>
+                    <span class="text-xs text-base-content/70"
+                      >{{ .Data.Total }}
+                      targets{{ if .Data.Unhealthy }}
+                        ·
+                        <span class="text-error"
+                          >{{ .Data.Unhealthy }} unhealthy</span
+                        >
+                      {{ end }}</span
+                    >
+                  </div>
+                  <div class="overflow-x-auto">
+                    <table class="table table-sm">
+                      <thead>
+                        <tr>
+                          <th scope="col">State</th>
+                          <th scope="col">App</th>
+                          <th scope="col" class="hidden sm:table-cell">
+                            Last sync
+                          </th>
+                          <th scope="col" class="hidden md:table-cell">
+                            Sidecar
+                          </th>
+                          <th scope="col" class="hidden md:table-cell">Size</th>
+                          <th scope="col" class="hidden lg:table-cell">
+                            Databases
+                          </th>
+                          <th scope="col">Replica target</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {{ range .Data.Rows }}
+                          <tr class="group hover:bg-base-200/60">
+                            <td class="whitespace-nowrap align-top">
+                              {{ if .unhealthy }}
+                                <span class="status status-error"></span>
+                                <span
+                                  class="text-xs text-error"
+                                  {{ if .error }}title="{{ .error }}"{{ end }}
+                                  >{{ .state }}</span
+                                >
+                              {{ else if eq .state "syncing" }}
+                                <span class="status status-warning"></span>
+                                <span class="text-xs">{{ .state }}</span>
+                              {{ else if eq .state "pending" }}
+                                <span class="status"></span>
+                                <span class="text-xs">{{ .state }}</span>
+                              {{ else }}
+                                <span class="status status-success"></span>
+                                <span class="text-xs">{{ .state }}</span>
+                              {{ end }}
+                            </td>
+                            <td class="align-top">
+                              {{/* break-all needs a min-width floor: table
+                                auto-layout otherwise squeezes the column to
+                                one-character slivers on mobile
+                              */}}
+                              <span
+                                class="font-mono text-xs font-medium break-all inline-block min-w-40 align-bottom"
+                                >{{ .app_path }}<a
+                                  href="{{ $.AppPath }}/apps/detail?path={{ .app_path }}"
+                                  aria-label="View details for {{ .app_path }}"
+                                  class="inline-block text-primary text-xs opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-200 ml-0.5"
+                                  ><span aria-hidden="true">↗</span></a
+                                ></span
+                              >
+                            </td>
+                            <td
+                              class="text-xs text-base-content/70 hidden sm:table-cell whitespace-nowrap align-top">
+                              {{ if .last_sync }}
+                                {{ template "time_ago" .last_sync }}
+                              {{ else }}
+                                never
+                              {{ end }}
+                            </td>
+                            <td
+                              class="text-xs hidden md:table-cell whitespace-nowrap align-top {{ if eq .sidecar "down" }}
+                                text-error
+                              {{ else }}
+                                text-base-content/70
+                              {{ end }}">
+                              {{ if .sidecar }}
+                                {{ .sidecar }}
+                              {{ else }}
+                                <span
+                                  class="tooltip tooltip-right"
+                                  data-tip="the sidecar runs inside the app pod on kubernetes"
+                                  >-</span
+                                >
+                              {{ end }}
+                            </td>
+                            <td
+                              class="text-xs text-base-content/70 hidden md:table-cell whitespace-nowrap tabular-nums align-top">
+                              {{ if .size }}
+                                {{ .size }}
+                              {{ else }}
+                                -
+                              {{ end }}
+                            </td>
+                            <td
+                              class="text-xs text-base-content/70 hidden lg:table-cell align-top">
+                              {{ if .files }}
+                                <ul>
+                                  {{ range .files }}
+                                    <li class="whitespace-nowrap">
+                                      <span class="font-mono">{{ .path }}</span>
+                                      <span class="tabular-nums"
+                                        >{{ .size }}</span
+                                      >
+                                      {{ if .last_sync }}
+                                        ·
+                                        {{ template "time_ago" .last_sync }}
+                                      {{ end }}
+                                    </li>
+                                  {{ end }}
+                                </ul>
+                              {{ else }}
+                                -
+                              {{ end }}
+                            </td>
+                            <td class="align-top">
+                              <span
+                                class="font-mono text-xs break-all inline-block min-w-40 max-w-80"
+                                >{{ .target }}</span
+                              >
+                              {{ if .error }}
+                                <div
+                                  class="text-xs text-error break-all min-w-40 max-w-80">
+                                  {{ .error }}
+                                </div>
+                              {{ end }}
+                            </td>
+                          </tr>
+                        {{ end }}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              {{ else if not .Data.FlashError }}
+                <div class="card bg-base-100 border border-base-300 py-10">
+                  <div
+                    class="flex flex-col items-center gap-2 text-center text-sm text-base-content/70">
+                    {{ if .Data.Query }}
+                      <span class="text-xl" aria-hidden="true">🔍</span>
+                      <p>No prod apps match "{{ .Data.Query }}"</p>
+                      <button
+                        class="btn btn-xs btn-outline transition-transform duration-150 active:scale-95"
+                        onclick="const s = document.getElementById('page-search'); if (s) s.value = ''"
+                        hx-get="{{ .AppPath }}/replication"
+                        hx-vals='{"query": ""}'
+                        hx-target="#repl-rows"
+                        hx-swap="innerHTML transition:true"
+                        hx-push-url="true"
+                        hx-indicator="#page-progress">
+                        Clear search
+                      </button>
+                    {{ else }}
+                      <span class="text-xl" aria-hidden="true">💾</span>
+                      <p>No replicated sqlite bindings</p>
+                      <p class="text-xs text-base-content/70">
+                        Prod apps with a replicated sqlite binding report their
+                        replica state here
+                      </p>
+                    {{ end }}
+                  </div>
+                </div>
+              {{ end }}
+            {{ end }}
+            <!-- End of "repl_rows" block -->
+          </div>
+        </main>
+      </div>
+
+      {{ template "sidebar" . }}
+    </div>
+  </body>
+</html>

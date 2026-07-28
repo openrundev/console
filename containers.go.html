@@ -14,7 +14,7 @@
         <main class="p-4 lg:p-6 space-y-4 max-w-6xl">
           <!-- Header -->
           <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
-            {{ template "hamburger" }}
+            {{ template "hamburger" . }}
             <div>
               {{ template "page_title" "OpenRun Containers" }}
               <p class="page-desc text-sm text-base-content/70">
@@ -28,8 +28,8 @@
             </div>
             <div class="page-actions ml-auto flex items-center gap-2">
               <label
-                class="input input-sm w-48 focus-within:w-60 transition-[width] duration-300 hidden sm:flex">
-                <kbd class="kbd kbd-xs" aria-hidden="true">⌘K</kbd>
+                class="input input-sm flex-1 min-w-0 sm:flex-none sm:w-48 sm:focus-within:w-60 transition-[width] duration-300 flex">
+                <kbd class="kbd kbd-xs hidden sm:inline-flex" aria-hidden="true">⌘K</kbd>
                 <input
                   id="page-search"
                   type="search"
@@ -305,9 +305,7 @@
                               {{ template "container_state" . }}
                             </td>
                             <td class="whitespace-nowrap">
-                              <span
-                                class="font-mono text-xs font-medium tooltip tooltip-right"
-                                data-tip="{{ .id }}"
+                              <span class="font-mono text-xs font-medium"
                                 >{{ trunc 12 .id }}</span
                               >
                             </td>

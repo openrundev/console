@@ -92,33 +92,47 @@
 {{ end }}
 
 {{/* hamburger renders the skip-to-navigation link (the main content comes
-  before the nav in DOM order) and the button opening the nav drawer on
-  small screens. Rendered at the top of every page header
+  before the nav in DOM order), the small brand logo (the sidebar carrying
+  the full logo is hidden on small screens) and the button opening the nav
+  drawer. Rendered at the top of every page header. Context: the page
+  context (.AppPath builds the logo home link) — NOT .logo-mark: the
+  browser suite grabs a.logo-mark expecting the sidebar copy, and rod
+  hangs clicking a hidden match
 */}}
 {{ define "hamburger" }}
   <a href="#main-nav" class="skip-link">Skip to navigation</a>
-  <button
-    type="button"
-    class="btn btn-ghost btn-square btn-xl lg:hidden"
-    aria-label="Open navigation menu"
-    aria-controls="main-nav"
-    aria-expanded="false"
-    onclick="toggleNavDrawer(this)">
-    <svg
-      aria-hidden="true"
-      focusable="false"
-      class="w-7 h-7"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="2"
-      stroke-linecap="round"
-      stroke-linejoin="round">
-      <path d="M4 6h16" />
-      <path d="M4 12h16" />
-      <path d="M4 18h16" />
-    </svg>
-  </button>
+  <div class="mobile-brand lg:hidden flex flex-col items-center self-start">
+    <a href="{{ .AppPath }}/" class="mobile-logo">
+      <img
+        src="{{ static "openrun.png" }}"
+        alt="OpenRun"
+        width="600"
+        height="325"
+        class="h-12 w-auto" />
+    </a>
+    <button
+      type="button"
+      class="btn btn-ghost btn-square btn-xl"
+      aria-label="Open navigation menu"
+      aria-controls="main-nav"
+      aria-expanded="false"
+      onclick="toggleNavDrawer(this)">
+      <svg
+        aria-hidden="true"
+        focusable="false"
+        class="w-7 h-7"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round">
+        <path d="M4 6h16" />
+        <path d="M4 12h16" />
+        <path d="M4 18h16" />
+      </svg>
+    </button>
+  </div>
 {{ end }}
 
 {{/* drawer_toggle is the hidden checkbox controlled by the mobile

@@ -1,161 +1,173 @@
 {{/* Copyright (c) ClaceIO, LLC */}}
 {{/* SPDX-License-Identifier: Apache-2.0 */}}
 {{/* Service create form (/bindings/services/create) with a Validate
-     (dry run) option */}}
+  (dry run) option
+*/}}
 <!DOCTYPE html>
 <html lang="en">
   {{ template "head" . }}
+
 
   <body class="min-h-screen bg-base-200">
     <div class="drawer lg:drawer-open">
       {{ template "drawer_toggle" }}
 
+
       <div class="drawer-content">
         <main class="p-4 lg:p-6 space-y-4 max-w-2xl">
           <!-- Header -->
-          <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
-            {{ template "hamburger" }}
+          <div
+            class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+            {{ template "hamburger" . }}
             <div>
               {{ template "page_title" "OpenRun Bindings" }}
-              <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0">
+              <nav
+                aria-label="Breadcrumb"
+                class="breadcrumbs text-xs text-base-content/70 p-0">
                 <ul>
                   <li><a href="{{ .AppPath }}/bindings">Bindings</a></li>
                   <li>new service</li>
-                </ul></nav>
+                </ul>
+              </nav>
               <h2 class="text-xl font-semibold">New service</h2>
               <p class="page-desc text-sm text-base-content/70">
-                A named backing service (database etc.) that app bindings
-                connect to
+                Services (databases etc.) that bindings connect to
               </p>
             </div>
           </div>
 
           {{ template "page_progress" }}
 
+          {{ block "op_form" . }}
+            <div id="op-form-wrap">
+              {{ template "error_alert" .Data.Error }}
+              {{ template "validation_alert" (dict
+                "Validated" .Data.Validated
+                "Value" .Data.Values.id
+                "Suffix" "is ready to be created")
+              }}
 
-{{ block "op_form" . }}
-          <div id="op-form-wrap">
-          {{ template "error_alert" .Data.Error }}
-          {{ template "validation_alert" (dict
-            "Validated" .Data.Validated
-            "Value" .Data.Values.id
-            "Suffix" "is ready to be created") }}
 
+              <form
+                method="post"
+                action="{{ .AppPath }}/bindings/services/create"
+                id="op-form"
+                hx-post="{{ .AppPath }}/bindings/services/create"
+                hx-target="#op-form-wrap"
+                hx-swap="outerHTML"
+                hx-indicator="#page-progress, #op-form"
+                class="card bg-base-100 border border-base-300">
+                <div class="card-body p-5 gap-5">
+                  <div>
+                    <label
+                      class="block text-sm font-medium mb-1"
+                      for="service-id"
+                      >Service id</label
+                    >
+                    <input
+                      id="service-id"
+                      name="id"
+                      type="text"
+                      required
+                      value="{{ .Data.Values.id }}"
+                      placeholder="postgres/main"
+                      class="input w-full font-mono text-sm" />
+                    <p class="text-xs text-base-content/70 mt-1">
+                      Format is
+                      <span class="font-mono">service_type/name</span>, for
+                      example <span class="font-mono">postgres/main</span> or
+                      <span class="font-mono">mysql/reports</span>
+                    </p>
+                  </div>
 
-          <form
-            method="post"
-            action="{{ .AppPath }}/bindings/services/create"
-            id="op-form"
-            hx-post="{{ .AppPath }}/bindings/services/create"
-            hx-target="#op-form-wrap"
-            hx-swap="outerHTML"
-            hx-indicator="#page-progress, #op-form"
-            class="card bg-base-100 border border-base-300">
-            <div class="card-body p-5 gap-5">
-              <div>
-                <label class="block text-sm font-medium mb-1" for="service-id"
-                  >Service id</label
-                >
-                <input
-                  id="service-id"
-                  name="id"
-                  type="text"
-                  required
-                  value="{{ .Data.Values.id }}"
-                  placeholder="postgres/main"
-                  class="input w-full font-mono text-sm" />
-                <p class="text-xs text-base-content/70 mt-1">
-                  Format is
-                  <span class="font-mono">service_type/name</span>, for example
-                  <span class="font-mono">postgres/main</span> or
-                  <span class="font-mono">mysql/reports</span>
-                </p>
-              </div>
+                  <div>
+                    <span class="block text-sm font-medium mb-1">Config</span>
+                    {{ template "kv_table" (dict "Field" "config"
+                      "AppPath" .AppPath
+                      "Prefix" "service"
+                      "CanCreate" (index .Data.Perms "secret:create")
+                      "CanDelete" (index .Data.Perms "secret:delete")
+                      "Rows" .Data.Values.config_rows
+                      "KeyPlaceholder" "host"
+                      "ValuePlaceholder" "db.internal"
+                      "AddLabel" "Add config entry")
+                    }}
+                    <p class="text-xs text-base-content/70 mt-1">
+                      Connection settings for the service. The lock button
+                      encrypts a value (a password for example) into the secrets
+                      store and uses the secret reference instead
+                    </p>
+                  </div>
 
-              <div>
-                <span class="block text-sm font-medium mb-1">Config</span>
-                {{ template "kv_table" (dict "Field" "config"
-                    "AppPath" .AppPath
-                    "Prefix" "service"
-                    "CanCreate" (index .Data.Perms "secret:create")
-                        "CanDelete" (index .Data.Perms "secret:delete")
-                    "Rows" .Data.Values.config_rows
-                    "KeyPlaceholder" "host"
-                    "ValuePlaceholder" "db.internal"
-                    "AddLabel" "Add config entry") }}
-                <p class="text-xs text-base-content/70 mt-1">
-                  Connection settings for the service. The lock button
-                  encrypts a value (a password for example) into the secrets
-                  store and uses the secret reference instead
-                </p>
-              </div>
+                  <div
+                    class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 items-start">
+                    <label class="flex items-center gap-3 cursor-pointer pt-6">
+                      <input
+                        type="checkbox"
+                        name="is_default"
+                        class="toggle toggle-sm toggle-primary"
+                        {{ if .Data.Values.is_default }}checked{{ end }} />
+                      <span class="text-sm">
+                        Default for its type
+                        <span class="block text-xs text-base-content/70">
+                          used when apps reference the type without a name
+                        </span>
+                      </span>
+                    </label>
+                    <div>
+                      <label
+                        class="block text-sm font-medium mb-1"
+                        for="service-staging"
+                        >Staging service</label
+                      >
+                      <input
+                        id="service-staging"
+                        name="staging"
+                        type="text"
+                        value="{{ .Data.Values.staging }}"
+                        placeholder="optional"
+                        class="input w-full font-mono text-sm" />
+                      <p class="text-xs text-base-content/70 mt-1">
+                        Service name staging apps should use instead
+                      </p>
+                    </div>
+                  </div>
 
-              <div
-                class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 items-start">
-                <label class="flex items-center gap-3 cursor-pointer pt-6">
-                  <input
-                    type="checkbox"
-                    name="is_default"
-                    class="toggle toggle-sm toggle-primary"
-                    {{ if .Data.Values.is_default }}checked{{ end }} />
-                  <span class="text-sm">
-                    Default for its type
-                    <span class="block text-xs text-base-content/70">
-                      used when apps reference the type without a name
-                    </span>
-                  </span>
-                </label>
-                <div>
-                  <label
-                    class="block text-sm font-medium mb-1"
-                    for="service-staging"
-                    >Staging service</label
-                  >
-                  <input
-                    id="service-staging"
-                    name="staging"
-                    type="text"
-                    value="{{ .Data.Values.staging }}"
-                    placeholder="optional"
-                    class="input w-full font-mono text-sm" />
-                  <p class="text-xs text-base-content/70 mt-1">
-                    Service name staging apps should use instead
-                  </p>
+                  <div class="card-actions justify-end pt-2">
+                    <a
+                      href="{{ .AppPath }}/bindings"
+                      class="btn btn-ghost btn-sm"
+                      >Cancel</a
+                    >
+                    <button
+                      type="submit"
+                      name="action"
+                      value="validate"
+                      {{ if index .Data.Perms "service:create" }}
+                        data-tip="Dry run: check the service without creating
+                        it"
+                      {{ else }}
+                        disabled data-tip="requires service:create"
+                      {{ end }}
+                      class="btn btn-outline btn-sm transition-transform duration-150 active:scale-95 tooltip tooltip-top">
+                      Validate
+                    </button>
+                    <button
+                      type="submit"
+                      name="action"
+                      value="create"
+                      {{ if not (index .Data.Perms "service:create") }}
+                        disabled data-tip="requires service:create"
+                      {{ end }}
+                      class="btn btn-primary btn-sm transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "service:create") }}
+                        tooltip tooltip-top
+                      {{ end }}">
+                      Create service
+                    </button>
+                  </div>
                 </div>
-              </div>
-
-              <div class="card-actions justify-end pt-2">
-                <a
-                  href="{{ .AppPath }}/bindings"
-                  class="btn btn-ghost btn-sm"
-                  >Cancel</a
-                >
-                <button
-                  type="submit"
-                  name="action"
-                  value="validate"
-                  {{ if index .Data.Perms "service:create" }}
-                    data-tip="Dry run: check the service without creating it"
-                  {{ else }}
-                    disabled data-tip="requires service:create"
-                  {{ end }}
-                  class="btn btn-outline btn-sm transition-transform duration-150 active:scale-95 tooltip tooltip-top">
-                  Validate
-                </button>
-                <button
-                  type="submit"
-                  name="action"
-                  value="create"
-                  {{ if not (index .Data.Perms "service:create") }}
-                    disabled data-tip="requires service:create"
-                  {{ end }}
-                  class="btn btn-primary btn-sm transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "service:create") }}tooltip tooltip-top{{ end }}">
-                  Create service
-                </button>
-              </div>
+              </form>
             </div>
-          </form>
-          </div>
           {{ end }}
         </main>
       </div>

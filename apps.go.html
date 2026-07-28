@@ -1,8 +1,9 @@
 {{/* Copyright (c) ClaceIO, LLC */}}
 {{/* SPDX-License-Identifier: Apache-2.0 */}}
 {{/* Apps list page (/apps): apps grouped by their managing sync plus an
-     unmanaged section, count stats double as declarative/imperative filters.
-     HTMX partial: block app_groups */}}
+  unmanaged section, count stats double as declarative/imperative filters.
+  HTMX partial: block app_groups
+*/}}
 <!DOCTYPE html>
 <html lang="en">
   {{ template "head" . }}
@@ -12,21 +13,25 @@
     <div class="drawer lg:drawer-open">
       {{ template "drawer_toggle" }}
 
+
       <div class="drawer-content">
         <main class="p-4 lg:p-6 space-y-4 max-w-6xl">
           <!-- Header -->
-          <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
-            {{ template "hamburger" }}
+          <div
+            class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+            {{ template "hamburger" . }}
             <div>
               {{ template "page_title" "OpenRun Apps" }}
               <p class="page-desc text-sm text-base-content/70">
-                Deployed apps, grouped by the sync source managing them
+                Deployed apps, grouped by the sync source
               </p>
             </div>
             <div class="page-actions ml-auto flex items-center gap-2">
               <label
-                class="input input-sm w-48 focus-within:w-60 transition-[width] duration-300 hidden sm:flex">
-                <kbd class="kbd kbd-xs" aria-hidden="true">⌘K</kbd>
+                class="input input-sm flex-1 min-w-0 sm:flex-none sm:w-48 sm:focus-within:w-60 transition-[width] duration-300 flex">
+                <kbd class="kbd kbd-xs hidden sm:inline-flex" aria-hidden="true"
+                  >⌘K</kbd
+                >
                 <input
                   id="page-search"
                   type="search"
@@ -43,11 +48,14 @@
                   hx-indicator="#page-progress" />
               </label>
               <a
-                class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "app:create") }}btn-disabled tooltip tooltip-bottom{{ end }}"
+                class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "app:create") }}
+                  btn-disabled tooltip tooltip-bottom
+                {{ end }}"
                 {{ if index .Data.Perms "app:create" }}
                   href="{{ .AppPath }}/apps/create"
                 {{ else }}
-                  data-tip="requires app:create" aria-disabled="true" tabindex="-1"
+                  data-tip="requires app:create" aria-disabled="true"
+                  tabindex="-1"
                 {{ end }}>
                 + New app
               </a>
@@ -56,80 +64,102 @@
 
           {{ template "page_progress" }}
 
+
           <!-- Apps grouped by the sync entry which last applied them -->
-          <div
-            id="app-groups"
-            class="space-y-4"
->
+          <div id="app-groups" class="space-y-4">
             {{ block "app_groups" . }}
-          <!-- Filter chips -->
-          <div class="flex items-center gap-2 flex-wrap">
-            <input
-              type="hidden"
-              id="app-filter-value"
-              name="filter"
-              value="{{ .Data.Filter }}" />
-            <!-- Count stats double as the source filter -->
-            <div
-              role="group"
-              aria-label="Filter apps by source"
-              class="stats stats-horizontal bg-base-100 border border-base-300 overflow-x-auto">
-              <button
-                class="stat py-2 px-5 place-items-start cursor-pointer transition-colors duration-150 hover:bg-base-200/60 tooltip tooltip-bottom {{ if eq .Data.Filter "" }}bg-primary/5{{ end }}"
-                data-filter=""
-                hx-get="{{ .AppPath }}/apps"
-                hx-vals='{"filter": ""}'
-                hx-include="#page-search, #app-tab-value"
-                hx-target="#app-groups"
-                hx-swap="innerHTML transition:true"
-                hx-push-url="true"
-                hx-indicator="#page-progress"
-                aria-pressed="{{ if eq .Data.Filter "" }}true{{ else }}false{{ end }}"
-                data-tip="Show all apps">
-                <div class="stat-title text-xs">All apps</div>
+              <!-- Filter chips -->
+              <div class="flex items-center gap-2 flex-wrap">
+                <input
+                  type="hidden"
+                  id="app-filter-value"
+                  name="filter"
+                  value="{{ .Data.Filter }}" />
+                <!-- Count stats double as the source filter -->
                 <div
-                  class="stat-value text-xl tabular-nums {{ if eq .Data.Filter "" }}text-primary{{ end }}">
-                  {{ .Data.Total }}
+                  role="group"
+                  aria-label="Filter apps by source"
+                  class="stats stats-horizontal bg-base-100 border border-base-300 overflow-x-auto">
+                  <button
+                    class="stat py-2 px-5 place-items-start cursor-pointer transition-colors duration-150 hover:bg-base-200/60 tooltip tooltip-bottom {{ if eq .Data.Filter "" }}
+                      bg-primary/5
+                    {{ end }}"
+                    data-filter=""
+                    hx-get="{{ .AppPath }}/apps"
+                    hx-vals='{"filter": ""}'
+                    hx-include="#page-search, #app-tab-value"
+                    hx-target="#app-groups"
+                    hx-swap="innerHTML transition:true"
+                    hx-push-url="true"
+                    hx-indicator="#page-progress"
+                    aria-pressed="{{ if eq .Data.Filter "" -}}
+                    true
+                  {{- else -}}
+                    false
+                  {{- end }}"
+                    data-tip="Show all apps">
+                    <div class="stat-title text-xs">All apps</div>
+                    <div
+                      class="stat-value text-xl tabular-nums {{ if eq .Data.Filter "" }}
+                        text-primary
+                      {{ end }}">
+                      {{ .Data.Total }}
+                    </div>
+                  </button>
+                  <button
+                    class="stat py-2 px-5 place-items-start cursor-pointer transition-colors duration-150 hover:bg-base-200/60 tooltip tooltip-bottom {{ if eq .Data.Filter "declarative" }}
+                      bg-primary/5
+                    {{ end }}"
+                    data-filter="declarative"
+                    hx-get="{{ .AppPath }}/apps"
+                    hx-vals='{"filter": "declarative"}'
+                    hx-include="#page-search, #app-tab-value"
+                    hx-target="#app-groups"
+                    hx-swap="innerHTML transition:true"
+                    hx-push-url="true"
+                    hx-indicator="#page-progress"
+                    aria-pressed="{{ if eq .Data.Filter "declarative" -}}
+                    true
+                  {{- else -}}
+                    false
+                  {{- end }}"
+                    data-tip="Apps managed by a sync source">
+                    <div class="stat-title text-xs">Declarative</div>
+                    <div
+                      class="stat-value text-xl tabular-nums {{ if eq .Data.Filter "declarative" }}
+                        text-primary
+                      {{ end }}">
+                      {{ .Data.DeclarativeCount }}
+                    </div>
+                  </button>
+                  <button
+                    class="stat py-2 px-5 place-items-start cursor-pointer transition-colors duration-150 hover:bg-base-200/60 tooltip tooltip-bottom {{ if eq .Data.Filter "imperative" }}
+                      bg-primary/5
+                    {{ end }}"
+                    data-filter="imperative"
+                    hx-get="{{ .AppPath }}/apps"
+                    hx-vals='{"filter": "imperative"}'
+                    hx-include="#page-search, #app-tab-value"
+                    hx-target="#app-groups"
+                    hx-swap="innerHTML transition:true"
+                    hx-push-url="true"
+                    hx-indicator="#page-progress"
+                    aria-pressed="{{ if eq .Data.Filter "imperative" -}}
+                    true
+                  {{- else -}}
+                    false
+                  {{- end }}"
+                    data-tip="Apps created via UI/CLI">
+                    <div class="stat-title text-xs">Imperative</div>
+                    <div
+                      class="stat-value text-xl tabular-nums {{ if eq .Data.Filter "imperative" }}
+                        text-primary
+                      {{ end }}">
+                      {{ .Data.ImperativeCount }}
+                    </div>
+                  </button>
                 </div>
-              </button>
-              <button
-                class="stat py-2 px-5 place-items-start cursor-pointer transition-colors duration-150 hover:bg-base-200/60 tooltip tooltip-bottom {{ if eq .Data.Filter "declarative" }}bg-primary/5{{ end }}"
-                data-filter="declarative"
-                hx-get="{{ .AppPath }}/apps"
-                hx-vals='{"filter": "declarative"}'
-                hx-include="#page-search, #app-tab-value"
-                hx-target="#app-groups"
-                hx-swap="innerHTML transition:true"
-                hx-push-url="true"
-                hx-indicator="#page-progress"
-                aria-pressed="{{ if eq .Data.Filter "declarative" }}true{{ else }}false{{ end }}"
-                data-tip="Apps managed by a sync source">
-                <div class="stat-title text-xs">Declarative</div>
-                <div
-                  class="stat-value text-xl tabular-nums {{ if eq .Data.Filter "declarative" }}text-primary{{ end }}">
-                  {{ .Data.DeclarativeCount }}
-                </div>
-              </button>
-              <button
-                class="stat py-2 px-5 place-items-start cursor-pointer transition-colors duration-150 hover:bg-base-200/60 tooltip tooltip-bottom {{ if eq .Data.Filter "imperative" }}bg-primary/5{{ end }}"
-                data-filter="imperative"
-                hx-get="{{ .AppPath }}/apps"
-                hx-vals='{"filter": "imperative"}'
-                hx-include="#page-search, #app-tab-value"
-                hx-target="#app-groups"
-                hx-swap="innerHTML transition:true"
-                hx-push-url="true"
-                hx-indicator="#page-progress"
-                aria-pressed="{{ if eq .Data.Filter "imperative" }}true{{ else }}false{{ end }}"
-                data-tip="Apps created via UI/CLI">
-                <div class="stat-title text-xs">Imperative</div>
-                <div
-                  class="stat-value text-xl tabular-nums {{ if eq .Data.Filter "imperative" }}text-primary{{ end }}">
-                  {{ .Data.ImperativeCount }}
-                </div>
-              </button>
-            </div>
-          </div>
+              </div>
 
               <!-- Current tab, included by the search/filter/action requests
                    so partial refreshes stay on the active tab -->
@@ -146,9 +176,15 @@
                 aria-label="App list views"
                 class="tabs tabs-border">
                 <button
-                  class="tab transition-colors duration-150 {{ if eq .Data.Tab "" }}tab-active{{ end }}"
+                  class="tab transition-colors duration-150 {{ if eq .Data.Tab "" }}
+                    tab-active
+                  {{ end }}"
                   data-tab=""
-                  aria-pressed="{{ if eq .Data.Tab "" }}true{{ else }}false{{ end }}"
+                  aria-pressed="{{ if eq .Data.Tab "" -}}
+                    true
+                  {{- else -}}
+                    false
+                  {{- end }}"
                   hx-get="{{ .AppPath }}/apps"
                   hx-vals='{"tab": ""}'
                   hx-target="#app-groups"
@@ -156,12 +192,18 @@
                   hx-include="#page-search, #app-filter-value"
                   hx-push-url="true"
                   hx-indicator="#page-progress">
-                  All apps
+                  All
                 </button>
                 <button
-                  class="tab transition-colors duration-150 {{ if eq .Data.Tab "promote" }}tab-active{{ end }}"
+                  class="tab transition-colors duration-150 {{ if eq .Data.Tab "promote" }}
+                    tab-active
+                  {{ end }}"
                   data-tab="promote"
-                  aria-pressed="{{ if eq .Data.Tab "promote" }}true{{ else }}false{{ end }}"
+                  aria-pressed="{{ if eq .Data.Tab "promote" -}}
+                    true
+                  {{- else -}}
+                    false
+                  {{- end }}"
                   title="Apps where staging has changes not promoted to prod yet"
                   hx-get="{{ .AppPath }}/apps"
                   hx-vals='{"tab": "promote"}'
@@ -181,9 +223,15 @@
                   >
                 </button>
                 <button
-                  class="tab transition-colors duration-150 {{ if eq .Data.Tab "approval" }}tab-active{{ end }}"
+                  class="tab transition-colors duration-150 {{ if eq .Data.Tab "approval" }}
+                    tab-active
+                  {{ end }}"
                   data-tab="approval"
-                  aria-pressed="{{ if eq .Data.Tab "approval" }}true{{ else }}false{{ end }}"
+                  aria-pressed="{{ if eq .Data.Tab "approval" -}}
+                    true
+                  {{- else -}}
+                    false
+                  {{- end }}"
                   title="Apps requesting plugin permissions which are not approved yet"
                   hx-get="{{ .AppPath }}/apps"
                   hx-vals='{"tab": "approval"}'
@@ -216,7 +264,8 @@
                     class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
                     <h2 class="text-sm font-medium">Pending promotion</h2>
                     <span class="text-xs text-base-content/70"
-                      >staging has changes which are not promoted to prod yet</span
+                      >staging has changes which are not promoted to prod
+                      yet</span
                     >
                   </div>
                   {{ if .Data.TabApps }}
@@ -242,8 +291,8 @@
                     class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
                     <h2 class="text-sm font-medium">Needs approval</h2>
                     <span class="text-xs text-base-content/70"
-                      >apps requesting plugin permissions which are not
-                      approved yet</span
+                      >apps requesting plugin permissions which are not approved
+                      yet</span
                     >
                   </div>
                   {{ if .Data.TabApps }}
@@ -263,113 +312,121 @@
                   {{ end }}
                 </div>
               {{ else }}
-              {{ range .Data.Groups }}
-                <div class="card bg-base-100 border border-base-300">
-                  <div
-                    class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
-                    {{ if eq .sync.state "Failing" }}
-                      <span class="status status-error"></span>
-                    {{ else if eq .sync.state "Disabled" }}
-                      <span class="status status-warning"></span>
-                    {{ else }}
-                      <span class="status status-success"></span>
-                    {{ end }}
-                    <h2 class="font-mono text-sm font-medium break-all"
-                      >{{ .sync.repo }}</h2
-                    >
-                    {{ if .sync.branch }}
-                      <span class="badge badge-ghost badge-xs"
-                        >{{ .sync.branch }}</span
-                      >
-                    {{ end }}
-                    <span class="text-xs text-base-content/70">
-                      {{ len .apps }} apps{{ if .sync.last_exec }}
-                        · synced {{ template "time_ago" .sync.last_exec }}
+                {{ range .Data.Groups }}
+                  <div class="card bg-base-100 border border-base-300">
+                    <div
+                      class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
+                      {{ if eq .sync.state "Failing" }}
+                        <span class="status status-error"></span>
+                      {{ else if eq .sync.state "Disabled" }}
+                        <span class="status status-warning"></span>
+                      {{ else }}
+                        <span class="status status-success"></span>
                       {{ end }}
-                    </span>
-                    <div class="ml-auto flex items-center gap-2">
-                      <a
-                        href="{{ $.AppPath }}/syncs/detail?id={{ .sync.id }}"
-                        class="link link-hover text-xs text-primary"
-                        aria-label="Sync detail for {{ .sync.repo }}"
-                        >sync detail <span aria-hidden="true">→</span></a
+                      <h2 class="font-mono text-sm font-medium break-all">
+                        {{ .sync.repo }}
+                      </h2>
+                      {{ if .sync.branch }}
+                        <span class="badge badge-ghost badge-xs"
+                          >{{ .sync.branch }}</span
+                        >
+                      {{ end }}
+                      <span class="text-xs text-base-content/70">
+                        {{ len .apps }}
+                        apps{{ if .sync.last_exec }}
+                          · synced
+                          {{ template "time_ago" .sync.last_exec }}
+                        {{ end }}
+                      </span>
+                      <div class="ml-auto flex items-center gap-2">
+                        <a
+                          href="{{ $.AppPath }}/syncs/detail?id={{ .sync.id }}"
+                          class="link link-hover text-xs text-primary"
+                          aria-label="Sync detail for {{ .sync.repo }}"
+                          >sync detail <span aria-hidden="true">→</span></a
+                        >
+                        <button
+                          class="btn btn-xs btn-primary btn-soft transition-transform duration-150 active:scale-95 {{ if not (index $.Data.Perms "sync:run") }}
+                            tooltip tooltip-top
+                          {{ end }}"
+                          {{ if index $.Data.Perms "sync:run" }}
+                            hx-post="{{ $.AppPath }}/apps/sync"
+                            hx-disabled-elt="this" hx-vals='{"sync_id":
+                            "{{ .sync.id }}"}' hx-target="#app-groups"
+                            hx-swap="innerHTML transition:true"
+                            hx-include="#page-search, #app-filter-value,
+                            #app-tab-value" hx-indicator="#page-progress"
+                          {{ else }}
+                            disabled data-tip="requires sync:run"
+                          {{ end }}>
+                          Sync now
+                        </button>
+                      </div>
+                    </div>
+                    {{ template "app_table" (dict "Apps" .apps "AppPath" $.AppPath "Perms" $.Data.Perms "ShowActions" true) }}
+                  </div>
+                {{ end }}
+
+                {{ if .Data.Unmanaged }}
+                  <div
+                    class="card bg-base-100 border border-dashed border-base-300">
+                    <div
+                      class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
+                      <h2 class="text-sm font-medium">Unmanaged apps</h2>
+                      <span class="text-xs text-base-content/70"
+                        >created via UI/CLI - not applied by any sync
+                        source</span
                       >
-                      <button
-                        class="btn btn-xs btn-primary btn-soft transition-transform duration-150 active:scale-95 {{ if not (index $.Data.Perms "sync:run") }}tooltip tooltip-top{{ end }}"
-                        {{ if index $.Data.Perms "sync:run" }}
-                          hx-post="{{ $.AppPath }}/apps/sync"
-                          hx-disabled-elt="this"
-                          hx-vals='{"sync_id": "{{ .sync.id }}"}'
+                    </div>
+                    {{ template "app_table" (dict "Apps" .Data.Unmanaged "AppPath" .AppPath "Perms" .Data.Perms "ShowActions" true) }}
+                  </div>
+                {{ end }}
+
+                {{ if and (not .Data.Groups) (not .Data.Unmanaged) }}
+                  <div class="card bg-base-100 border border-base-300 py-10">
+                    <div
+                      class="flex flex-col items-center gap-2 text-center text-sm text-base-content/70">
+                      {{ if or .Data.Query .Data.Filter }}
+                        <span class="text-xl" aria-hidden="true">🔍</span>
+                        <p>
+                          No apps match
+                          {{ if .Data.Query }}
+                            "{{ .Data.Query }}"
+                          {{ else }}
+                            the current filter
+                          {{ end }}
+                        </p>
+                        <button
+                          class="btn btn-xs btn-outline transition-transform duration-150 active:scale-95"
+                          onclick="const s = document.getElementById('page-search'); if (s) s.value = ''"
+                          hx-get="{{ .AppPath }}/apps"
+                          hx-vals='{"query": "", "filter": ""}'
+                          hx-include="#app-tab-value"
                           hx-target="#app-groups"
                           hx-swap="innerHTML transition:true"
-                          hx-include="#page-search, #app-filter-value, #app-tab-value"
-                          hx-indicator="#page-progress"
-                        {{ else }}
-                          disabled data-tip="requires sync:run"
-                        {{ end }}>
-                        Sync now
-                      </button>
+                          hx-push-url="true"
+                          hx-indicator="#page-progress">
+                          Clear filters
+                        </button>
+                      {{ else }}
+                        <span class="text-xl" aria-hidden="true">🌱</span>
+                        <p>No apps installed yet</p>
+                        <a
+                          class="btn btn-xs btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "app:create") }}
+                            btn-disabled tooltip tooltip-top
+                          {{ end }}"
+                          {{ if index .Data.Perms "app:create" }}
+                            href="{{ .AppPath }}/apps/create"
+                          {{ else }}
+                            data-tip="requires app:create" aria-disabled="true"
+                            tabindex="-1"
+                          {{ end }}
+                          >+ New app</a
+                        >
+                      {{ end }}
                     </div>
                   </div>
-                  {{ template "app_table" (dict "Apps" .apps "AppPath" $.AppPath "Perms" $.Data.Perms "ShowActions" true) }}
-                </div>
-              {{ end }}
-
-              {{ if .Data.Unmanaged }}
-                <div class="card bg-base-100 border border-dashed border-base-300">
-                  <div
-                    class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
-                    <h2 class="text-sm font-medium">Unmanaged apps</h2>
-                    <span class="text-xs text-base-content/70"
-                      >created via UI/CLI - not applied by any sync source</span
-                    >
-                  </div>
-                  {{ template "app_table" (dict "Apps" .Data.Unmanaged "AppPath" .AppPath "Perms" .Data.Perms "ShowActions" true) }}
-                </div>
-              {{ end }}
-
-              {{ if and (not .Data.Groups) (not .Data.Unmanaged) }}
-                <div class="card bg-base-100 border border-base-300 py-10">
-                  <div
-                    class="flex flex-col items-center gap-2 text-center text-sm text-base-content/70">
-                    {{ if or .Data.Query .Data.Filter }}
-                      <span class="text-xl" aria-hidden="true">🔍</span>
-                      <p>
-                        No apps match
-                        {{ if .Data.Query }}
-                          "{{ .Data.Query }}"
-                        {{ else }}
-                          the current filter
-                        {{ end }}
-                      </p>
-                      <button
-                        class="btn btn-xs btn-outline transition-transform duration-150 active:scale-95"
-                        onclick="const s = document.getElementById('page-search'); if (s) s.value = ''"
-                        hx-get="{{ .AppPath }}/apps"
-                        hx-vals='{"query": "", "filter": ""}'
-                        hx-include="#app-tab-value"
-                        hx-target="#app-groups"
-                        hx-swap="innerHTML transition:true"
-                        hx-push-url="true"
-                        hx-indicator="#page-progress">
-                        Clear filters
-                      </button>
-                    {{ else }}
-                      <span class="text-xl" aria-hidden="true">🌱</span>
-                      <p>No apps installed yet</p>
-                      <a
-                        class="btn btn-xs btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "app:create") }}btn-disabled tooltip tooltip-top{{ end }}"
-                        {{ if index .Data.Perms "app:create" }}
-                          href="{{ .AppPath }}/apps/create"
-                        {{ else }}
-                          data-tip="requires app:create" aria-disabled="true" tabindex="-1"
-                        {{ end }}
-                        >+ New app</a
-                      >
-                    {{ end }}
-                  </div>
-                </div>
-              {{ end }}
+                {{ end }}
               {{ end }}
               <!-- End of tab content branches -->
             {{ end }}

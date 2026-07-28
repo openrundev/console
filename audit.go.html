@@ -1,25 +1,29 @@
 {{/* Copyright (c) ClaceIO, LLC */}}
 {{/* SPDX-License-Identifier: Apache-2.0 */}}
 {{/* Audit logs page (/audit): filter form, rid trace banner and the events
-     table with infinite scroll. HTMX partial: block audit_rows renders the
-     next page of rows */}}
+  table with infinite scroll. HTMX partial: block audit_rows renders the
+  next page of rows
+*/}}
 <!DOCTYPE html>
 <html lang="en">
   {{ template "head" . }}
+
 
   <body class="min-h-screen bg-base-200">
     <div class="drawer lg:drawer-open">
       {{ template "drawer_toggle" }}
 
+
       <div class="drawer-content">
         <main class="p-4 lg:p-6 space-y-4 max-w-6xl">
           <!-- Header -->
-          <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
-            {{ template "hamburger" }}
+          <div
+            class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+            {{ template "hamburger" . }}
             <div>
               {{ template "page_title" "OpenRun Audit Logs" }}
               <p class="page-desc text-sm text-base-content/70">
-                HTTP, system and custom events recorded for every app
+                HTTP, system and custom audit events
               </p>
             </div>
           </div>
@@ -62,7 +66,8 @@
                     {{ end }}
                     {{/* A deep-linked glob (or a deleted app's path) is not
                       in the apps list; keep it as a selected option so the
-                      shared url still filters and displays */}}
+                      shared url still filters and displays
+                    */}}
                     {{ if $appGlob }}
                       {{ $found := false }}
                       {{ range .Data.Apps }}
@@ -91,7 +96,9 @@
                     {{ range $t := list "http" "system" "action" "custom" }}
                       <option
                         value="{{ $t }}"
-                        {{ if eq $.Data.Filters.event_type $t }}selected{{ end }}>
+                        {{ if eq $.Data.Filters.event_type $t }}
+                          selected
+                        {{ end }}>
                         {{ $t }}
                       </option>
                     {{ end }}
@@ -157,7 +164,8 @@
                   Advanced filters
                 </summary>
                 <div class="collapse-content">
-                  <div class="grid grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-3 pt-1">
+                  <div
+                    class="grid grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-3 pt-1">
                     <div>
                       <label
                         class="block text-xs text-base-content/70 mb-1"
@@ -186,7 +194,9 @@
                         {{ range $s := list "Success" "Failed" "200" "400" "401" "403" "404" "500" }}
                           <option
                             value="{{ $s }}"
-                            {{ if eq $.Data.Filters.status $s }}selected{{ end }}>
+                            {{ if eq $.Data.Filters.status $s }}
+                              selected
+                            {{ end }}>
                             {{ $s }}
                           </option>
                         {{ end }}
@@ -226,11 +236,12 @@
 
               {{ block "audit_trace_banner" . }}
                 {{/* Trace mode: all events of one request. On HTMX row swaps
-                     the audit_rows partial re-renders this block with
-                     hx-swap-oob, so entering/leaving trace mode updates the
-                     banner without touching the filter inputs; the hidden
-                     rid input keeps later filter changes scoped to the
-                     trace */}}
+                  the audit_rows partial re-renders this block with
+                  hx-swap-oob, so entering/leaving trace mode updates the
+                  banner without touching the filter inputs; the hidden
+                  rid input keeps later filter changes scoped to the
+                  trace
+                */}}
                 <div
                   id="audit-trace-banner"
                   {{ if .IsPartial }}hx-swap-oob="true"{{ end }}>
@@ -241,10 +252,13 @@
                       <span aria-hidden="true">🔍</span>
                       {{/* min-w-0 + break-all: the rid is one unbreakable
                         token, without them it pushes Clear trace off screen
-                        on mobile */}}
+                        on mobile
+                      */}}
                       <span class="min-w-0">
                         Showing all events for request
-                        <span class="font-mono text-xs break-all">{{ .Data.Filters.rid }}</span>
+                        <span class="font-mono text-xs break-all"
+                          >{{ .Data.Filters.rid }}</span
+                        >
                       </span>
                       <button
                         type="button"
@@ -259,7 +273,10 @@
                         Clear trace
                       </button>
                     </div>
-                    <input type="hidden" name="rid" value="{{ .Data.Filters.rid }}" />
+                    <input
+                      type="hidden"
+                      name="rid"
+                      value="{{ .Data.Filters.rid }}" />
                   {{ end }}
                 </div>
               {{ end }}
@@ -270,13 +287,16 @@
 
           {{ template "error_alert" .Data.FlashError }}
 
+
           <!-- Events, infinite scroll -->
           <div class="card bg-base-100 border border-base-300">
             <div class="overflow-x-auto">
               <table class="table table-sm">
                 <thead>
                   <tr>
-                    <th scope="col" class="w-8"><span class="sr-only">Trace</span></th>
+                    <th scope="col" class="w-8">
+                      <span class="sr-only">Trace</span>
+                    </th>
                     <th scope="col">Time</th>
                     <th scope="col">Type</th>
                     <th scope="col">Operation</th>
@@ -293,16 +313,15 @@
                       <tr
                         class="group hover:bg-base-200/60"
                         {{ if eq $count (add $i 1) }}
-                          hx-get="{{ $.Data.NextPage }}"
-                          hx-trigger="revealed"
-                          hx-swap="afterend"
-                          hx-indicator="#audit-loading"
+                          hx-get="{{ $.Data.NextPage }}" hx-trigger="revealed"
+                          hx-swap="afterend" hx-indicator="#audit-loading"
                         {{ end }}>
                         <td class="w-8">
                           {{/* Events recorded outside a request (schedulers,
-                               internal jobs) have no request id to trace. In
-                               trace mode the rows already show this request:
-                               a chevron would reload the same page */}}
+                            internal jobs) have no request id to trace. In
+                            trace mode the rows already show this request:
+                            a chevron would reload the same page
+                          */}}
                           {{ if and $e.rid (ne $e.rid $.Data.Filters.rid) }}
                             <a
                               class="btn btn-xs btn-ghost btn-square tooltip tooltip-right"
@@ -324,11 +343,13 @@
                         </td>
                         <td>
                           {{ if eq $e.event_type "http" }}
-                            <span class="badge badge-xs badge-soft badge-primary"
+                            <span
+                              class="badge badge-xs badge-soft badge-primary"
                               >http</span
                             >
                           {{ else if eq $e.event_type "system" }}
-                            <span class="badge badge-xs badge-soft badge-warning"
+                            <span
+                              class="badge badge-xs badge-soft badge-warning"
                               >system</span
                             >
                           {{ else }}
@@ -414,10 +435,11 @@
                     {{ end }}
                     {{ if and .IsPartial (not .Data.IsMore) }}
                       {{/* Out-of-band: keep the trace banner (and its hidden
-                           rid input) in sync on HTMX row swaps. Pagination
-                           continuations (IsMore) skip it: the banner did not
-                           change and replacing it mid-scroll would churn the
-                           DOM under the user */}}
+                        rid input) in sync on HTMX row swaps. Pagination
+                        continuations (IsMore) skip it: the banner did not
+                        change and replacing it mid-scroll would churn the
+                        DOM under the user
+                      */}}
                       {{ template "audit_trace_banner" . }}
                     {{ end }}
                   {{ end }}

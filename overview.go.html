@@ -25,7 +25,7 @@
         <main class="p-4 lg:p-6 space-y-4 max-w-6xl">
           <!-- Header -->
           <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
-            {{ template "hamburger" }}
+            {{ template "hamburger" . }}
             <div>
               {{ template "page_title" "OpenRun Overview" }}
               <p class="page-desc text-sm text-base-content/70">
@@ -236,7 +236,11 @@
                      read the binding rows -->
                 {{ with .Data.Repl }}
                   <section class="ov-tile ov-repl" aria-labelledby="ov-repl-h">
-                    {{ template "ov_head" (dict "Id" "ov-repl-h" "Label" "Replication") }}
+                    {{ if .ShowBindings }}
+                      {{ template "ov_head" (dict "Id" "ov-repl-h" "Label" "Replication" "Href" (print $.AppPath "/replication") "Link" "details") }}
+                    {{ else }}
+                      {{ template "ov_head" (dict "Id" "ov-repl-h" "Label" "Replication") }}
+                    {{ end }}
                     {{ if .Metadata }}
                       <div class="space-y-2">
                         {{ range .Metadata }}

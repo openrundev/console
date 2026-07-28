@@ -22,7 +22,7 @@
             {{ $canEdit := index .Data.Perms "config:update" }}
             <!-- Header -->
             <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
-              {{ template "hamburger" }}
+              {{ template "hamburger" . }}
               <div>
                 {{ template "page_title" "OpenRun Configuration" }}
                 <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0">
@@ -128,14 +128,13 @@
                               {{ end }}
                             </td>
                             <td class="text-xs text-base-content/70 break-all">
-                              {{ .summary }}
+                              <span class="inline-block min-w-40">{{ .summary }}</span>
                             </td>
                             <td class="text-right whitespace-nowrap w-40">
                               <div class="inline-flex items-center gap-0.5">
                                 <a
-                                  href="{{ $.AppPath }}/config/entry?section={{ $section }}&name={{ .name }}"
-                                  class="btn btn-xs btn-ghost {{ if not $canEdit }}btn-disabled{{ end }}"
-                                  {{ if not $canEdit }}aria-disabled="true" tabindex="-1"{{ end }}
+                                  class="btn btn-xs btn-ghost {{ if not $canEdit }}btn-disabled tooltip tooltip-left{{ end }}"
+                                  {{ if $canEdit }}href="{{ $.AppPath }}/config/entry?section={{ $section }}&name={{ .name }}"{{ else }}data-tip="requires config:update" aria-disabled="true" tabindex="-1"{{ end }}
                                   aria-label="{{ if eq .source "static" }}Override{{ else }}Edit{{ end }} {{ $section }} entry {{ .name }}"
                                   >{{ if eq .source "static" }}override{{ else }}edit{{ end }}</a
                                 >
@@ -298,7 +297,7 @@
       <label class="text-sm font-medium" for="setting-{{ $row.section }}-{{ $row.key }}"
         >{{ $row.label }}</label
       >
-      <div class="text-[11px] text-base-content/50 font-mono">
+      <div class="text-[11px] text-base-content/70 font-mono">
         {{ $row.section }}.{{ $row.key }}
       </div>
     </div>

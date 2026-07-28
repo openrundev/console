@@ -406,6 +406,70 @@ def overview_replication_handler(req):
     return data
 
 
+def replication_data(req):
+    # Replication detail page (/replication, linked from the overview
+    # replication tile): one row per PROD app replication target with the
+    # full entry detail (state, sidecar, last sync, replica size, target
+    # and the per-database file breakdown), searchable by app path. The
+    # server filters entries to the caller's readable apps (app:read),
+    # same as the overview tile; staged state stays on the app detail page
+    query = query_param(req, "query").lower()
+    perms = get_perms()
+    data = {
+        "Title": "Replication",
+        "Nav": "overview",
+        "Query": query,
+        "Perms": perms,
+        "Total": 0,
+        "Unhealthy": 0,
+        "Rows": [],
+    }
+    if not ov_can(perms, "app:read"):
+        data["FlashError"] = "requires the app:read or admin permission"
+        return data
+    ret = openrun.replication_status()
+    if ret.error:
+        data["FlashError"] = ret.error
+        return data
+
+    rows = []
+    for entry in ret.value:
+        if entry["kind"] != "app" or entry.get("env") != "prod":
+            continue
+        # A target replicates one binding; apps sharing the binding share
+        # the entry - render one row per app so the search works by app
+        for app_path in entry.get("app_paths") or []:
+            data["Total"] += 1
+            bad = entry["state"] in REPL_UNHEALTHY_STATES
+            if bad:
+                data["Unhealthy"] += 1
+            if query and query not in app_path.lower():
+                continue
+            files = []
+            for f in entry.get("files") or []:
+                files.append({
+                    "path": f["path"],
+                    "size": human_size(int(f.get("size") or 0)),
+                    "last_sync": ov_trim_time(f.get("last_sync") or ""),
+                })
+            sidecar = entry.get("sidecar_running")
+            size = int(entry.get("replica_size") or 0)
+            rows.append({
+                "app_path": app_path,
+                "state": entry["state"],
+                "unhealthy": bad,
+                "target": entry["target"],
+                "sidecar": "" if sidecar == None else ("running" if sidecar else "down"),
+                "last_sync": ov_trim_time(entry.get("last_sync") or ""),
+                "size": human_size(size) if size else "",
+                "files": files,
+                "error": entry.get("error") or "",
+            })
+    # Failing targets first, then by app path
+    data["Rows"] = sorted(rows, key=lambda r: (not r["unhealthy"], r["app_path"]))
+    return data
+
+
 # ---------- Apps ----------
 
 

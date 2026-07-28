@@ -160,9 +160,59 @@ html[data-signin-dismissed] #signin-strip {
 /* Mobile page header: the hamburger is a 3.5rem btn-xl square around a
    1.75rem icon, so the icon sat visually inset from the content edge; the
    negative margin swallows the button's left padding so the icon lines up
-   flush with the page content (the button is lg:hidden, desktop unaffected) */
-.page-header > button[aria-controls='main-nav'] {
+   flush with the page content (.mobile-brand — the logo + hamburger stack —
+   is lg:hidden, desktop unaffected) */
+.page-header .mobile-brand {
   margin-left: -0.875rem;
+}
+
+/* The drawer button pulls up so its icon centers on the header's second
+   text row (page-desc, or breadcrumbs on detail pages) instead of
+   hanging below it — only the button's transparent top padding overlaps
+   the logo's box, the visible icon still clears the logo image. */
+.page-header .mobile-brand button {
+  margin-top: -0.8125rem;
+}
+
+/* The header title block must share the hamburger's line: flex line-breaking
+   uses the block's max-content width (its one-line page-desc), which pushed
+   the whole block below the hamburger on mobile. flex-basis 0 keeps it on
+   the first line and the desc wraps inside instead. */
+.page-header > div:has(> .page-title) {
+  flex: 1 1 0%;
+  min-width: 0;
+}
+
+/* Below lg (where the logo+hamburger stack renders) the title block pins
+   to the top like the stack and nudges down 0.25rem so the h1's line
+   center sits on the 3rem logo's center — letting the title block
+   re-center against the taller stack floats the logo off the title line
+   whenever the page-desc is short. */
+@media (max-width: 63.9375rem) {
+  .page-header > div:has(> .page-title) {
+    align-self: flex-start;
+    margin-top: 0.25rem;
+  }
+}
+
+/* Below sm the header actions get their own full-width line (basis 100%
+   forces the wrap) instead of sharing line one — otherwise they'd squeeze
+   the flex-basis-0 title block into a sliver. Actions right-align and wrap;
+   the search box (w-full under sm) takes a full row by itself. */
+@media (max-width: 39.9375rem) {
+  .page-header .page-actions {
+    flex-basis: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  /* Tighter tab padding and a slightly smaller face so three-way tab
+     groups (apps: All / Pending promotion / Needs approval) hold one
+     390px line with headroom for two-digit count badges. */
+  .tabs .tab {
+    --tab-p: 0.5rem;
+    font-size: 0.8125rem;
+  }
 }
 
 /* Keep the wide sidebar brand legible without crowding the 15rem drawer. */
@@ -391,7 +441,8 @@ html[data-signin-dismissed] #signin-strip {
 .btn-soft.btn-primary {
   color: var(--or-accent-text);
 }
-.badge-soft.badge-error {
+.badge-soft.badge-error,
+.alert-soft.alert-error {
   color: var(--or-error-text);
 }
 .table thead th {

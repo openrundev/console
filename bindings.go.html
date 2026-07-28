@@ -1,7 +1,8 @@
 {{/* Copyright (c) ClaceIO, LLC */}}
 {{/* SPDX-License-Identifier: Apache-2.0 */}}
 {{/* Bindings page (/bindings): services table plus base/derived/auto
-     binding tables. HTMX partial: block binding_groups */}}
+  binding tables. HTMX partial: block binding_groups
+*/}}
 {{/* binding_service renders the service name and type for a binding row */}}
 {{ define "binding_service" }}
   {{ if .service_name }}
@@ -10,7 +11,9 @@
   {{ if .service_type }}
     <span class="badge badge-ghost badge-xs">{{ .service_type }}</span>
   {{ else if not .service_name }}
-    <span class="text-xs text-base-content/70 tooltip tooltip-right" data-tip="{{ .source }}"
+    <span
+      class="text-xs text-base-content/70 tooltip tooltip-right"
+      data-tip="{{ .source }}"
       >config only</span
     >
   {{ end }}
@@ -21,7 +24,7 @@
   {{ if .config_keys }}
     <span
       class="text-xs text-base-content/70 font-mono tooltip tooltip-right"
-      data-tip="{{ range .config_keys }}{{ . }} {{ end }}"
+      data-tip="{{ range .config_keys }}{{ . }}{{ end }}"
       >{{ len .config_keys }} keys</span
     >
   {{ else }}
@@ -34,7 +37,9 @@
   {{ if .has_staged }}
     <span
       class="badge badge-warning badge-xs badge-soft tooltip tooltip-left"
-      data-tip="staging has changes not applied to prod: {{ range .staged_grants }}{{ . }} {{ end }}"
+      data-tip="staging has changes not applied to prod: {{ range .staged_grants }}
+        {{ . }}
+      {{ end }}"
       >pending</span
     >
   {{ end }}
@@ -48,19 +53,30 @@
 {{ end }}
 
 {{/* binding_actions renders the row action buttons.
-     Context: dict with Path, AppPath, Editable (grants can be updated) and
-     Perms (the user's management permissions) */}}
+  Context: dict with Path, AppPath, Editable (grants can be updated) and
+  Perms (the user's management permissions)
+*/}}
 {{ define "binding_actions" }}
-  <div
-    class="inline-flex items-center gap-0.5">
+  <div class="inline-flex items-center gap-0.5">
     {{ if .Editable }}
       <a
-        href="{{ .AppPath }}/bindings/update?path={{ .Path }}"
-        class="btn btn-xs btn-ghost btn-square tooltip tooltip-left {{ if not (index .Perms "binding:update") }}btn-disabled{{ end }}"
-        {{ if not (index .Perms "binding:update") }}aria-disabled="true" tabindex="-1"{{ end }}
+        class="btn btn-xs btn-ghost btn-square tooltip tooltip-left {{ if not (index .Perms "binding:update") }}
+          btn-disabled
+        {{ end }}"
+        {{ if index .Perms "binding:update" }}
+          href="{{ .AppPath }}/bindings/update?path={{ .Path }}"
+        {{ else }}
+          aria-disabled="true" tabindex="-1"
+        {{ end }}
         aria-label="Edit grants of {{ .Path }}"
-        data-tip="{{ if index .Perms "binding:update" }}Edit grants{{ else }}requires binding:update{{ end }}">
-        <svg aria-hidden="true" focusable="false"
+        data-tip="{{ if index .Perms "binding:update" }}
+          Edit grants
+        {{ else }}
+          requires binding:update
+        {{ end }}">
+        <svg
+          aria-hidden="true"
+          focusable="false"
           class="w-3.5 h-3.5"
           viewBox="0 0 24 24"
           fill="none"
@@ -76,19 +92,17 @@
       class="btn btn-xs btn-ghost btn-square text-error tooltip tooltip-left"
       aria-label="Delete binding {{ .Path }}"
       {{ if index .Perms "binding:delete" }}
-        data-tip="Delete binding"
-        hx-post="{{ .AppPath }}/bindings/delete"
-        hx-disabled-elt="this"
-        hx-vals='{"path": "{{ .Path }}"}'
-        hx-confirm="Delete binding {{ .Path }}? Apps referencing it will fail to load."
-        hx-target="#binding-groups"
-        hx-swap="innerHTML transition:true"
-        hx-include="#page-search"
-        hx-indicator="#page-progress"
+        data-tip="Delete binding" hx-post="{{ .AppPath }}/bindings/delete"
+        hx-disabled-elt="this" hx-vals='{"path": "{{ .Path }}"}'
+        hx-confirm="Delete binding {{ .Path }}? Apps referencing it will fail to
+        load." hx-target="#binding-groups" hx-swap="innerHTML transition:true"
+        hx-include="#page-search" hx-indicator="#page-progress"
       {{ else }}
         disabled data-tip="requires binding:delete"
       {{ end }}>
-      <svg aria-hidden="true" focusable="false"
+      <svg
+        aria-hidden="true"
+        focusable="false"
         class="w-3.5 h-3.5"
         viewBox="0 0 24 24"
         fill="none"
@@ -109,26 +123,30 @@
 <html lang="en">
   {{ template "head" . }}
 
+
   <body class="min-h-screen bg-base-200">
     <div class="drawer lg:drawer-open">
       {{ template "drawer_toggle" }}
 
+
       <div class="drawer-content">
         <main class="p-4 lg:p-6 space-y-4 max-w-6xl">
           <!-- Header -->
-          <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
-            {{ template "hamburger" }}
+          <div
+            class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+            {{ template "hamburger" . }}
             <div>
               {{ template "page_title" "OpenRun Bindings" }}
               <p class="page-desc text-sm text-base-content/70">
-                {{ .Data.Total }} bindings - connect apps to services and
-                shared config
+                {{ .Data.Total }} bindings - connect apps to services
               </p>
             </div>
             <div class="page-actions ml-auto flex items-center gap-2">
               <label
-                class="input input-sm w-48 focus-within:w-60 transition-[width] duration-300 hidden sm:flex">
-                <kbd class="kbd kbd-xs" aria-hidden="true">⌘K</kbd>
+                class="input input-sm flex-1 min-w-0 sm:flex-none sm:w-48 sm:focus-within:w-60 transition-[width] duration-300 flex">
+                <kbd class="kbd kbd-xs hidden sm:inline-flex" aria-hidden="true"
+                  >⌘K</kbd
+                >
                 <input
                   id="page-search"
                   type="search"
@@ -144,20 +162,26 @@
                   hx-indicator="#page-progress" />
               </label>
               <a
-                class="btn btn-sm btn-outline transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "service:create") }}btn-disabled tooltip tooltip-bottom{{ end }}"
+                class="btn btn-sm btn-outline transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "service:create") }}
+                  btn-disabled tooltip tooltip-bottom
+                {{ end }}"
                 {{ if index .Data.Perms "service:create" }}
                   href="{{ .AppPath }}/bindings/services/create"
                 {{ else }}
-                  data-tip="requires service:create" aria-disabled="true" tabindex="-1"
+                  data-tip="requires service:create" aria-disabled="true"
+                  tabindex="-1"
                 {{ end }}>
                 + New service
               </a>
               <a
-                class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "binding:create") }}btn-disabled tooltip tooltip-bottom{{ end }}"
+                class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "binding:create") }}
+                  btn-disabled tooltip tooltip-bottom
+                {{ end }}"
                 {{ if index .Data.Perms "binding:create" }}
                   href="{{ .AppPath }}/bindings/create"
                 {{ else }}
-                  data-tip="requires binding:create" aria-disabled="true" tabindex="-1"
+                  data-tip="requires binding:create" aria-disabled="true"
+                  tabindex="-1"
                 {{ end }}>
                 + New binding
               </a>
@@ -166,11 +190,11 @@
 
           {{ template "page_progress" }}
 
-          <div
-            id="binding-groups"
-            class="space-y-4">
+
+          <div id="binding-groups" class="space-y-4">
             {{ block "binding_groups" . }}
               {{ template "flash_alerts" .Data }}
+
 
               <!-- Service entries, the targets bindings attach to -->
               <div class="card bg-base-100 border border-base-300">
@@ -193,9 +217,15 @@
                         <tr>
                           <th scope="col">Service</th>
                           <th scope="col" class="hidden sm:table-cell">Type</th>
-                          <th scope="col" class="hidden md:table-cell">Config</th>
-                          <th scope="col" class="hidden lg:table-cell">Staging</th>
-                          <th scope="col" class="hidden xl:table-cell">Updated</th>
+                          <th scope="col" class="hidden md:table-cell">
+                            Config
+                          </th>
+                          <th scope="col" class="hidden lg:table-cell">
+                            Staging
+                          </th>
+                          <th scope="col" class="hidden xl:table-cell">
+                            Updated
+                          </th>
                           <th scope="col" class="text-right">Actions</th>
                         </tr>
                       </thead>
@@ -244,15 +274,15 @@
                               {{ end }}
                             </td>
                             <td class="text-right whitespace-nowrap">
-                              <div
-                                class="inline-flex items-center gap-0.5">
+                              <div class="inline-flex items-center gap-0.5">
                                 <button
                                   class="btn btn-xs btn-ghost text-error tooltip tooltip-left"
                                   {{ if index $.Data.Perms "service:delete" }}
                                     data-tip="Delete service"
                                     hx-post="{{ $.AppPath }}/bindings/services/delete"
                                     hx-vals='{"id": "{{ .id }}"}'
-                                    hx-confirm="Delete service {{ .id }}? Bindings referencing it will stop working."
+                                    hx-confirm="Delete service {{ .id }}?
+                                    Bindings referencing it will stop working."
                                     hx-target="#binding-groups"
                                     hx-swap="innerHTML transition:true"
                                     hx-include="#page-search"
@@ -275,7 +305,9 @@
                     class="px-4 py-4 text-sm text-base-content/70 flex items-center gap-3 flex-wrap">
                     <span>No services configured yet</span>
                     <a
-                      class="btn btn-xs btn-outline transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "service:create") }}btn-disabled tooltip tooltip-top{{ end }}"
+                      class="btn btn-xs btn-outline transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "service:create") }}
+                        btn-disabled tooltip tooltip-top
+                      {{ end }}"
                       {{ if index .Data.Perms "service:create" }}
                         href="{{ .AppPath }}/bindings/services/create"
                       {{ else }}
@@ -302,9 +334,13 @@
                         <tr>
                           <th scope="col">Binding</th>
                           <th scope="col">Service</th>
-                          <th scope="col" class="hidden lg:table-cell">Config</th>
+                          <th scope="col" class="hidden lg:table-cell">
+                            Config
+                          </th>
                           <th scope="col" class="hidden lg:table-cell">By</th>
-                          <th scope="col" class="hidden xl:table-cell">Updated</th>
+                          <th scope="col" class="hidden xl:table-cell">
+                            Updated
+                          </th>
                           <th scope="col" class="text-right">Actions</th>
                         </tr>
                       </thead>
@@ -361,11 +397,17 @@
                         <tr>
                           <th scope="col">Binding</th>
                           <th scope="col">Base binding</th>
-                          <th scope="col" class="hidden md:table-cell">Service</th>
+                          <th scope="col" class="hidden md:table-cell">
+                            Service
+                          </th>
                           <th scope="col">Grants</th>
-                          <th scope="col" class="hidden lg:table-cell">Config</th>
+                          <th scope="col" class="hidden lg:table-cell">
+                            Config
+                          </th>
                           <th scope="col" class="hidden lg:table-cell">By</th>
-                          <th scope="col" class="hidden xl:table-cell">Updated</th>
+                          <th scope="col" class="hidden xl:table-cell">
+                            Updated
+                          </th>
                           <th scope="col" class="text-right">Actions</th>
                         </tr>
                       </thead>
@@ -428,7 +470,8 @@
               {{ end }}
 
               {{ if .Data.Auto }}
-                <div class="card bg-base-100 border border-dashed border-base-300">
+                <div
+                  class="card bg-base-100 border border-dashed border-base-300">
                   <div
                     class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
                     <span class="badge badge-outline badge-xs">auto</span>
@@ -444,8 +487,12 @@
                         <tr>
                           <th scope="col">App</th>
                           <th scope="col">Service</th>
-                          <th scope="col" class="hidden lg:table-cell">Config</th>
-                          <th scope="col" class="hidden xl:table-cell">Updated</th>
+                          <th scope="col" class="hidden lg:table-cell">
+                            Config
+                          </th>
+                          <th scope="col" class="hidden xl:table-cell">
+                            Updated
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
@@ -497,7 +544,9 @@
                       <span class="text-xl" aria-hidden="true">🔗</span>
                       <p>No bindings configured yet</p>
                       <a
-                        class="btn btn-xs btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "binding:create") }}btn-disabled tooltip tooltip-top{{ end }}"
+                        class="btn btn-xs btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "binding:create") }}
+                          btn-disabled tooltip tooltip-top
+                        {{ end }}"
                         {{ if index .Data.Perms "binding:create" }}
                           href="{{ .AppPath }}/bindings/create"
                         {{ else }}

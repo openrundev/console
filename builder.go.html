@@ -1,30 +1,36 @@
 {{/* Copyright (c) ClaceIO, LLC */}}
 {{/* SPDX-License-Identifier: Apache-2.0 */}}
 {{/* Builder sessions list (/builder): draft apps built with the AI agent.
-     HTMX partial: block builder_rows */}}
+  HTMX partial: block builder_rows
+*/}}
 <!DOCTYPE html>
 <html lang="en">
   {{ template "head" . }}
+
 
   <body class="min-h-screen bg-base-200">
     <div class="drawer lg:drawer-open">
       {{ template "drawer_toggle" }}
 
+
       <div class="drawer-content">
         <main class="p-4 lg:p-6 space-y-4 max-w-6xl">
           <!-- Header -->
-          <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
-            {{ template "hamburger" }}
+          <div
+            class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+            {{ template "hamburger" . }}
             <div>
               {{ template "page_title" "OpenRun Builder" }}
               <p class="page-desc text-sm text-base-content/70">
-                Describe an app, iterate with the AI agent, then publish it
+                Describe an app, iterate with the AI agent
               </p>
             </div>
             <div class="page-actions ml-auto flex items-center gap-2">
               <label
-                class="input input-sm w-48 focus-within:w-60 transition-[width] duration-300 hidden sm:flex">
-                <kbd class="kbd kbd-xs" aria-hidden="true">⌘K</kbd>
+                class="input input-sm flex-1 min-w-0 sm:flex-none sm:w-48 sm:focus-within:w-60 transition-[width] duration-300 flex">
+                <kbd class="kbd kbd-xs hidden sm:inline-flex" aria-hidden="true"
+                  >⌘K</kbd
+                >
                 <input
                   id="page-search"
                   type="search"
@@ -40,11 +46,14 @@
                   hx-indicator="#page-progress" />
               </label>
               <a
-                class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "builder:create") }}btn-disabled tooltip tooltip-bottom{{ end }}"
+                class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "builder:create") }}
+                  btn-disabled tooltip tooltip-bottom
+                {{ end }}"
                 {{ if index .Data.Perms "builder:create" }}
                   href="{{ .AppPath }}/builder/create"
                 {{ else }}
-                  data-tip="requires builder:create" aria-disabled="true" tabindex="-1"
+                  data-tip="requires builder:create" aria-disabled="true"
+                  tabindex="-1"
                 {{ end }}>
                 + New app
               </a>
@@ -53,10 +62,8 @@
 
           {{ template "page_progress" }}
 
-          <div
-            id="builder-rows"
-            class="space-y-4"
->
+
+          <div id="builder-rows" class="space-y-4">
             {{ block "builder_rows" . }}
               {{ template "flash_alerts" .Data }}
 
@@ -74,12 +81,20 @@
                     <table class="table table-sm">
                       <thead>
                         <tr>
-                          <th scope="col" class="w-8"><span class="sr-only">Details</span></th>
+                          <th scope="col" class="w-8">
+                            <span class="sr-only">Details</span>
+                          </th>
                           <th scope="col">Name</th>
                           <th scope="col">Status</th>
-                          <th scope="col" class="hidden md:table-cell">Preview</th>
-                          <th scope="col" class="hidden md:table-cell">Published</th>
-                          <th scope="col" class="hidden lg:table-cell">Agent</th>
+                          <th scope="col" class="hidden md:table-cell">
+                            Preview
+                          </th>
+                          <th scope="col" class="hidden md:table-cell">
+                            Published
+                          </th>
+                          <th scope="col" class="hidden lg:table-cell">
+                            Agent
+                          </th>
                           <th scope="col" class="hidden lg:table-cell">By</th>
                           <th scope="col" class="text-right">Actions</th>
                         </tr>
@@ -96,17 +111,29 @@
                                 {{ template "drilldown_icon" }}
                               </a>
                             </td>
-                            <td class="font-medium break-words whitespace-normal" style="min-width: 11rem; max-width: 18rem">
+                            <td
+                              class="font-medium break-words whitespace-normal"
+                              style="min-width: 11rem; max-width: 18rem">
                               {{ .name }}
                               {{ if .edit_app }}
-                                <span class="block font-mono text-xs text-base-content/70 font-normal">edits {{ .edit_app }}</span>
+                                <span
+                                  class="block font-mono text-xs text-base-content/70 font-normal"
+                                  >edits {{ .edit_app }}</span
+                                >
                               {{ end }}
                             </td>
-                            <td>{{ template "builder_status_badge" .status }}</td>
+                            <td>
+                              {{ template "builder_status_badge" .status }}
+                            </td>
                             <td class="hidden md:table-cell">
                               {{ if .preview_path }}
-                                <span class="inline-flex items-center gap-1 max-w-52">
-                                  <span class="font-mono text-xs truncate tooltip tooltip-right" data-tip="{{ .preview_path }}">{{ .preview_path }}</span>
+                                <span
+                                  class="inline-flex items-center gap-1 max-w-52">
+                                  <span
+                                    class="font-mono text-xs truncate tooltip tooltip-right"
+                                    data-tip="{{ .preview_path }}"
+                                    >{{ .preview_path }}</span
+                                  >
                                   <a
                                     href="{{ .preview_path }}"
                                     target="_blank"
@@ -117,49 +144,76 @@
                                   </a>
                                 </span>
                               {{ else }}
-                                <span class="text-base-content/70 text-xs">not created yet</span>
+                                <span class="text-base-content/70 text-xs"
+                                  >not created yet</span
+                                >
                               {{ end }}
                             </td>
-                            <td class="hidden md:table-cell font-mono text-xs">{{ .publish_path }}</td>
-                            <td class="hidden lg:table-cell text-xs">{{ .agent }}</td>
-                            <td class="hidden lg:table-cell text-xs">{{ .user_id }}</td>
+                            <td class="hidden md:table-cell font-mono text-xs">
+                              {{ .publish_path }}
+                            </td>
+                            <td class="hidden lg:table-cell text-xs">
+                              {{ .agent }}
+                            </td>
+                            <td class="hidden lg:table-cell text-xs">
+                              {{ .user_id }}
+                            </td>
                             <td class="text-right">
                               <div class="inline-flex items-center gap-1">
                                 {{ $canWrite := index $.Data.Perms "builder:create" }}
                                 {{ if or (eq .status "detached") (eq .status "error") }}
                                   <button
-                                    class="btn btn-ghost btn-xs {{ if not $canWrite }}tooltip tooltip-left{{ end }}"
+                                    class="btn btn-ghost btn-xs {{ if not $canWrite }}
+                                      tooltip tooltip-left
+                                    {{ end }}"
                                     {{ if $canWrite }}
                                       hx-post="{{ $.AppPath }}/builder/resume?id={{ .id }}"
-                                      hx-target="#builder-rows" hx-disabled-elt="this"
+                                      hx-target="#builder-rows"
+                                      hx-disabled-elt="this"
                                       hx-indicator="#page-progress"
                                     {{ else }}
-                                      disabled data-tip="requires builder:create"
+                                      disabled data-tip="requires
+                                      builder:create"
                                     {{ end }}
-                                    aria-label="Resume session {{ .name }}">Resume</button>
+                                    aria-label="Resume session {{ .name }}">
+                                    Resume
+                                  </button>
                                 {{ else if ne .status "published" }}
                                   <button
-                                    class="btn btn-ghost btn-xs {{ if not $canWrite }}tooltip tooltip-left{{ end }}"
+                                    class="btn btn-ghost btn-xs {{ if not $canWrite }}
+                                      tooltip tooltip-left
+                                    {{ end }}"
                                     {{ if $canWrite }}
                                       hx-post="{{ $.AppPath }}/builder/stop?id={{ .id }}"
-                                      hx-target="#builder-rows" hx-disabled-elt="this"
+                                      hx-target="#builder-rows"
+                                      hx-disabled-elt="this"
                                       hx-indicator="#page-progress"
                                     {{ else }}
-                                      disabled data-tip="requires builder:create"
+                                      disabled data-tip="requires
+                                      builder:create"
                                     {{ end }}
-                                    aria-label="Stop session {{ .name }}">Stop</button>
+                                    aria-label="Stop session {{ .name }}">
+                                    Stop
+                                  </button>
                                 {{ end }}
                                 <button
-                                  class="btn btn-ghost btn-xs text-error {{ if not $canWrite }}tooltip tooltip-left{{ end }}"
+                                  class="btn btn-ghost btn-xs text-error {{ if not $canWrite }}
+                                    tooltip tooltip-left
+                                  {{ end }}"
                                   {{ if $canWrite }}
                                     hx-post="{{ $.AppPath }}/builder/delete?id={{ .id }}"
-                                    hx-confirm="Delete draft {{ .name }}? The workspace and preview app are removed. A published app stays live until unpublished."
-                                    hx-target="#builder-rows" hx-disabled-elt="this"
+                                    hx-confirm="Delete draft {{ .name }}? The
+                                    workspace and preview app are removed. A
+                                    published app stays live until unpublished."
+                                    hx-target="#builder-rows"
+                                    hx-disabled-elt="this"
                                     hx-indicator="#page-progress"
                                   {{ else }}
                                     disabled data-tip="requires builder:create"
                                   {{ end }}
-                                  aria-label="Delete session {{ .name }}">Delete</button>
+                                  aria-label="Delete session {{ .name }}">
+                                  Delete
+                                </button>
                               </div>
                             </td>
                           </tr>
@@ -172,15 +226,19 @@
                 <div class="card bg-base-100 border border-base-300">
                   <div class="card-body items-center text-center py-10 gap-2">
                     {{ if .Data.Query }}
-                      <h3 class="font-semibold">No sessions match "{{ .Data.Query }}"</h3>
+                      <h3 class="font-semibold">
+                        No sessions match "{{ .Data.Query }}"
+                      </h3>
                     {{ else }}
                       <h3 class="font-semibold">No builder sessions yet</h3>
                       <p class="text-sm text-base-content/70">
-                        Describe the app you want and the AI agent builds it with
-                        a live preview
+                        Describe the app you want and the AI agent builds it
+                        with a live preview
                       </p>
                       <a
-                        class="btn btn-xs btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "builder:create") }}btn-disabled tooltip tooltip-top{{ end }}"
+                        class="btn btn-xs btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "builder:create") }}
+                          btn-disabled tooltip tooltip-top
+                        {{ end }}"
                         {{ if index .Data.Perms "builder:create" }}
                           href="{{ .AppPath }}/builder/create"
                         {{ else }}

@@ -18,18 +18,19 @@
           <!-- Header -->
           <div
             class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
-            {{ template "hamburger" }}
+            {{ template "hamburger" . }}
             <div>
               {{ template "page_title" "OpenRun Syncs" }}
               <p class="page-desc text-sm text-base-content/70">
-                Declarative sources of truth - apps are created and updated from
-                these repos
+                Declaratively managed apps
               </p>
             </div>
             <div class="page-actions ml-auto flex items-center gap-2">
               <label
-                class="input input-sm w-48 focus-within:w-60 transition-[width] duration-300 hidden sm:flex">
-                <kbd class="kbd kbd-xs" aria-hidden="true">⌘K</kbd>
+                class="input input-sm flex-1 min-w-0 sm:flex-none sm:w-48 sm:focus-within:w-60 transition-[width] duration-300 flex">
+                <kbd class="kbd kbd-xs hidden sm:inline-flex" aria-hidden="true"
+                  >⌘K</kbd
+                >
                 <input
                   id="page-search"
                   type="search"
@@ -121,7 +122,8 @@
                             <td>
                               {{/* break-all needs a min-width floor: table
                                 auto-layout otherwise squeezes the column to
-                                one-character slivers on mobile */}}
+                                one-character slivers on mobile
+                              */}}
                               <span
                                 class="font-mono text-xs font-medium break-all inline-block min-w-40 align-bottom"
                                 >{{ .repo }}</span

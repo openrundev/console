@@ -3636,6 +3636,9 @@
   .max-w-72 {
     max-width: calc(var(--spacing) * 72);
   }
+  .max-w-80 {
+    max-width: calc(var(--spacing) * 80);
+  }
   .max-w-\[90vw\] {
     max-width: 90vw;
   }
@@ -3919,6 +3922,9 @@
   }
   .gap-y-4 {
     row-gap: calc(var(--spacing) * 4);
+  }
+  .self-start {
+    align-self: flex-start;
   }
   .justify-self-center {
     justify-self: center;
@@ -4915,11 +4921,6 @@
       top: calc(var(--spacing) * 3);
     }
   }
-  .focus-within\:w-60 {
-    &:focus-within {
-      width: calc(var(--spacing) * 60);
-    }
-  }
   .hover\:bg-base-200 {
     &:hover {
       @media (hover: hover) {
@@ -4976,9 +4977,9 @@
       scale: var(--tw-scale-x) var(--tw-scale-y);
     }
   }
-  .sm\:flex {
+  .sm\:inline-flex {
     @media (width >= 40rem) {
-      display: flex;
+      display: inline-flex;
     }
   }
   .sm\:table-cell {
@@ -4989,6 +4990,16 @@
   .sm\:w-1\/2 {
     @media (width >= 40rem) {
       width: calc(1 / 2 * 100%);
+    }
+  }
+  .sm\:w-48 {
+    @media (width >= 40rem) {
+      width: calc(var(--spacing) * 48);
+    }
+  }
+  .sm\:flex-none {
+    @media (width >= 40rem) {
+      flex: none;
     }
   }
   .sm\:grid-cols-2 {
@@ -5004,6 +5015,13 @@
   .sm\:grid-cols-4 {
     @media (width >= 40rem) {
       grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+  .sm\:focus-within\:w-60 {
+    @media (width >= 40rem) {
+      &:focus-within {
+        width: calc(var(--spacing) * 60);
+      }
     }
   }
   .md\:my-6 {

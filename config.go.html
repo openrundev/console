@@ -1,194 +1,204 @@
 {{/* Copyright (c) ClaceIO, LLC */}}
 {{/* SPDX-License-Identifier: Apache-2.0 */}}
 {{/* Configuration page (/config): overview of the config areas, one card per
-     sub page. RBAC has the staged-update workflow; the other sub pages
-     (authentication, git auth, system, telemetry, logging) hold dynamic
-     entries/settings which take effect immediately on save and override the
-     static openrun.toml values. Ends with the config history with restore.
-     HTMX partial: block config_content */}}
+  sub page. RBAC has the staged-update workflow; the other sub pages
+  (authentication, git auth, system, telemetry, logging) hold dynamic
+  entries/settings which take effect immediately on save and override the
+  static openrun.toml values. Ends with the config history with restore.
+  HTMX partial: block config_content
+*/}}
 <!DOCTYPE html>
 <html lang="en">
   {{ template "head" . }}
+
 
   <body class="min-h-screen bg-base-200">
     <div class="drawer lg:drawer-open">
       {{ template "drawer_toggle" }}
 
+
       <div class="drawer-content">
         <main class="p-4 lg:p-6 max-w-6xl">
           <div id="config-content" class="space-y-4">
-          {{ block "config_content" . }}
-            <!-- Header -->
-            <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
-              {{ template "hamburger" }}
-              <div>
-                {{ template "page_title" "OpenRun Configuration" }}
-                <p class="page-desc text-sm text-base-content/70">
-                  Server configuration - entry changes are live immediately,
-                  RBAC changes are staged on their own page
-                </p>
-              </div>
-            </div>
-
-            {{ template "page_progress" }}
-
-            {{ if .Data.Error }}
-              {{ template "error_alert" .Data.Error }}
-            {{ else }}
-              {{ template "flash_alerts" .Data }}
-
-              <!-- Config areas -->
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <!-- RBAC summary card -->
-                <div class="card bg-base-100 border border-base-300">
-                  <div class="card-body p-4 gap-2">
-                    <div class="flex items-center gap-2 flex-wrap">
-                      <h2 class="text-sm font-medium">RBAC</h2>
-                      {{ if .Data.RBAC.enabled }}
-                        <span class="badge badge-success badge-sm badge-soft"
-                          >enabled</span
-                        >
-                      {{ else }}
-                        <span class="badge badge-ghost badge-sm">disabled</span>
-                      {{ end }}
-                      {{ if .Data.RBAC.has_staged }}
-                        <span
-                          class="badge badge-warning badge-sm badge-soft tooltip tooltip-top"
-                          data-tip="staged changes by {{ .Data.RBAC.staged_by }} pending publish"
-                          >pending</span
-                        >
-                      {{ end }}
-                      <a
-                        href="{{ .AppPath }}/config/rbac"
-                        class="btn btn-xs btn-outline ml-auto">
-                        Manage
-                      </a>
-                    </div>
-                    <p class="text-xs text-base-content/70">
-                      Role based access control -
-                      {{ .Data.RBAC.groups }} groups,
-                      {{ .Data.RBAC.roles }} roles,
-                      {{ .Data.RBAC.grants }} grants. Changes are staged and go
-                      live on publish
-                    </p>
-                  </div>
+            {{ block "config_content" . }}
+              <!-- Header -->
+              <div
+                class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+                {{ template "hamburger" . }}
+                <div>
+                  {{ template "page_title" "OpenRun Configuration" }}
+                  <p class="page-desc text-sm text-base-content/70">
+                    Server configuration - changes are live immediately
+                  </p>
                 </div>
+              </div>
 
-                <!-- Sub page cards -->
-                {{ range .Data.Pages }}
+              {{ template "page_progress" }}
+
+              {{ if .Data.Error }}
+                {{ template "error_alert" .Data.Error }}
+              {{ else }}
+                {{ template "flash_alerts" .Data }}
+
+
+                <!-- Config areas -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <!-- RBAC summary card -->
                   <div class="card bg-base-100 border border-base-300">
                     <div class="card-body p-4 gap-2">
                       <div class="flex items-center gap-2 flex-wrap">
-                        <h2 class="text-sm font-medium">{{ .title }}</h2>
-                        {{ if .has_entries }}
+                        <h2 class="text-sm font-medium">RBAC</h2>
+                        {{ if .Data.RBAC.enabled }}
+                          <span class="badge badge-success badge-sm badge-soft"
+                            >enabled</span
+                          >
+                        {{ else }}
                           <span class="badge badge-ghost badge-sm"
-                            >{{ .entry_count }} entries</span
+                            >disabled</span
                           >
                         {{ end }}
-                        {{ if .dynamic_count }}
+                        {{ if .Data.RBAC.has_staged }}
                           <span
-                            class="badge badge-soft badge-primary badge-sm tooltip tooltip-top"
-                            data-tip="dynamic values overriding openrun.toml"
-                            >{{ .dynamic_count }} dynamic</span
+                            class="badge badge-warning badge-sm badge-soft tooltip tooltip-top"
+                            data-tip="staged changes by {{ .Data.RBAC.staged_by }} pending publish"
+                            >pending</span
                           >
                         {{ end }}
                         <a
-                          href="{{ $.AppPath }}/config/{{ .page }}"
+                          href="{{ .AppPath }}/config/rbac"
                           class="btn btn-xs btn-outline ml-auto">
                           Manage
                         </a>
                       </div>
                       <p class="text-xs text-base-content/70">
-                        {{ .desc }} - changes take effect immediately
+                        Role based access control - {{ .Data.RBAC.groups }}
+                        groups, {{ .Data.RBAC.roles }} roles,
+                        {{ .Data.RBAC.grants }} grants. Changes are staged and
+                        go live on publish
                       </p>
                     </div>
                   </div>
-                {{ end }}
-              </div>
 
-              <!-- Config history -->
-              <div class="card bg-base-100 border border-base-300">
-                <div
-                  class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2">
-                  <h2 class="text-sm font-medium">History</h2>
-                  <span class="text-xs text-base-content/70"
-                    >{{ len .Data.History }} config versions - restoring
-                    creates a new version</span
-                  >
+                  <!-- Sub page cards -->
+                  {{ range .Data.Pages }}
+                    <div class="card bg-base-100 border border-base-300">
+                      <div class="card-body p-4 gap-2">
+                        <div class="flex items-center gap-2 flex-wrap">
+                          <h2 class="text-sm font-medium">{{ .title }}</h2>
+                          {{ if .has_entries }}
+                            <span class="badge badge-ghost badge-sm"
+                              >{{ .entry_count }} entries</span
+                            >
+                          {{ end }}
+                          {{ if .dynamic_count }}
+                            <span
+                              class="badge badge-soft badge-primary badge-sm tooltip tooltip-top"
+                              data-tip="dynamic values overriding openrun.toml"
+                              >{{ .dynamic_count }} dynamic</span
+                            >
+                          {{ end }}
+                          <a
+                            href="{{ $.AppPath }}/config/{{ .page }}"
+                            class="btn btn-xs btn-outline ml-auto">
+                            Manage
+                          </a>
+                        </div>
+                        <p class="text-xs text-base-content/70">
+                          {{ .desc }} - changes take effect immediately
+                        </p>
+                      </div>
+                    </div>
+                  {{ end }}
                 </div>
-                {{ if .Data.History }}
-                  <div class="overflow-x-auto">
-                    <table class="table table-sm">
-                      <thead>
-                        <tr>
-                          <th scope="col">Version</th>
-                          <th scope="col">By</th>
-                          <th scope="col">When</th>
-                          <th scope="col" class="text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {{ range $i, $h := .Data.History }}
-                          <tr
-                            class="group hover:bg-base-200/60 {{ if eq $h.version_id $.Data.VersionId }}bg-success/5{{ end }}">
-                            <td class="font-mono text-xs">
-                              {{ trunc 16 $h.version_id }}…
-                              {{ if eq $h.version_id $.Data.VersionId }}
-                                <span
-                                  class="badge badge-success badge-xs badge-soft"
-                                  >live</span
-                                >
-                              {{ end }}
-                            </td>
-                            <td class="text-xs text-base-content/70">
-                              {{ if $h.user_id }}
-                                {{ $h.user_id }}
-                              {{ else }}
-                                -
-                              {{ end }}
-                            </td>
-                            <td class="text-xs text-base-content/70">
-                              {{ template "time_ago" $h.update_time }}
-                            </td>
-                            <td class="text-right whitespace-nowrap">
-                              <a
-                                href="{{ $.AppPath }}/config/history?version={{ $h.version_id }}"
-                                class="btn btn-xs btn-ghost tooltip tooltip-left"
-                                data-tip="View this config snapshot as JSON">
-                                view
-                              </a>
-                              {{ if ne $h.version_id $.Data.VersionId }}
-                                <button
-                                  class="btn btn-xs btn-ghost text-primary"
-                                  {{ if index $.Data.Perms "config:update" }}
-                                    hx-post="{{ $.AppPath }}/config/action"
-                                    hx-vals='{"action": "restore", "restore_version": "{{ $h.version_id }}"}'
-                                    hx-confirm="Restore the full configuration (RBAC and dynamic entries) from this snapshot? It is validated and written as a new version."
-                                    hx-target="#config-content"
-                                    hx-swap="innerHTML transition:true"
-                                    hx-disabled-elt="this"
-                                    hx-indicator="#page-progress"
-                                  {{ else }}
-                                    disabled data-tip="requires config:update"
-                                  {{ end }}>
-                                  restore
-                                </button>
-                              {{ end }}
-                            </td>
-                          </tr>
-                        {{ end }}
-                      </tbody>
-                    </table>
+
+                <!-- Config history -->
+                <div class="card bg-base-100 border border-base-300">
+                  <div
+                    class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2">
+                    <h2 class="text-sm font-medium">History</h2>
+                    <span class="text-xs text-base-content/70"
+                      >{{ len .Data.History }} config versions - restoring
+                      creates a new version</span
+                    >
                   </div>
-                {{ else }}
-                  <p class="text-sm text-base-content/70 px-4 py-4">
-                    No configuration changes recorded yet
-                  </p>
-                {{ end }}
-              </div>
+                  {{ if .Data.History }}
+                    <div class="overflow-x-auto">
+                      <table class="table table-sm">
+                        <thead>
+                          <tr>
+                            <th scope="col">Version</th>
+                            <th scope="col">By</th>
+                            <th scope="col">When</th>
+                            <th scope="col" class="text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {{ range $i, $h := .Data.History }}
+                            <tr
+                              class="group hover:bg-base-200/60 {{ if eq $h.version_id $.Data.VersionId }}
+                                bg-success/5
+                              {{ end }}">
+                              <td class="font-mono text-xs">
+                                {{ trunc 16 $h.version_id }}…
+                                {{ if eq $h.version_id $.Data.VersionId }}
+                                  <span
+                                    class="badge badge-success badge-xs badge-soft"
+                                    >live</span
+                                  >
+                                {{ end }}
+                              </td>
+                              <td class="text-xs text-base-content/70">
+                                {{ if $h.user_id }}
+                                  {{ $h.user_id }}
+                                {{ else }}
+                                  -
+                                {{ end }}
+                              </td>
+                              <td class="text-xs text-base-content/70">
+                                {{ template "time_ago" $h.update_time }}
+                              </td>
+                              <td class="text-right whitespace-nowrap">
+                                <a
+                                  href="{{ $.AppPath }}/config/history?version={{ $h.version_id }}"
+                                  class="btn btn-xs btn-ghost tooltip tooltip-left"
+                                  data-tip="View this config snapshot as JSON">
+                                  view
+                                </a>
+                                {{ if ne $h.version_id $.Data.VersionId }}
+                                  <button
+                                    class="btn btn-xs btn-ghost text-primary"
+                                    {{ if index $.Data.Perms "config:update" }}
+                                      hx-post="{{ $.AppPath }}/config/action"
+                                      hx-vals='{"action": "restore",
+                                      "restore_version": "{{ $h.version_id }}"}'
+                                      hx-confirm="Restore the full configuration
+                                      (RBAC and dynamic entries) from this
+                                      snapshot? It is validated and written as a
+                                      new version." hx-target="#config-content"
+                                      hx-swap="innerHTML transition:true"
+                                      hx-disabled-elt="this"
+                                      hx-indicator="#page-progress"
+                                    {{ else }}
+                                      disabled data-tip="requires config:update"
+                                    {{ end }}>
+                                    restore
+                                  </button>
+                                {{ end }}
+                              </td>
+                            </tr>
+                          {{ end }}
+                        </tbody>
+                      </table>
+                    </div>
+                  {{ else }}
+                    <p class="text-sm text-base-content/70 px-4 py-4">
+                      No configuration changes recorded yet
+                    </p>
+                  {{ end }}
+                </div>
+              {{ end }}
             {{ end }}
-          {{ end }}
-          <!-- End of "config_content" block -->
+            <!-- End of "config_content" block -->
           </div>
         </main>
       </div>

@@ -5,26 +5,40 @@
 <html lang="en">
   {{ template "head" . }}
 
+
   <body class="min-h-screen bg-base-200">
     <div class="drawer lg:drawer-open">
       {{ template "drawer_toggle" }}
 
+
       <div class="drawer-content">
         <main class="p-4 lg:p-6 space-y-4 max-w-2xl">
           <!-- Header -->
-          <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
-            {{ template "hamburger" }}
+          <div
+            class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+            {{ template "hamburger" . }}
             <div>
               {{ template "page_title" "OpenRun Builder" }}
-              <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0"><ul><li><a href="{{ .AppPath }}/builder">Builder</a></li><li>new app</li></ul></nav>
-              <h2 class="text-xl font-semibold">{{ if .Data.EditApp }}Edit app{{ else }}New app{{ end }}</h2>
+              <nav
+                aria-label="Breadcrumb"
+                class="breadcrumbs text-xs text-base-content/70 p-0">
+                <ul>
+                  <li><a href="{{ .AppPath }}/builder">Builder</a></li>
+                  <li>new app</li>
+                </ul>
+              </nav>
+              <h2 class="text-xl font-semibold">
+                {{ if .Data.EditApp }}
+                  Edit app
+                {{ else }}
+                  New app
+                {{ end }}
+              </h2>
               <p class="page-desc text-sm text-base-content/70">
                 {{ if .Data.EditApp }}
-                  Describe the change; the agent modifies the app source and
-                  you refine it in a chat with a live preview
+                  Describe the change; the agent updates the app
                 {{ else }}
-                  Describe the app; the agent scaffolds it and you refine it in
-                  a chat with a live preview
+                  Describe the app; the agent builds it
                 {{ end }}
               </p>
             </div>
@@ -32,119 +46,155 @@
 
           {{ template "page_progress" }}
 
-
           {{ block "op_form" . }}
-          <div id="op-form-wrap">
-          {{ template "error_alert" .Data.Error }}
+            <div id="op-form-wrap">
+              {{ template "error_alert" .Data.Error }}
 
-          <form
-            method="post"
-            action="{{ .AppPath }}/builder/create"
-            id="op-form"
-            hx-post="{{ .AppPath }}/builder/create"
-            hx-target="#op-form-wrap"
-            hx-swap="outerHTML"
-            hx-indicator="#page-progress, #op-form"
-            class="card bg-base-100 border border-base-300">
-            <div class="card-body p-5 gap-5">
-              <div class="flex flex-col gap-4">
-                {{ if .Data.EditApp }}
-                  <div class="alert py-2 text-sm" role="note">
-                    <span>
-                      {{ if .Data.EditPublished }}
-                        Editing <span class="font-mono">{{ .Data.EditApp }}</span> -
-                        the session starts from the app's current source. Publishing
-                        updates the source only; the app declaration in apps.star is
-                        not changed.
-                      {{ else }}
-                        Editing a copy of <span class="font-mono">{{ .Data.EditApp }}</span>,
-                        which was not published by the app builder. Publishing creates a
-                        NEW app (the original app is not changed); its settings - auth,
-                        params, bindings - are copied over, with fresh auto bindings.
-                      {{ end }}
-                    </span>
+
+              <form
+                method="post"
+                action="{{ .AppPath }}/builder/create"
+                id="op-form"
+                hx-post="{{ .AppPath }}/builder/create"
+                hx-target="#op-form-wrap"
+                hx-swap="outerHTML"
+                hx-indicator="#page-progress, #op-form"
+                class="card bg-base-100 border border-base-300">
+                <div class="card-body p-5 gap-5">
+                  <div class="flex flex-col gap-4">
+                    {{ if .Data.EditApp }}
+                      <div class="alert py-2 text-sm" role="note">
+                        <span>
+                          {{ if .Data.EditPublished }}
+                            Editing
+                            <span class="font-mono">{{ .Data.EditApp }}</span> -
+                            the session starts from the app's current source.
+                            Publishing updates the source only; the app
+                            declaration in apps.star is not changed.
+                          {{ else }}
+                            Editing a copy of
+                            <span class="font-mono">{{ .Data.EditApp }}</span>,
+                            which was not published by the app builder.
+                            Publishing creates a NEW app (the original app is
+                            not changed); its settings - auth, params, bindings
+                            - are copied over, with fresh auto bindings.
+                          {{ end }}
+                        </span>
+                      </div>
+                      <input
+                        type="hidden"
+                        name="edit_app"
+                        value="{{ .Data.EditApp }}" />
+                    {{ end }}
+                    <label class="form-control w-full">
+                      <div class="label">
+                        <span class="label-text"
+                          >{{ if .Data.EditApp }}
+                            Session name
+                          {{ else }}
+                            App name
+                          {{ end }}</span
+                        >
+                      </div>
+                      <input
+                        type="text"
+                        name="name"
+                        required
+                        value="{{ .Data.Values.name }}"
+                        placeholder="Sales PTO tracker"
+                        class="input input-bordered w-full" />
+                    </label>
+
+                    <label class="form-control w-full">
+                      <div class="label">
+                        <span class="label-text"
+                          >{{ if .Data.EditApp }}
+                            What should be changed?
+                          {{ else }}
+                            What should the app do?
+                          {{ end }}</span
+                        >
+                      </div>
+                      <textarea
+                        name="prompt"
+                        required
+                        rows="6"
+                        placeholder="A team PTO tracker: calendar view of who is out, a form to request time off, and a CSV export."
+                        class="textarea textarea-bordered w-full">
+{{ .Data.Values.prompt }}</textarea
+                      >
+                      <div class="label">
+                        <span class="label-text-alt text-base-content/70">
+                          This is the first message to the agent - the more
+                          specific, the better the first draft
+                        </span>
+                      </div>
+                    </label>
+
+                    {{/* One profile applies silently, none uses the built-in
+                      default - the choice only renders when there is one. The
+                      configured default profile is preselected
+                    */}}
+                    {{ if gt (len .Data.Profiles) 1 }}
+                      {{ $selected := or .Data.Values.profile .Data.DefaultProfile }}
+                      <label class="form-control w-full">
+                        <div class="label">
+                          <span class="label-text">Builder profile</span>
+                        </div>
+                        <select
+                          name="profile"
+                          required
+                          class="select w-full min-w-0"
+                          hx-get="{{ .AppPath }}/builder/create/services"
+                          hx-target="#services-offer"
+                          hx-swap="outerHTML"
+                          hx-trigger="change"
+                          hx-indicator="#page-progress">
+                          {{ range .Data.Profiles }}
+                            <option
+                              value="{{ .name }}"
+                              {{ if eq .name $selected }}selected{{ end }}>
+                              {{- .name }}{{ if .description }}
+                                -
+                                {{ .description }}
+                              {{ end -}}
+                            </option>
+                          {{ end }}
+                        </select>
+                        <div class="label">
+                          <span class="label-text-alt text-base-content/70">
+                            Configured in Configuration → App builder: agent,
+                            git target, publish destination and default spec
+                          </span>
+                        </div>
+                      </label>
+                    {{ end }}
+
+                    {{ if not .Data.EditApp }}
+                      {{ template "builder_services_checklist" . }}
+                    {{ end }}
                   </div>
-                  <input type="hidden" name="edit_app" value="{{ .Data.EditApp }}" />
-                {{ end }}
-                <label class="form-control w-full">
-                  <div class="label"><span class="label-text">{{ if .Data.EditApp }}Session name{{ else }}App name{{ end }}</span></div>
-                  <input
-                    type="text"
-                    name="name"
-                    required
-                    value="{{ .Data.Values.name }}"
-                    placeholder="Sales PTO tracker"
-                    class="input input-bordered w-full" />
-                </label>
 
-                <label class="form-control w-full">
-                  <div class="label">
-                    <span class="label-text">{{ if .Data.EditApp }}What should be changed?{{ else }}What should the app do?{{ end }}</span>
+                  <div class="card-actions justify-end">
+                    <a
+                      href="{{ .AppPath }}/builder"
+                      class="btn btn-ghost btn-sm"
+                      >Cancel</a
+                    >
+                    <button
+                      type="submit"
+                      class="btn btn-primary btn-sm transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "builder:create") }}
+                        btn-disabled tooltip tooltip-top
+                      {{ end }}"
+                      {{ if not (index .Data.Perms "builder:create") }}
+                        disabled data-tip="requires builder:create"
+                      {{ end }}>
+                      Start building
+                    </button>
                   </div>
-                  <textarea
-                    name="prompt"
-                    required
-                    rows="6"
-                    placeholder="A team PTO tracker: calendar view of who is out, a form to request time off, and a CSV export."
-                    class="textarea textarea-bordered w-full">{{ .Data.Values.prompt }}</textarea>
-                  <div class="label">
-                    <span class="label-text-alt text-base-content/70">
-                      This is the first message to the agent - the more
-                      specific, the better the first draft
-                    </span>
-                  </div>
-                </label>
-
-                {{/* One profile applies silently, none uses the built-in
-                  default - the choice only renders when there is one. The
-                  configured default profile is preselected */}}
-                {{ if gt (len .Data.Profiles) 1 }}
-                  {{ $selected := or .Data.Values.profile .Data.DefaultProfile }}
-                  <label class="form-control w-full">
-                    <div class="label"><span class="label-text">Builder profile</span></div>
-                    <select
-                      name="profile"
-                      required
-                      class="select w-full min-w-0"
-                      hx-get="{{ .AppPath }}/builder/create/services"
-                      hx-target="#services-offer"
-                      hx-swap="outerHTML"
-                      hx-trigger="change"
-                      hx-indicator="#page-progress">
-                      {{ range .Data.Profiles }}
-                        <option value="{{ .name }}" {{ if eq .name $selected }}selected{{ end }}>
-                          {{- .name }}{{ if .description }} - {{ .description }}{{ end -}}
-                        </option>
-                      {{ end }}
-                    </select>
-                    <div class="label">
-                      <span class="label-text-alt text-base-content/70">
-                        Configured in Configuration → App builder: agent, git
-                        target, publish destination and default spec
-                      </span>
-                    </div>
-                  </label>
-                {{ end }}
-
-                {{ if not .Data.EditApp }}
-                  {{ template "builder_services_checklist" . }}
-                {{ end }}
-              </div>
-
-              <div class="card-actions justify-end">
-                <a href="{{ .AppPath }}/builder" class="btn btn-ghost btn-sm">Cancel</a>
-                <button
-                  type="submit"
-                  class="btn btn-primary btn-sm transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "builder:create") }}btn-disabled tooltip tooltip-top{{ end }}"
-                  {{ if not (index .Data.Perms "builder:create") }}
-                    disabled data-tip="requires builder:create"
-                  {{ end }}>
-                  Start building
-                </button>
-              </div>
+                </div>
+              </form>
             </div>
-          </form>
-          </div>
           {{ end }}
         </main>
       </div>
