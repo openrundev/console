@@ -114,7 +114,7 @@
                                 </a>
                               {{ end }}
                             </td>
-                            <td class="whitespace-nowrap align-top">
+                            <td class="whitespace-nowrap">
                               {{ if .unhealthy }}
                                 <span class="status status-error"></span>
                                 <span
@@ -133,7 +133,7 @@
                                 <span class="text-xs">{{ .state }}</span>
                               {{ end }}
                             </td>
-                            <td class="align-top">
+                            <td>
                               {{/* break-all needs a min-width floor: table
                                 auto-layout otherwise squeezes the column to
                                 one-character slivers on mobile
@@ -149,7 +149,7 @@
                               >
                             </td>
                             <td
-                              class="text-xs text-base-content/70 hidden sm:table-cell whitespace-nowrap align-top">
+                              class="text-xs text-base-content/70 hidden sm:table-cell whitespace-nowrap">
                               {{ if .last_sync }}
                                 {{ template "time_ago" .last_sync }}
                               {{ else }}
@@ -157,7 +157,7 @@
                               {{ end }}
                             </td>
                             <td
-                              class="text-xs hidden md:table-cell whitespace-nowrap align-top {{ if eq .sidecar "down" }}
+                              class="text-xs hidden md:table-cell whitespace-nowrap {{ if eq .sidecar "down" }}
                                 text-error
                               {{ else }}
                                 text-base-content/70
@@ -173,7 +173,7 @@
                               {{ end }}
                             </td>
                             <td
-                              class="text-xs text-base-content/70 hidden md:table-cell whitespace-nowrap tabular-nums align-top">
+                              class="text-xs text-base-content/70 hidden md:table-cell whitespace-nowrap tabular-nums">
                               {{ if .size }}
                                 {{ .size }}
                               {{ else }}
@@ -181,7 +181,7 @@
                               {{ end }}
                             </td>
                             <td
-                              class="text-xs text-base-content/70 hidden lg:table-cell align-top">
+                              class="text-xs text-base-content/70 hidden lg:table-cell">
                               {{ if .files }}
                                 <ul>
                                   {{ range .files }}
@@ -201,7 +201,7 @@
                                 -
                               {{ end }}
                             </td>
-                            <td class="align-top">
+                            <td>
                               <span
                                 class="font-mono text-xs break-all inline-block min-w-40 max-w-80"
                                 >{{ .target }}</span
