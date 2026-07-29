@@ -1,8 +1,9 @@
 {{/* Copyright (c) ClaceIO, LLC */}}
 {{/* SPDX-License-Identifier: Apache-2.0 */}}
 {{/* Container detail page (/containers/detail?id=): fast shell with basic
-     info; stats/disk and logs load asynchronously via blocks
-     container_stats and container_logs (hx-trigger load + 15s refresh).
+     info; stats/disk load asynchronously via block container_stats
+     (hx-trigger load + 15s refresh) and logs stream through the
+     <log-tail> element (logtail.js, /containers/logs_stream).
      HTMX partial: block container_content */}}
 <!DOCTYPE html>
 <html lang="en">

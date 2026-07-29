@@ -24,7 +24,7 @@
             <div>
               {{ template "page_title" "OpenRun Replication" }}
               <p class="page-desc text-sm text-base-content/70">
-                Replication status details
+                SQLite replication status
               </p>
             </div>
             <div class="page-actions ml-auto flex items-center gap-2">
@@ -77,6 +77,9 @@
                     <table class="table table-sm">
                       <thead>
                         <tr>
+                          <th scope="col" class="w-8">
+                            <span class="sr-only">Details</span>
+                          </th>
                           <th scope="col">State</th>
                           <th scope="col">App</th>
                           <th scope="col" class="hidden sm:table-cell">
@@ -95,6 +98,22 @@
                       <tbody>
                         {{ range .Data.Rows }}
                           <tr class="group hover:bg-base-200/60">
+                            <td class="w-8">
+                              {{/* Drill-down into the litestream sidecar
+                                container; empty when there is no separate
+                                sidecar container (kubernetes, or the
+                                container feature/permission is off)
+                              */}}
+                              {{ if .container_id }}
+                                <a
+                                  href="{{ $.AppPath }}/containers/detail?id={{ .container_id }}"
+                                  class="btn btn-xs btn-ghost btn-square tooltip tooltip-right"
+                                  data-tip="Expand: litestream sidecar container - stats and logs"
+                                  aria-label="View the litestream sidecar container for {{ .app_path }}">
+                                  {{ template "drilldown_icon" }}
+                                </a>
+                              {{ end }}
+                            </td>
                             <td class="whitespace-nowrap align-top">
                               {{ if .unhealthy }}
                                 <span class="status status-error"></span>

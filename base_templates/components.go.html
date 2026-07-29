@@ -1,0 +1,279 @@
+{{/* Copyright (c) ClaceIO, LLC */}}
+{{/* SPDX-License-Identifier: Apache-2.0 */}}
+{{/* Generic shared widgets: alerts, icons, tile/link headers, the secret
+  input and kv table, and small formatting helpers. Domain-agnostic - a
+  define that knows about apps/syncs/builder belongs in blocks.go.html,
+  page chrome in layout.go.html. All base_templates/*.go.html files are
+  parsed together with each page template
+*/}}
+
+{{/* error_alert renders the standard error alert when the message is not
+  empty. Context: the error message string
+*/}}
+{{ define "error_alert" }}
+  {{ if . }}
+    <div role="alert" class="alert alert-error alert-soft py-2 text-sm">
+      <span aria-hidden="true">✕</span>
+      <span class="break-all">{{ . }}</span>
+    </div>
+  {{ end }}
+{{ end }}
+
+{{/* flash_alerts renders the action result alerts (Flash success and
+  FlashError). Context: the page's .Data
+*/}}
+{{ define "flash_alerts" }}
+  {{ if .Flash }}
+    <div role="alert" class="alert alert-success alert-soft py-2 text-sm">
+      <span aria-hidden="true">✓</span>
+      <span>{{ .Flash }}</span>
+    </div>
+  {{ end }}
+  {{ template "error_alert" .FlashError }}
+{{ end }}
+
+{{/* validation_alert renders the shared dry-run success result used by
+  create forms. Context: dict with Validated, Value, Suffix and optional
+  BreakAll
+*/}}
+{{ define "validation_alert" }}
+  {{ if .Validated }}
+    <div role="alert" class="alert alert-success alert-soft py-2 text-sm">
+      <span aria-hidden="true">✓</span>
+      <span
+        >Validation succeeded -
+        <span class="font-mono{{ if .BreakAll }} break-all{{ end }}"
+          >{{ .Value }}</span
+        >
+        {{ .Suffix }}</span
+      >
+    </div>
+  {{ end }}
+{{ end }}
+
+{{/* error_toast is what the app's error_handler retargets into #error-toast
+  when a partial (HTMX) request fails unexpectedly; referenced by define
+  name from ace.response in app.star
+*/}}
+{{ define "error_toast" }}
+  <div role="alert" class="alert alert-error py-2 text-sm shadow-lg">
+    <span aria-hidden="true">✕</span>
+    <span class="break-all">{{ .Data.Error }}</span>
+  </div>
+{{ end }}
+
+{{/* time_ago renders an RFC3339 timestamp as a compact "4m ago" style age,
+  with the exact UTC time as a tooltip
+*/}}
+{{ define "time_ago" }}
+  {{- $t := toDate "2006-01-02T15:04:05Z07:00" . -}}
+  {{- $d := ago $t -}}
+  {{- $d = regexReplaceAll "([hm])[0-9]+(\\.[0-9]+)?s$" $d "${1}" -}}
+  {{- $d = regexReplaceAll "(h)[0-9]+m$" $d "${1}" -}}
+  <span
+    class="tooltip"
+    data-tip="{{ dateInZone "2006-01-02 15:04:05" $t "UTC" }} UTC"
+    >{{ $d }} ago</span
+  >
+{{- end }}
+
+{{/* drilldown_icon is the shared first-column click-in indicator (see the
+  tables convention in design/notes.md: static svg, primary color baked in,
+  explicit size, wrapping <a> must be btn-square)
+*/}}
+{{ define "drilldown_icon" }}
+  <img
+    src="{{ static "icons/drilldown.svg" }}"
+    width="20"
+    height="20"
+    style="width:20px;height:20px"
+    alt="" />
+{{ end }}
+
+{{/* globe_icon marks links that open the app itself in a new tab (vs the
+  ↗ used for drill-in/source links); shared by the app tables' hover
+  links and the app detail page's Open app button
+*/}}
+{{ define "globe_icon" }}
+  <svg
+    aria-hidden="true"
+    focusable="false"
+    class="w-3.5 h-3.5 inline-block align-[-0.125em] text-primary"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round">
+    <circle cx="12" cy="12" r="10" />
+    <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+    <path d="M2 12h20" />
+  </svg>
+{{ end }}
+
+{{/* open_app_link renders a right-aligned open-in-new-tab link for a
+  running app. Context: dict with Href, Label ("Open app"/"Open staging")
+  and What ("app"/"staging app", used in the tooltip)
+*/}}
+{{ define "open_app_link" }}
+  <a
+    href="{{ .Href }}"
+    target="_blank"
+    rel="noopener"
+    data-tip="Opens the {{ .What }} in a new tab"
+    aria-label="Open the {{ .What }} in a new tab"
+    class="link link-hover text-xs text-primary ml-auto whitespace-nowrap tooltip tooltip-left">
+    {{ .Label }}
+    {{ template "globe_icon" }}
+  </a>
+{{ end }}
+
+{{/* ov_head: overview-style tile header - the .ov-label heading plus an
+  optional right-aligned link into the area's full page. Used by the
+  overview tiles and the pro analytics cards (styling: the .ov-* layer in
+  static/css/accessibility.css). Context: Id, Label, optional Href + Link
+*/}}
+{{ define "ov_head" }}
+  <div class="flex items-center gap-2 mb-2">
+    <h2 id="{{ .Id }}" class="ov-label">{{ .Label }}</h2>
+    {{ if .Href }}
+      {{ template "ov_area_link" . }}
+    {{ end }}
+  </div>
+{{ end }}
+
+{{/* Right-aligned link into an area's full page. Context: Href, Link */}}
+{{ define "ov_area_link" }}
+  <a class="link link-hover text-xs text-primary ml-auto" href="{{ .Href }}"
+    >{{ .Link }} <span aria-hidden="true">→</span></a
+  >
+{{ end }}
+
+{{/* container_state renders the state dot and label for a container. The
+  dot is decorative - the state is always conveyed by the text label
+*/}}
+{{ define "container_state" }}
+  {{ if eq .state "running" }}
+    <span class="status status-success" aria-hidden="true"></span>
+    <span class="text-xs">running</span>
+  {{ else if eq .state "exited" }}
+    <span class="status status-error" aria-hidden="true"></span>
+    <span class="text-xs text-error">exited</span>
+  {{ else if eq .state "failed" }}
+    <span class="status status-error" aria-hidden="true"></span>
+    <span class="text-xs text-error">failed</span>
+  {{ else if eq .state "pending" }}
+    <span class="status status-warning" aria-hidden="true"></span>
+    <span class="text-xs">pending</span>
+  {{ else }}
+    <span class="status status-warning" aria-hidden="true"></span>
+    <span class="text-xs">{{ .state }}</span>
+  {{ end }}
+{{ end }}
+
+{{/* secret_input renders the <secret-input> web component (console.js): a
+  value input with a "store as secret" button which encrypts the value
+  into the db secrets provider and swaps in the secret reference.
+  Context: dict with Name (form field name), AppPath, Prefix (secret name
+  prefix), CanCreate (secret:create held), CanDelete (secret:delete held;
+  unlocking a stored field then offers deleting the secret) and optional
+  Value, InputId, Placeholder, Masked, File, Small, Description, Error
+*/}}
+{{ define "secret_input" }}
+  <secret-input
+    name="{{ .Name }}"
+    endpoint="{{ .AppPath }}/secrets/store"
+    prefix="{{ .Prefix }}"
+    {{ if .Value }}value="{{ .Value }}"{{ end }}
+    {{ if .InputId }}input-id="{{ .InputId }}"{{ end }}
+    {{ if .Placeholder }}placeholder="{{ .Placeholder }}"{{ end }}
+    {{ if .Masked }}masked{{ end }}
+    {{ if .File }}file{{ end }}
+    {{ if .Small }}small{{ end }}
+    {{ if .CanCreate }}can-create{{ end }}
+    {{ if .CanDelete }}can-delete{{ end }}
+    {{ if .Description }}description="{{ .Description }}"{{ end }}
+    {{ if .Error }}error="{{ .Error }}"{{ end }}></secret-input>
+{{ end }}
+
+{{/* secret_input_response is the response template of the POST
+  /secrets/store route (referenced by define name in app.star, no page
+  file): unwraps the handler data for the component define
+*/}}
+{{ define "secret_input_response" }}{{ template "secret_input" .Data }}{{ end }}
+
+{{/* kv_row renders one key/value row of a kv_table. Context: dict with
+  Field, AppPath, Prefix, CanCreate, CanDelete and optional Key, Value,
+  KeyPlaceholder, ValuePlaceholder
+*/}}
+{{ define "kv_row" }}
+  <div class="kv-row flex gap-2 items-start">
+    <input
+      type="text"
+      name="{{ .Field }}_key"
+      value="{{ if .Key }}{{ .Key }}{{ end }}"
+      placeholder="{{ or .KeyPlaceholder "KEY" }}"
+      aria-label="{{ .Field }} key"
+      autocomplete="off"
+      spellcheck="false"
+      class="input w-2/5 font-mono text-sm" />
+    <div class="flex-1 min-w-0">
+      {{ template "secret_input" (dict "Name" (printf "%s_value" .Field)
+        "AppPath" .AppPath "Prefix" .Prefix "CanCreate" .CanCreate
+        "CanDelete" .CanDelete
+        "Value" .Value "Placeholder" (or .ValuePlaceholder "value"))
+      }}
+    </div>
+    <button
+      type="button"
+      class="btn btn-ghost btn-square tooltip tooltip-top"
+      data-tip="Remove row"
+      aria-label="Remove row"
+      onclick="removeKvRow(this)">
+      ✕
+    </button>
+  </div>
+{{ end }}
+
+{{/* kv_table renders KEY=value rows with add/remove buttons; the value
+  column is a secret_input so any value can be stored as a secret. Rows
+  post as repeated <Field>_key / <Field>_value form values. Context: dict
+  with Field, AppPath, Prefix, CanCreate, CanDelete and optional Rows (list
+  of key/value dicts), KeyPlaceholder, ValuePlaceholder, AddLabel
+*/}}
+{{ define "kv_table" }}
+  {{ $ctx := . }}
+  <div class="kv-table space-y-3">
+    {{ range .Rows }}
+      {{ template "kv_row" (dict "Field" $ctx.Field "AppPath" $ctx.AppPath
+        "Prefix" $ctx.Prefix "CanCreate" $ctx.CanCreate "CanDelete" $ctx.CanDelete
+        "KeyPlaceholder" $ctx.KeyPlaceholder "ValuePlaceholder" $ctx.ValuePlaceholder
+        "Key" (index . "key") "Value" (index . "value"))
+      }}
+    {{ end }}
+    {{ if not .Rows }}
+      {{ template "kv_row" (dict "Field" $ctx.Field "AppPath" $ctx.AppPath
+        "Prefix" $ctx.Prefix "CanCreate" $ctx.CanCreate "CanDelete" $ctx.CanDelete
+        "KeyPlaceholder" $ctx.KeyPlaceholder "ValuePlaceholder" $ctx.ValuePlaceholder)
+      }}
+    {{ end }}
+    <template>
+      {{ template "kv_row" (dict "Field" $ctx.Field "AppPath" $ctx.AppPath
+        "Prefix" $ctx.Prefix "CanCreate" $ctx.CanCreate "CanDelete" $ctx.CanDelete
+        "KeyPlaceholder" $ctx.KeyPlaceholder "ValuePlaceholder" $ctx.ValuePlaceholder)
+      }}
+    </template>
+    <button
+      type="button"
+      class="btn btn-outline btn-xs"
+      onclick="addKvRow(this)">
+      +
+      {{ or .AddLabel "Add row" }}
+    </button>
+  </div>
+{{ end }}
+
+{{/* op_redirect: empty body for form-success responses that navigate via
+  HX-Redirect (form_redirect in handler.star)
+*/}}
+{{ define "op_redirect" }}{{ end }}

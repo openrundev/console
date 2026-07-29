@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-// Shared console page behaviors: theme toggle persistence, app filter chips,
-// the nav drawer toggle, the Cmd/Ctrl-K search shortcut, and the
-// <secret-input> / kv-table form components.
+// Shared console page behaviors: theme toggle persistence, the nav drawer
+// toggle, the Cmd/Ctrl-K search shortcut, styled confirm dialogs, navigation
+// progress, and the <secret-input> / kv-table form components.
 
 // ---- <secret-input> ----------------------------------------------------
 // A value input with a "store as secret" button: the typed value (or a
@@ -584,13 +584,14 @@ function removeBindingRow(btn) {
 	btn.closest('.binding-row').remove();
 }
 
-// ---- boosted form submit indicator ---------------------------------------
-// The full-page operation forms are hx-boosted: while the request is in
-// flight htmx adds .htmx-request to the form (its submit buttons disable,
-// see accessibility.css) and #page-progress shows via hx-indicator. The
-// clicked submit button additionally gets the inline spinner: mark it from
-// the submit event's submitter, since CSS cannot tell which of a form's
-// buttons was clicked (e.g. Validate vs Create app)
+// ---- op-form submit indicator ---------------------------------------------
+// The full-page operation forms post via hx-post with a narrow target (the
+// op_form block): while the request is in flight htmx adds .htmx-request to
+// the form (its submit buttons disable, see accessibility.css) and
+// #page-progress shows via hx-indicator. The clicked submit button
+// additionally gets the inline spinner: mark it from the submit event's
+// submitter, since CSS cannot tell which of a form's buttons was clicked
+// (e.g. Validate vs Create app)
 
 document.addEventListener('htmx:beforeRequest', (event) => {
 	const submitter = event.detail.requestConfig?.triggeringEvent?.submitter;
@@ -600,8 +601,9 @@ document.addEventListener('htmx:beforeRequest', (event) => {
 });
 
 document.addEventListener('htmx:afterRequest', () => {
-	// The boost body swap usually replaces the form; clean up for the
-	// responses that leave the page in place (e.g. a network failure)
+	// A successful submit swaps the form block (or redirects); clean up for
+	// the responses that leave the page in place (validation errors kept in
+	// the re-rendered block, network failures)
 	for (const btn of document.querySelectorAll('.btn-inflight')) {
 		btn.classList.remove('btn-inflight');
 	}

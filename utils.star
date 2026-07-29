@@ -44,8 +44,8 @@ def get_perms(path=""):
     # When RBAC enforcement is not active, all permissions are returned. With
     # a path, app permissions are evaluated against that app (owner rule).
     # Permissions whose feature is disabled at install time are removed, and
-    # feature:updates/container/config pseudo entries carry the flags for
-    # controls without an RBAC permission (containers nav and lifecycle)
+    # feature:updates/container/config/builder pseudo entries carry the flags
+    # for controls without an RBAC permission (containers nav and lifecycle)
     ret = openrun.get_permissions(path=path) if path else openrun.get_permissions()
     perms = {}
     if not ret.error:

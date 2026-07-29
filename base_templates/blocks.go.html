@@ -1,0 +1,765 @@
+{{/* Copyright (c) ClaceIO, LLC */}}
+{{/* SPDX-License-Identifier: Apache-2.0 */}}
+{{/* Domain blocks shared across pages or rendered as fragment responses:
+  the app table, promote/approval prompts, sync results and the builder
+  publish/services defines. Generic widgets sit in components.go.html,
+  page chrome in layout.go.html. All base_templates/*.go.html files are
+  parsed together with each page template
+*/}}
+
+{{/* app_table renders a list of app rows; shared by the apps page groups
+  and the sync detail page. Context: dict with Apps (row list), AppPath
+  (console root path), Perms (the user's management permissions) and
+  ShowActions (row action buttons; the apps page passes true - the
+  actions re-render the apps page partial, so view-only pages omit them).
+  RowAction ("promote"/"approve", optional) switches the reload row action
+  to the promote/approve button used by the apps page tabs
+*/}}
+{{ define "app_table" }}
+  {{ $root := .AppPath }}
+  {{ $perms := .Perms }}
+  {{ $actions := .ShowActions }}
+  {{ $rowAction := .RowAction | default "" }}
+  <div class="overflow-x-auto">
+    <table class="table table-sm">
+      <thead>
+        <tr>
+          <th scope="col" class="w-8"><span class="sr-only">Details</span></th>
+          <th scope="col" class="w-1/3">App</th>
+          <th scope="col" class="hidden md:table-cell w-1/3">Source</th>
+          <th scope="col" class="w-28 text-center">Version</th>
+          <th scope="col" class="hidden lg:table-cell">Auth</th>
+          <th scope="col" class="hidden sm:table-cell">Updated</th>
+          {{ if $actions }}
+            <th scope="col" class="text-right">Actions</th>
+          {{ end }}
+        </tr>
+      </thead>
+      <tbody>
+        {{ range .Apps }}
+          <tr class="group hover:bg-base-200/60">
+            <td class="w-8">
+              <a
+                href="{{ $root }}/apps/detail?path={{ .path }}"
+                class="btn btn-xs btn-ghost btn-square tooltip tooltip-right"
+                data-tip="Expand: {{ .name }} - view details"
+                aria-label="View details for {{ .path }}">
+                {{ template "drilldown_icon" }}
+              </a>
+            </td>
+            <td>
+              <span class="font-mono font-medium break-all">{{ .path }}</span
+              ><a
+                href="{{ .url }}"
+                target="_blank"
+                rel="noopener"
+                data-tip="Open app in a new tab"
+                aria-label="Open {{ .path }} in a new tab"
+                class="inline-block text-primary text-xs opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-200 ml-0.5 tooltip tooltip-right"
+                >{{ template "globe_icon" }}</a
+              >
+            </td>
+            <td class="hidden md:table-cell">
+              {{ if .source }}
+                <span class="font-mono text-xs break-all">{{ .source }}</span
+                >{{ if and .is_git .source_url }}
+                  <a
+                    href="{{ .source_url }}"
+                    target="_blank"
+                    rel="noopener"
+                    data-tip="View source code in a new tab"
+                    aria-label="View source of {{ .path }} in a new tab"
+                    class="inline-block text-primary text-xs opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-200 ml-0.5 tooltip tooltip-right"
+                    ><span aria-hidden="true">↗</span></a
+                  >
+                {{ end }}
+              {{ end }}
+              {{ if or .git_branch .spec }}
+                <!-- Branch and spec on their own row, keeping sources aligned -->
+                <div class="mt-0.5 flex items-center gap-1 flex-wrap">
+                  {{ if .git_branch }}
+                    <span
+                      class="badge badge-ghost badge-xs tooltip tooltip-right"
+                      data-tip="git branch"
+                      >{{ .git_branch }}</span
+                    >
+                  {{ end }}
+                  {{ if .spec }}
+                    <span
+                      class="badge badge-ghost badge-xs font-mono tooltip tooltip-right"
+                      data-tip="app spec"
+                      >{{ .spec }}</span
+                    >
+                  {{ end }}
+                </div>
+              {{ end }}
+            </td>
+            <td class="text-center">
+              <span
+                class="font-mono text-xs tabular-nums whitespace-nowrap"
+                title="{{ .git_message }}"
+                >v{{ .version }}{{ if .git_sha }}
+                  ·
+                  {{ .git_sha }}
+                {{ end }}</span
+              >
+              {{ if or .staging .is_dev .needs_approval }}
+                <!-- Always on its own row, keeping the version lines aligned -->
+                <div
+                  class="mt-0.5 flex items-center justify-center gap-1 flex-wrap">
+                  {{ if .needs_approval }}
+                    <span
+                      class="badge badge-error badge-xs badge-soft whitespace-nowrap tooltip tooltip-left"
+                      data-tip="the app requests plugin permissions which are not approved yet"
+                      >needs approval</span
+                    >
+                  {{ end }}
+                  {{ if .is_dev }}
+                    <span
+                      class="badge badge-success badge-xs badge-soft tooltip tooltip-left"
+                      data-tip="development mode app, served from the local source directory"
+                      >dev</span
+                    >
+                  {{ else if not .staging }}
+                  {{ else if .staging.ahead }}
+                    <span
+                      class="badge badge-warning badge-xs badge-soft tooltip tooltip-left"
+                      data-tip="staging v{{ .staging.version }} is not promoted to prod yet"
+                      >pending</span
+                    >
+                  {{ else }}
+                    <span
+                      class="badge badge-success badge-xs badge-soft tooltip tooltip-left"
+                      data-tip="prod matches staging"
+                      >in sync</span
+                    >
+                  {{ end }}
+                </div>
+              {{ end }}
+            </td>
+            <td class="hidden lg:table-cell">
+              <span class="badge badge-ghost badge-xs">{{ .auth }}</span>
+            </td>
+            <td
+              class="text-xs text-base-content/70 whitespace-nowrap hidden sm:table-cell">
+              {{ if .update_time }}
+                <span
+                  class="tooltip tooltip-left"
+                  data-tip="{{ dateInZone "2006-01-02 15:04:05" (toDate "2006-01-02T15:04:05Z07:00" .update_time) "UTC" }} UTC · by {{ if .update_user }}
+                    {{ .update_user }}
+                  {{ else }}
+                    unknown
+                  {{ end }}"
+                  >{{ .update_age }}</span
+                >
+              {{ else }}
+                {{ .update_age }}
+              {{ end }}
+            </td>
+            {{ if $actions }}
+              <td class="text-right whitespace-nowrap">
+                <div class="inline-flex items-center gap-0.5">
+                  {{/* The promote/approval tab rows carry only their one
+                    action; edit/delete stay on the default list
+                  */}}
+                  {{ if eq $rowAction "" }}
+                    <a
+                      class="btn btn-xs btn-ghost btn-square tooltip tooltip-left {{ if not (index $perms "app:update") }}
+                        btn-disabled
+                      {{ end }}"
+                      {{ if index $perms "app:update" }}
+                        href="{{ $root }}/apps/update?path={{ .path }}"
+                      {{ else }}
+                        aria-disabled="true" tabindex="-1"
+                      {{ end }}
+                      aria-label="Edit {{ .path }}"
+                      data-tip="{{ if index $perms "app:update" }}
+                        Edit auth and parameters
+                      {{ else }}
+                        requires app:update
+                      {{ end }}">
+                      <svg
+                        aria-hidden="true"
+                        focusable="false"
+                        class="w-3.5 h-3.5"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path
+                          d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                      </svg>
+                    </a>
+                  {{ end }}
+                  {{ if eq $rowAction "promote" }}
+                    <button
+                      class="btn btn-xs btn-primary btn-soft transition-transform duration-150 active:scale-95 tooltip tooltip-left"
+                      aria-label="Promote {{ .path }}"
+                      {{ if index $perms "app:promote" }}
+                        data-tip="Promote staging to prod"
+                        hx-post="{{ $root }}/apps/promote"
+                        hx-disabled-elt="this" hx-vals='{"path": "{{ .path }}"}'
+                        hx-confirm="Promote staging
+                        {{ if .staging }}v{{ .staging.version }}{{ end }}
+                        to prod for {{ .path }}?" hx-target="#app-groups"
+                        hx-swap="innerHTML transition:true"
+                        hx-include="#page-search, #app-filter-value,
+                        #app-tab-value" hx-indicator="#page-progress"
+                      {{ else }}
+                        disabled data-tip="requires app:promote"
+                      {{ end }}>
+                      Promote
+                    </button>
+                  {{ else if eq $rowAction "approve" }}
+                    <button
+                      class="btn btn-xs btn-primary btn-soft transition-transform duration-150 active:scale-95 tooltip tooltip-left"
+                      aria-label="Approve permissions for {{ .path }}"
+                      {{ if or (index $perms "app:approve") (index $perms "admin") }}
+                        data-tip="Approve the requested plugin permissions"
+                        hx-post="{{ $root }}/apps/approve"
+                        hx-disabled-elt="this" hx-vals='{"path": "{{ .path }}"}'
+                        hx-confirm="Approve the plugin permissions requested by
+                        {{ .path }}?" hx-target="#app-groups" hx-swap="innerHTML
+                        transition:true" hx-include="#page-search,
+                        #app-filter-value, #app-tab-value"
+                        hx-indicator="#page-progress"
+                      {{ else }}
+                        disabled data-tip="requires the app:approve permission"
+                      {{ end }}>
+                      Approve
+                    </button>
+                  {{ else }}
+                    <button
+                      class="btn btn-xs btn-ghost btn-square tooltip tooltip-left"
+                      aria-label="Reload {{ .path }}"
+                      {{ if index $perms "app:reload" }}
+                        data-tip="{{ if .is_git }}
+                          Reload from git
+                        {{ else }}
+                          Reload from source
+                        {{ end }}"
+                        hx-post="{{ $root }}/apps/reload" hx-disabled-elt="this"
+                        hx-vals='{"path": "{{ .path }}"}' hx-confirm="Reload
+                        {{ .path }} from its source? The changes apply to
+                        staging first." hx-target="#app-groups"
+                        hx-swap="innerHTML transition:true"
+                        hx-include="#page-search, #app-filter-value,
+                        #app-tab-value" hx-indicator="#page-progress"
+                      {{ else }}
+                        disabled data-tip="requires app:reload"
+                      {{ end }}>
+                      <svg
+                        aria-hidden="true"
+                        focusable="false"
+                        class="w-3.5 h-3.5"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                        <path d="M21 3v6h-6" />
+                      </svg>
+                    </button>
+                  {{ end }}
+                  {{ if eq $rowAction "" }}
+                    <button
+                      class="btn btn-xs btn-ghost btn-square text-error tooltip tooltip-left"
+                      aria-label="Delete {{ .path }}"
+                      {{ if index $perms "app:delete" }}
+                        data-tip="Delete app" hx-post="{{ $root }}/apps/delete"
+                        hx-disabled-elt="this" hx-vals='{"path": "{{ .path }}"}'
+                        hx-confirm="Delete {{ .path }}? This deletes the prod,
+                        staging and preview apps." hx-target="#app-groups"
+                        hx-swap="innerHTML transition:true"
+                        hx-include="#page-search, #app-filter-value,
+                        #app-tab-value" hx-indicator="#page-progress"
+                      {{ else }}
+                        disabled data-tip="requires app:delete"
+                      {{ end }}>
+                      <svg
+                        aria-hidden="true"
+                        focusable="false"
+                        class="w-3.5 h-3.5"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M3 6h18" />
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                        <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        <path d="M10 11v6" />
+                        <path d="M14 11v6" />
+                      </svg>
+                    </button>
+                  {{ end }}
+                </div>
+              </td>
+            {{ end }}
+          </tr>
+        {{ end }}
+      </tbody>
+    </table>
+  </div>
+{{ end }}
+
+{{/* promote_prompt renders a staged-changes promotion alert: the message,
+  optional open-staging / keep-in-staging links and the Promote now button
+  (gated on app:promote). Context: dict with Message, Path (the app the
+  promote posts for), PostUrl, Target (hx-target selector), Perms and
+  optional Warning (renders alert-warning instead of alert-info), Confirm
+  (hx-confirm text), StageUrl, KeepHref
+*/}}
+{{ define "promote_prompt" }}
+  <div
+    role="alert"
+    class="alert {{ if .Warning }}
+      alert-warning
+    {{ else }}
+      alert-info
+    {{ end }} alert-soft py-2 text-sm flex-wrap">
+    <span aria-hidden="true">{{ if .Warning }}⚠{{ else }}✓{{ end }}</span>
+    <span>{{ .Message }}</span>
+    <div class="ml-auto flex items-center gap-2">
+      {{ if .StageUrl }}
+        <a
+          href="{{ .StageUrl }}"
+          target="_blank"
+          rel="noopener"
+          data-tip="Opens the staging app in a new tab"
+          class="btn btn-xs btn-ghost tooltip tooltip-top">
+          Open staging
+          {{ template "globe_icon" }}
+        </a>
+      {{ end }}
+      {{ if .KeepHref }}
+        <a href="{{ .KeepHref }}" class="btn btn-xs btn-ghost">
+          Keep in staging
+        </a>
+      {{ end }}
+      <button
+        class="btn btn-xs {{ if .Warning }}
+          btn-warning
+        {{ else }}
+          btn-primary
+        {{ end }} transition-transform duration-150 active:scale-95 {{ if not (index .Perms "app:promote") }}
+          tooltip tooltip-top
+        {{ end }}"
+        {{ if index .Perms "app:promote" }}
+          hx-post="{{ .PostUrl }}" hx-vals='{"path": "{{ .Path }}"}'
+          {{ if .Confirm }}hx-confirm="{{ .Confirm }}"{{ end }}
+          hx-target="{{ .Target }}" hx-swap="innerHTML transition:true"
+          hx-disabled-elt="this" hx-indicator="#page-progress"
+        {{ else }}
+          disabled data-tip="requires app:promote"
+        {{ end }}>
+        Promote now
+      </button>
+    </div>
+  </div>
+{{ end }}
+
+{{/* perms_card renders the requested permissions summary.
+  Context: dict with Review (loads + permissions) and Note (footer text)
+*/}}
+{{ define "perms_card" }}
+  <div class="card bg-base-100 border border-base-300">
+    <div class="card-body p-5 gap-3">
+      <h2 class="text-sm font-medium text-base-content/70">
+        Requested permissions
+      </h2>
+      {{ if or .Review.loads .Review.permissions }}
+        {{ if .Review.loads }}
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span class="text-xs text-base-content/70">Plugins</span>
+            {{ range .Review.loads }}
+              <span class="badge badge-sm badge-soft badge-primary font-mono"
+                >{{ . }}</span
+              >
+            {{ end }}
+          </div>
+        {{ end }}
+        {{ if .Review.permissions }}
+          <div
+            class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-6 gap-y-1.5">
+            {{ range .Review.permissions }}
+              <div
+                class="flex items-center gap-1.5 min-w-0 rounded bg-base-200/60 px-2 py-1">
+                <span class="font-mono text-xs whitespace-nowrap"
+                  >{{ .plugin }}.{{ .method }}</span
+                >
+                {{ if .arguments }}
+                  <span
+                    class="font-mono text-xs text-base-content/70 truncate"
+                    title="{{ .arguments }}"
+                    >{{ .arguments }}</span
+                  >
+                {{ end }}
+                {{ if eq .access "read" }}
+                  <span class="badge badge-xs badge-soft badge-primary ml-auto"
+                    >read</span
+                  >
+                {{ else if eq .access "write" }}
+                  <span class="badge badge-xs badge-soft badge-warning ml-auto"
+                    >write</span
+                  >
+                {{ end }}
+              </div>
+            {{ end }}
+          </div>
+        {{ end }}
+        <p class="text-xs text-base-content/70">{{ .Note }}</p>
+      {{ else }}
+        <p class="text-sm text-base-content/70">
+          This app requests no plugin permissions
+        </p>
+      {{ end }}
+    </div>
+  </div>
+{{ end }}
+
+{{/* sync_result_row renders one category line of a sync result */}}
+{{ define "sync_result_row" }}
+  {{ if .Items }}
+    <div class="flex items-baseline gap-2 min-w-0">
+      <span class="text-xs text-base-content/70 w-24 flex-none text-right"
+        >{{ .Label }}</span
+      >
+      <span class="font-mono text-xs break-all"
+        >{{ range $i, $item := .Items }}
+          {{ if $i }},{{ end }}{{ $item }}
+        {{ end }}</span
+      >
+    </div>
+  {{ end }}
+{{ end }}
+
+{{/* sync_result renders the detailed results of a sync run.
+  Context: the SyncResult summary dict
+*/}}
+{{ define "sync_result" }}
+  <div class="card bg-base-100 border border-success/40">
+    <div class="card-body p-4 gap-2">
+      <div class="flex items-center gap-2 text-sm flex-wrap">
+        <span class="text-success" aria-hidden="true">✓</span>
+        <span class="font-medium">Sync completed</span>
+        {{ if .commit }}
+          <span class="font-mono text-xs text-base-content/70"
+            >{{ .commit }}</span
+          >
+        {{ end }}
+        <span class="text-xs text-base-content/70">
+          {{ if .skipped_apply }}
+            - no new commit, apply was skipped
+          {{ else if not .changed }}
+            - {{ .total }} apps checked, everything matches the declared state
+          {{ else }}
+            - {{ .total }} apps in scope
+          {{ end }}
+        </span>
+      </div>
+      {{ if .changed }}
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-1">
+          {{ template "sync_result_row" (dict "Label" "Created" "Items" .created) }}
+          {{ template "sync_result_row" (dict "Label" "Updated" "Items" .updated) }}
+          {{ template "sync_result_row" (dict "Label" "Reloaded" "Items" .reloaded) }}
+          {{ template "sync_result_row" (dict "Label" "Promoted" "Items" .promoted) }}
+          {{ template "sync_result_row" (dict "Label" "Approved" "Items" .approved) }}
+          {{ template "sync_result_row" (dict "Label" "Skipped" "Items" .skipped) }}
+          {{ template "sync_result_row" (dict "Label" "Bindings +" "Items" .bindings_created) }}
+          {{ template "sync_result_row" (dict "Label" "Bindings ~" "Items" .bindings_updated) }}
+          {{ template "sync_result_row" (dict "Label" "Bindings ↑" "Items" .bindings_promoted) }}
+        </div>
+      {{ end }}
+    </div>
+  </div>
+{{ end }}
+
+{{/* builder_status_badge renders a builder session status as a colored
+  badge with a pulse dot on the in-flight states. Context: the status string
+*/}}
+{{ define "builder_status_badge" }}
+  <span
+    class="badge badge-sm gap-1 {{ if eq . "error" }}
+      badge-error
+    {{ else if eq . "published" }}
+      badge-success
+    {{ else if eq . "running" }}
+      badge-info
+    {{ else if eq . "detached" }}
+      badge-ghost
+    {{ else if eq . "starting" }}
+      badge-warning badge-soft
+    {{ else }}
+      badge-success badge-soft
+    {{ end }}">
+    <span
+      aria-hidden="true"
+      class="w-1.5 h-1.5 rounded-full bg-current {{ if or (eq . "running") (eq . "starting") }}
+        animate-pulse
+      {{ end }}"></span>
+    {{ . }}
+  </span>
+{{ end }}
+
+{{/* builder_services_checklist: the new-app form's service auto-binding
+  choice, shaped by the selected profile's services offer. Re-rendered as a
+  fragment when the profile select changes. Context: .Data.ServicesOffer
+  (list of {id,type,name,is_default}) and .Data.ServicesChecked (id->bool,
+  error re-render state)
+*/}}
+{{ define "builder_services_checklist" }}
+  <div id="services-offer">
+    {{ if .Data.ServicesOffer }}
+      <div class="label"><span class="label-text">Services</span></div>
+      <div class="flex flex-col gap-1">
+        {{ $checked := .Data.ServicesChecked }}
+        {{ range .Data.ServicesOffer }}
+          <label class="flex items-center gap-2 cursor-pointer text-sm">
+            <input
+              type="checkbox"
+              name="services"
+              value="{{ .id }}"
+              class="checkbox checkbox-xs checkbox-primary"
+              {{ if index $checked .id }}checked{{ end }} />
+            <span class="font-mono text-xs">{{ .id }}</span>
+            <span class="badge badge-ghost badge-xs">{{ .type }}</span>
+            {{ if .is_default }}
+              <span class="badge badge-soft badge-primary badge-xs"
+                >default</span
+              >
+            {{ end }}
+          </label>
+        {{ end }}
+      </div>
+      <div class="label">
+        <span class="label-text-alt text-base-content/70">
+          Each picked service is auto-bound to the app; its credentials arrive
+          as environment variables (one service per type)
+        </span>
+      </div>
+    {{ end }}
+  </div>
+{{ end }}
+
+{{/* publish_form: the builder publish dialog form. Lives in the base
+  templates so a failed publish re-renders JUST the form in place
+  (retarget #publish-form, outerHTML) - the dropdown stays open with the
+  submitted values and the error inline; success swaps #session-content
+  with the publish result
+*/}}
+{{ define "publish_form" }}
+  {{ $s := .Data.Session }}
+  {{ $canPublish := index .Data.Perms "builder:publish" }}
+  <form
+    id="publish-form"
+    class="card-body p-4 gap-3"
+    hx-post="{{ .AppPath }}/builder/detail/publish?id={{ $s.id }}"
+    hx-target="#session-content"
+    hx-swap="innerHTML transition:true"
+    hx-disabled-elt="find button[type=submit]"
+    data-builder-publish>
+    <h3 class="font-semibold text-sm">
+      {{ if $s.edit_app }}
+        Update
+      {{ else }}
+        Publish
+      {{ end }}
+    </h3>
+    {{ if .Data.PublishError }}
+      <div class="text-error text-xs whitespace-pre-wrap" role="alert">
+        ✕ {{ .Data.PublishError }}
+      </div>
+    {{ end }}
+    <p class="text-xs text-base-content/70">
+      Writing code to
+      {{ if eq .Data.PublishMode "git" }}
+        <span class="font-mono break-all">{{ .Data.GitRepo }}</span>
+      {{ else }}
+        this server
+      {{ end }}
+    </p>
+    {{ if and $s.edit_app $s.publish_path }}
+      <p class="text-xs text-base-content/70">
+        The app source is updated in place; the app declaration in apps.star is
+        not changed.
+      </p>
+    {{ else if $s.edit_app }}
+      <p class="text-xs text-base-content/70">
+        Publishes a new app copied from
+        <span class="font-mono">{{ $s.edit_app }}</span> (settings carried over,
+        fresh auto bindings); the original app is not changed and cannot be the
+        destination.
+      </p>
+    {{ end }}
+    {{ if $s.publish_path }}
+      {{/* Republish targets the same path */}}
+      <input type="hidden" name="publish_choice" value="__same__" />
+      <input type="hidden" name="current_path" value="{{ $s.publish_path }}" />
+      <p class="text-xs">
+        App path: <span class="font-mono">{{ $s.publish_path }}</span>
+      </p>
+    {{ else }}
+      {{/* One input shaped by the profile's publish
+        destination mode, prefilled from the session name
+      */}}
+      {{ if eq .Data.PublishDestMode "subdomain" }}
+        <label class="form-control">
+          <div class="label py-1">
+            <span class="label-text text-xs">Subdomain</span>
+          </div>
+          <div class="flex items-center gap-1 min-w-0">
+            <input
+              type="text"
+              name="publish_input"
+              required
+              value="{{ or .Data.PublishInput .Data.PublishPrefill }}"
+              class="input input-bordered input-sm font-mono min-w-0 flex-1"
+              placeholder="my-app"
+              aria-label="Subdomain the app publishes at" />
+            <span class="font-mono text-xs shrink-0"
+              >.{{ .Data.PublishDestTarget }}</span
+            >
+          </div>
+          {{ if and .Data.PublishDestResolved (ne .Data.PublishDestResolved .Data.PublishDestTarget) }}
+            <div class="label py-1">
+              <span class="label-text-alt text-base-content/60">
+                <span class="font-mono">.{{ .Data.PublishDestTarget }}</span> is
+                relative - resolves to
+                <span class="font-mono">.{{ .Data.PublishDestResolved }}</span>
+                on this server, so other instances can sync the app under their
+                own domain
+              </span>
+            </div>
+          {{ end }}
+        </label>
+      {{ else if eq .Data.PublishDestMode "path" }}
+        <label class="form-control">
+          <div class="label py-1">
+            <span class="label-text text-xs">App name</span>
+          </div>
+          <div class="flex items-center gap-1 min-w-0">
+            <span class="font-mono text-xs shrink-0"
+              >{{ .Data.PublishDestTarget }}/</span
+            >
+            <input
+              type="text"
+              name="publish_input"
+              required
+              value="{{ or .Data.PublishInput .Data.PublishPrefill }}"
+              class="input input-bordered input-sm font-mono min-w-0 flex-1"
+              placeholder="my-app"
+              aria-label="App name under the publish path prefix" />
+          </div>
+        </label>
+      {{ else }}
+        <label class="form-control">
+          <div class="label py-1">
+            <span class="label-text text-xs">App path</span>
+          </div>
+          <input
+            type="text"
+            name="publish_input"
+            required
+            value="{{ or .Data.PublishInput .Data.PublishPrefill }}"
+            class="input input-bordered input-sm font-mono"
+            placeholder="{{ if eq .Data.PublishDestMode "glob" }}
+              {{ .Data.PublishDestTarget }}
+            {{ else }}
+              /tools/my-app or apps.example.com:/my-app
+            {{ end }}"
+            aria-label="Publish path" />
+        </label>
+        {{ if eq .Data.PublishDestMode "glob" }}
+          <p class="text-[11px] text-base-content/60">
+            must match
+            <span class="font-mono">{{ .Data.PublishDestTarget }}</span>
+          </p>
+        {{ end }}
+      {{ end }}
+      {{ if .Data.PublishDestDesc }}
+        <p class="text-[11px] text-base-content/60">
+          {{ .Data.PublishDestDesc }}
+        </p>
+      {{ end }}
+    {{ end }}
+    {{ if eq .Data.PublishMode "git" }}
+      <label class="form-control">
+        <div class="label py-1">
+          <span class="label-text text-xs">Commit message</span>
+        </div>
+        <input
+          type="text"
+          name="commit_msg"
+          value="{{ .Data.PublishCommitMsg }}"
+          class="input input-bordered input-sm"
+          placeholder="Add app (built with OpenRun Builder)" />
+      </label>
+    {{ end }}
+    <div id="publish-check-result">{{ template "publish_check_result" . }}</div>
+    <p class="text-xs text-base-content/70">
+      {{ if eq .Data.PublishMode "git" }}
+        The app goes live when the prod instance syncs the repo's apps.star
+      {{ else }}
+        The app is created on this server immediately
+      {{ end }}
+    </p>
+    <div class="flex items-center gap-2">
+      {{/* hx-disabled-elt=this OVERRIDES the form's
+        inherited "find button[type=submit]": find is
+        relative to the requesting element (this
+        button), matches nothing, and htmx throws on
+        the null before sending the request
+      */}}
+      <button
+        type="button"
+        class="btn btn-ghost btn-sm"
+        hx-post="{{ .AppPath }}/builder/detail/publish_check?id={{ $s.id }}"
+        hx-target="#publish-check-result"
+        hx-swap="innerHTML"
+        hx-disabled-elt="this"
+        hx-indicator="#page-progress">
+        Validate
+      </button>
+      <button type="submit" class="btn btn-primary btn-sm">Publish app</button>
+    </div>
+  </form>
+{{ end }}
+
+{{/* publish_check_result: outcome of the builder publish dialog's Validate
+  button, rendered into #publish-check-result (fragment block-only render,
+  so the define must live in the base templates)
+*/}}
+{{ define "publish_check_result" }}
+  {{ if .Data.CheckError }}
+    <div class="text-error text-xs whitespace-pre-wrap" role="alert">
+      ✕ {{ .Data.CheckError }}
+    </div>
+  {{ else if .Data.CheckPath }}
+    <div class="text-success text-xs" role="status">
+      ✓ will publish at
+      <span class="font-mono">{{ .Data.CheckPath }}</span
+      >{{ if and .Data.CheckResolved (ne .Data.CheckResolved .Data.CheckPath) }}
+        (<span class="font-mono">{{ .Data.CheckResolved }}</span> on this
+        server)
+      {{ end }}{{ if .Data.CheckExists }}(updates the existing app){{ end }}
+    </div>
+  {{ end }}
+{{ end }}
+
+{{ define "bc_send_error" }}
+  {{/* generic chat-action error slot: the handlers pass the full text
+    ("Message not sent: ...", "Not stopped: ...") since both the composer
+    and the Stop button retarget their failures here
+  */}}
+  {{ if .Data.SendError }}
+    <div class="pb-1 text-error text-xs whitespace-pre-wrap" role="alert">
+      {{ .Data.SendError }}
+    </div>
+  {{ end }}
+{{ end }}

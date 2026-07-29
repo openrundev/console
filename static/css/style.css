@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: Apache-2.0 */
-/* Interaction & polish layer, per design/design.md. Theme colors come from
-   the daisyui custom themes defined in app.star (ace.style custom_themes);
-   everything here uses theme variables so it adapts to light/dark. */
+/* Interaction & polish layer (contributor notes: design/notes.md). Theme
+   colors come from the daisyui custom themes defined in app.star
+   (ace.style custom_themes); everything here uses theme variables so it
+   adapts to light/dark. */
 
 /* ---- Typography ---------------------------------------------------------
    Self-hosted brand type (SIL OFL, woff2 in static/fonts/, downloaded from
@@ -279,13 +280,17 @@ label.input:focus-within {
 
 /* ---- Logo mark -------------------------------------------------------------
    A small moment of delight, discovered on hover. */
-/* Cross-document view transitions: same-origin page navigation (e.g. the
-   sidebar links) crossfades instead of flashing */
-@media (prefers-reduced-motion: no-preference) {
-  @view-transition {
-    navigation: auto;
-  }
+.logo-mark {
+  transition: transform 250ms var(--ease-out-soft);
 }
+.logo-mark:hover {
+  transform: scale(1.05);
+}
+
+/* Cross-document view transitions are declared (with their types
+   descriptor) and documented in accessibility.css, which loads after this
+   file - no @view-transition here, a second typeless declaration would
+   silently take over if that one ever moved earlier in the cascade */
 
 /* ---- Navigation progress -----------------------------------------------
    Fixed top bar shown between clicking a link and the next page rendering,
@@ -319,13 +324,6 @@ label.input:focus-within {
   100% {
     transform: translateX(350%);
   }
-}
-
-.logo-mark {
-  transition: transform 250ms var(--ease-out-soft);
-}
-.logo-mark:hover {
-  transform: scale(1.05);
 }
 
 /* ---- Accessibility ---------------------------------------------------------

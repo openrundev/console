@@ -432,6 +432,20 @@ def replication_data(req):
         data["FlashError"] = ret.error
         return data
 
+    # Resolve each prod app's litestream sidecar container for the row
+    # drill-down (docker/podman: separate "-ls" containers, prod told apart
+    # by app_prd_ in the name; none on kubernetes where the sidecar runs
+    # inside the app pod). list_containers is only granted on container
+    # feature installs - errors are ignored and the rows render without
+    # the drill-down, matching the missing /containers routes
+    sidecars = {}
+    cont_ret = openrun.list_containers()
+    cont_error = cont_ret.error
+    if not cont_error:
+        for c in cont_ret.value:
+            if c["app_path"] and c["name"].endswith("-ls") and "app_prd_" in c["name"]:
+                sidecars[c["app_path"]] = c["id"]
+
     rows = []
     for entry in ret.value:
         if entry["kind"] != "app" or entry.get("env") != "prod":
@@ -455,6 +469,7 @@ def replication_data(req):
             sidecar = entry.get("sidecar_running")
             size = int(entry.get("replica_size") or 0)
             rows.append({
+                "container_id": sidecars.get(app_path) or "",
                 "app_path": app_path,
                 "state": entry["state"],
                 "unhealthy": bad,

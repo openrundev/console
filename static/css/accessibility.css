@@ -452,9 +452,9 @@ html[data-signin-dismissed] #signin-strip {
   color: var(--or-tab-dim);
 }
 
-/* daisy tooltips (upgraded from title attributes in console.js): cap the
-   bubble width and wrap - long identifiers would otherwise render one
-   enormous single line */
+/* daisy tooltips (rendered by the templates as class="tooltip" +
+   data-tip, no JS involved): cap the bubble width and wrap - long
+   identifiers would otherwise render one enormous single line */
 .tooltip:before {
   max-width: 18rem;
   white-space: normal;
@@ -532,12 +532,13 @@ a.tooltip.btn-disabled {
   position: fixed;
 }
 
-/* ---- Boosted form posts ------------------------------------------------
+/* ---- Op-form posts -------------------------------------------------------
    The full-page operation forms (app/sync/binding/service/config/builder
-   create+update) are hx-boosted: htmx adds .htmx-request to the form while
-   its request is in flight. The submit buttons disable so the operation
-   cannot be double-submitted, and the clicked button (marked .btn-inflight
-   by console.js from the submit event's submitter - CSS alone cannot tell
+   create+update) post via hx-post with a narrow target (the op_form
+   block): htmx adds .htmx-request to the form while its request is in
+   flight. The submit buttons disable so the operation cannot be
+   double-submitted, and the clicked button (marked .btn-inflight by
+   console.js from the submit event's submitter - CSS alone cannot tell
    Validate from Create) shows the shared inline spinner (btn-spin
    keyframes in style.css). */
 form.htmx-request button[type="submit"] {
@@ -703,8 +704,9 @@ builder-chat .bc-tool-title {
   }
 }
 
-/* Numerals: the display face, tabular so the 60s refresh never shifts
-   layout. The hero number uses the readable brand green */
+/* Numerals: the display face, tabular so a grid re-render (Refresh
+   button, lazy tile swap-ins) never shifts layout. The hero number uses
+   the readable brand green */
 .ov-num {
   font-family: "Space Grotesk", var(--font-sans);
   font-size: clamp(2.5rem, 5vw, 3.25rem);
