@@ -444,17 +444,17 @@
             >
           </li>
           {{/* Builder screens are install-gated (enable_builder param);
-            a disabled install has no /builder routes at all
+            a disabled install has no /builder routes at all and its nav
+            item is OMITTED entirely (not disabled-with-tooltip)
           */}}
           {{ $builderOff := and .Data.Perms (not (index .Data.Perms "feature:builder")) }}
-          {{ $builderView := and (not $builderOff) (or (not .Data.Perms) (index .Data.Perms "builder:list") (index .Data.Perms "admin")) }}
+          {{ $builderView := or (not .Data.Perms) (index .Data.Perms "builder:list") (index .Data.Perms "admin") }}
+          {{ if not $builderOff }}
           <li
             class="tooltip tooltip-bottom {{ if not $builderView }}
               menu-disabled
             {{ end }}"
-            data-tip="{{ if $builderOff }}
-              the builder is disabled for this console install
-            {{ else if not $builderView }}
+            data-tip="{{ if not $builderView }}
               requires the builder:list or admin permission
             {{ else }}
               AI agent sessions for building and publishing apps
@@ -486,6 +486,7 @@
               >Builder</a
             >
           </li>
+          {{ end }}
           <li class="menu-title">Operate</li>
           {{/* Containers screens are install-gated (enable_container param);
             a disabled install has no /containers routes at all

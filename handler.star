@@ -3,11 +3,7 @@
 load("openrun.in", "openrun")
 load("openrun_admin.in", "openrun_admin")
 load("build.in", "build")
-load("utils.star", "query_param", "query_param_list", "get_perms", "params_to_text",
-     "parse_lines", "short_sha", "short_age", "human_size", "pct_num", "nonzero_time", "sort_recent",
-     "flash_result", "parse_kv_rows", "kv_rows", "raw_kv_rows",
-     "path_domain_str", "sync_flags", "sync_result_summary", "review_from_dryrun",
-     "needs_approval", "docs_link")
+load("utils.star", "utils")
 
 # Route handlers for the console. Each screen has a *_data function which
 # builds the full page context; action handlers run the mutation and re-render
@@ -49,7 +45,7 @@ def ov_trim_time(t):
     # template (its toDate layout takes none). The zone suffix is kept:
     # in-process timestamps (server_info, litestream) carry a local UTC
     # offset, not the audit log's "Z"
-    t = nonzero_time(t or "")
+    t = utils.nonzero_time(t or "")
     if "." not in t:
         return t
     base, rest = t.split(".", 1)
@@ -194,7 +190,7 @@ def ov_server_tile(perms):
         "Version": info["version"],
         # short_sha would mangle the "dev_build" placeholder of unreleased
         # binaries into "dev_bui"
-        "Commit": commit if commit == "dev_build" else short_sha(commit),
+        "Commit": commit if commit == "dev_build" else utils.short_sha(commit),
         "Uptime": ov_uptime(info["uptime_secs"]),
         "MetadataDB": info["metadata_db_type"],
         "AuditDB": info["audit_db_type"],
@@ -256,7 +252,7 @@ def overview_data(req):
     # container state and binding replication cost external calls, so
     # those tiles lazy-load via the /overview/containers and
     # /overview/replication fragments
-    perms = get_perms()
+    perms = utils.get_perms()
     server = ov_server_tile(perms)
     data = {
         "Title": "Overview",
@@ -289,7 +285,7 @@ def ov_container_kind_row(label, ctype):
 def overview_containers_handler(req):
     # Lazy containers tile: list_containers shells out to the container
     # daemon, so it renders as a skeleton first and loads here
-    perms = get_perms()
+    perms = utils.get_perms()
     data = {"Perms": perms, "Loaded": True}
     if not perms.get("feature:container"):
         # Only reachable by a direct fragment request: the page does not
@@ -340,8 +336,8 @@ def overview_containers_handler(req):
 
 def overview_activity_handler(req):
     # Re-renders the activity tile when the System/All scope chips change
-    perms = get_perms()
-    scope = query_param(req, "scope") or "system"
+    perms = utils.get_perms()
+    scope = utils.query_param(req, "scope") or "system"
     return {"Perms": perms, "Activity": ov_activity_tile(perms, scope)}
 
 
@@ -349,7 +345,7 @@ def overview_approvals_handler(req):
     # Lazy needs-approval chip on the apps tile: check_approval audits
     # staging per app (cached server-side by app version + binding
     # generation), too slow for the overview first paint
-    perms = get_perms()
+    perms = utils.get_perms()
     data = {"Perms": perms, "Loaded": True}
     if not ov_can(perms, "app:read"):
         return data
@@ -378,7 +374,7 @@ def overview_replication_handler(req):
     # filters entries per caller (app rows to readable apps via app:read,
     # metadata rows to config:basic_read) - metadata rows are dropped here
     # regardless, they already rendered with the server tile
-    perms = get_perms()
+    perms = utils.get_perms()
     data = {"Perms": perms, "Loaded": True}
     if not ov_can(perms, "app:read"):
         data["Error"] = "requires the app:read or admin permission"
@@ -413,8 +409,8 @@ def replication_data(req):
     # and the per-database file breakdown), searchable by app path. The
     # server filters entries to the caller's readable apps (app:read),
     # same as the overview tile; staged state stays on the app detail page
-    query = query_param(req, "query").lower()
-    perms = get_perms()
+    query = utils.query_param(req, "query").lower()
+    perms = utils.get_perms()
     data = {
         "Title": "Replication",
         "Nav": "overview",
@@ -463,7 +459,7 @@ def replication_data(req):
             for f in entry.get("files") or []:
                 files.append({
                     "path": f["path"],
-                    "size": human_size(int(f.get("size") or 0)),
+                    "size": utils.human_size(int(f.get("size") or 0)),
                     "last_sync": ov_trim_time(f.get("last_sync") or ""),
                 })
             sidecar = entry.get("sidecar_running")
@@ -476,7 +472,7 @@ def replication_data(req):
                 "target": entry["target"],
                 "sidecar": "" if sidecar == None else ("running" if sidecar else "down"),
                 "last_sync": ov_trim_time(entry.get("last_sync") or ""),
-                "size": human_size(size) if size else "",
+                "size": utils.human_size(size) if size else "",
                 "files": files,
                 "error": entry.get("error") or "",
             })
@@ -512,7 +508,7 @@ def build_app_rows(all_apps):
         if stage:
             staging = {
                 "version": stage["version"],
-                "git_sha": short_sha(stage["git_sha"]),
+                "git_sha": utils.short_sha(stage["git_sha"]),
                 "git_message": stage["git_message"],
                 # staging has a version prod does not have yet
                 "ahead": stage["version_mismatch"],
@@ -538,11 +534,11 @@ def build_app_rows(all_apps):
             "git_branch": entry["git_branch"],
             "spec": entry.get("spec") or "",
             "version": entry["version"],
-            "git_sha": short_sha(entry["git_sha"]),
+            "git_sha": utils.short_sha(entry["git_sha"]),
             "git_message": entry["git_message"],
             "staging": staging,
             "created_by": entry.get("created_by") or "",
-            "update_age": short_age(entry["update_age"]),
+            "update_age": utils.short_age(entry["update_age"]),
             "update_time": entry.get("update_time") or "",
             "update_user": entry.get("update_user") or "",
         })
@@ -553,9 +549,9 @@ def apps_data(req):
     # Apps list page: apps grouped by their managing sync, plus unmanaged.
     # The promote/approval tabs show the apps waiting on that action as a
     # flat list, with the row action switched to Promote/Approve
-    query = query_param(req, "query")
-    filter = query_param(req, "filter")  # "", "declarative" or "imperative"
-    tab = query_param(req, "tab")  # "", "promote" or "approval"
+    query = utils.query_param(req, "query")
+    filter = utils.query_param(req, "filter")  # "", "declarative" or "imperative"
+    tab = utils.query_param(req, "tab")  # "", "promote" or "approval"
 
     # include_internal picks up staging/preview apps; staging entries are
     # folded into their main app's row instead of being listed separately.
@@ -573,7 +569,7 @@ def apps_data(req):
             "repo": entry["path"],
             "branch": entry["metadata"]["git_branch"],
             "state": entry["status"]["state"],  # Enabled / Disabled / Failing
-            "last_exec": nonzero_time(entry["status"]["last_execution_time"]),
+            "last_exec": utils.nonzero_time(entry["status"]["last_execution_time"]),
         }
 
     grouped = {}  # sync id -> app rows, for apps last applied by a live sync
@@ -612,7 +608,7 @@ def apps_data(req):
     # recently updated app
     groups = []
     for sync_id in grouped:
-        apps = sort_recent(grouped[sync_id], "update_time", "path")
+        apps = utils.sort_recent(grouped[sync_id], "update_time", "path")
         groups.append({
             "sync": syncs[sync_id],
             "apps": apps,
@@ -626,15 +622,15 @@ def apps_data(req):
         "Query": query,
         "Filter": filter,
         "Tab": tab,
-        "TabApps": sort_recent(tab_apps, "update_time", "path"),
-        "Groups": sort_recent(groups, "newest", "repo"),
-        "Unmanaged": sort_recent(unmanaged, "update_time", "path"),
+        "TabApps": utils.sort_recent(tab_apps, "update_time", "path"),
+        "Groups": utils.sort_recent(groups, "newest", "repo"),
+        "Unmanaged": utils.sort_recent(unmanaged, "update_time", "path"),
         "Total": total,
         "DeclarativeCount": declarative_count,
         "ImperativeCount": total - declarative_count,
         "PromoteCount": promote_count,
         "ApprovalCount": approval_count,
-        "Perms": get_perms(),
+        "Perms": utils.get_perms(),
     }
 
 
@@ -652,8 +648,8 @@ def load_versions(path):
             "previous": entry.get("PreviousVersion") or 0,
             "active": entry.get("Active") or False,
             "user": entry.get("UserId") or "",
-            "create_time": nonzero_time(entry.get("CreateTime")),
-            "git_sha": short_sha(vm.get("git_commit") or ""),
+            "create_time": utils.nonzero_time(entry.get("CreateTime")),
+            "git_sha": utils.short_sha(vm.get("git_commit") or ""),
             "git_message": vm.get("git_message") or "",
             "git_branch": vm.get("git_branch") or "",
         })
@@ -681,7 +677,7 @@ def app_container_sort_key(entry):
 
 def apps_detail_data(req):
     # App detail page: overview, params, permissions, containers, versions
-    path = query_param(req, "path")
+    path = utils.query_param(req, "path")
     data = {
         "Title": "App detail",
         "Nav": "apps",
@@ -690,10 +686,10 @@ def apps_detail_data(req):
         "App": None,
         "Containers": [],
         # Set after a staging-only reload/update, prompts for promotion
-        "AskPromote": query_param(req, "staged"),
+        "AskPromote": utils.query_param(req, "staged"),
         # App permissions evaluated against this app, including the owner rule
-        "Perms": get_perms(path),
-        "HelpUrl": docs_link("/docs/applications/lifecycle/"),
+        "Perms": utils.get_perms(path),
+        "HelpUrl": utils.docs_link("/docs/applications/lifecycle/"),
     }
 
     ret = openrun.get_app(path)
@@ -714,7 +710,7 @@ def apps_detail_data(req):
                     "branch": entry["metadata"]["git_branch"],
                 }
 
-    data["ParamsText"] = params_to_text(app["params"])
+    data["ParamsText"] = utils.params_to_text(app["params"])
 
     # Containers running (or recently run) for this app, current env first.
     # The litestream sidecars (-ls suffix) are excluded: they would render
@@ -732,7 +728,7 @@ def apps_detail_data(req):
         data["AuditError"] = audit_ret.error
     else:
         audit = audit_ret.value
-        data["Audit"] = review_from_dryrun({"approve_results": [audit]})
+        data["Audit"] = utils.review_from_dryrun({"approve_results": [audit]})
         data["NeedsApproval"] = audit.get("needs_approval") or False
 
     if app["is_dev"]:
@@ -753,8 +749,8 @@ def apps_detail_replication_handler(req):
     # replication_status sweeps the replica store on a server cache miss,
     # so it must not block the detail page's first paint. Renders nothing
     # when the app has no replicated sqlite binding
-    path = query_param(req, "path")
-    data = {"Perms": get_perms(path), "Loaded": True, "Path": path}
+    path = utils.query_param(req, "path")
+    data = {"Perms": utils.get_perms(path), "Loaded": True, "Path": path}
     ret = openrun.get_app(path)
     error = ret.error
     if error:
@@ -805,13 +801,13 @@ def apps_detail_replication_handler(req):
 
 def apps_switch_handler(req):
     # POST: switch the active version for prod or staging
-    path = query_param(req, "path")
-    env = query_param(req, "env") or "prod"
-    version = query_param(req, "version")
+    path = utils.query_param(req, "path")
+    env = utils.query_param(req, "env") or "prod"
+    version = utils.query_param(req, "version")
 
     ret = openrun_admin.switch_version(resolve_env_path(path, env), version)
     error = ret.error
-    return flash_result(apps_detail_data(req), error,
+    return utils.flash_result(apps_detail_data(req), error,
                         "Switched %s to v%s" % (env, version), "Version switch failed")
 
 
@@ -819,7 +815,7 @@ def require_app_path(req, data_fn):
     # The app write plugin APIs take path globs; a missing path must not
     # silently become an empty glob (which would match every app). Returns
     # (path, None) or ("", error page data)
-    path = query_param(req, "path").strip()
+    path = utils.query_param(req, "path").strip()
     if not path:
         data = data_fn(req)
         data["FlashError"] = "App path is required"
@@ -879,7 +875,7 @@ def apps_approve_handler(req):
 def reload_app_staging(path):
     # Staging-first reload: approval is requested only when the user holds
     # it (the approve flag hard-fails otherwise), promotion is a next step
-    perms = get_perms(path)
+    perms = utils.get_perms(path)
     return openrun_admin.reload_apps(path, approve=bool(perms.get("app:approve") or perms.get("admin")), promote=False)
 
 
@@ -918,9 +914,9 @@ def apps_detail_delete_handler(req):
 
 def apps_files_handler(req):
     # Version files page: the file listing of one app version
-    path = query_param(req, "path")
-    version = query_param(req, "version")
-    env = query_param(req, "env") or "prod"
+    path = utils.query_param(req, "path")
+    version = utils.query_param(req, "version")
+    env = utils.query_param(req, "env") or "prod"
 
     data = {
         "Title": "Version files",
@@ -944,11 +940,11 @@ def apps_files_handler(req):
         total += entry["Size"]
         files.append({
             "name": entry["Name"],
-            "size": human_size(entry["Size"]),
+            "size": utils.human_size(entry["Size"]),
             "etag": entry["Etag"][:12] if entry["Etag"] else "",
         })
     data["Files"] = sorted(files, key=lambda f: f["name"])
-    data["TotalSize"] = human_size(total)
+    data["TotalSize"] = utils.human_size(total)
     return data
 
 
@@ -956,9 +952,9 @@ def apps_files_download_handler(req):
     # GET: bundle the version's files into a zip and stream it back to the
     # client as an attachment (chunked, no disk/db staging); errors re-render
     # the files page
-    path = query_param(req, "path")
-    version = query_param(req, "version")
-    env = query_param(req, "env") or "prod"
+    path = utils.query_param(req, "path")
+    version = utils.query_param(req, "version")
+    env = utils.query_param(req, "env") or "prod"
 
     ret = openrun.get_version_zip(resolve_env_path(path, env), version=version)
     if ret.error:
@@ -976,7 +972,7 @@ def apps_delete_handler(req):
         return error_data
     ret = openrun_admin.delete_apps(path)
     error = ret.error
-    return flash_result(apps_data(req), error, "Deleted %s" % path, "Delete failed")
+    return utils.flash_result(apps_data(req), error, "Deleted %s" % path, "Delete failed")
 
 
 def apps_reload_handler(req):
@@ -1019,7 +1015,7 @@ def apps_list_approve_handler(req):
 
 def run_sync_action(req, data_fn):
     # Run a sync and show the detailed apply results on the current page
-    ret = openrun_admin.run_sync(query_param(req, "sync_id"))
+    ret = openrun_admin.run_sync(utils.query_param(req, "sync_id"))
     error = ret.error
     data = data_fn(req)
     if error:
@@ -1027,7 +1023,7 @@ def run_sync_action(req, data_fn):
     elif ret.value.get("error"):
         data["FlashError"] = "Sync failed: %s" % ret.value["error"]
     else:
-        data["SyncResult"] = sync_result_summary(ret.value)
+        data["SyncResult"] = utils.sync_result_summary(ret.value)
     return data
 
 
@@ -1076,7 +1072,7 @@ def binding_options():
 def posted_bindings(req):
     # The bindings selected on the app form, in row order. Rows left on the
     # placeholder (empty value) are skipped
-    return [ref for ref in query_param_list(req, "bindings") if ref]
+    return [ref for ref in utils.query_param_list(req, "bindings") if ref]
 
 
 def app_binding_refs(app):
@@ -1104,15 +1100,15 @@ def app_binding_refs(app):
 def form_values(req):
     # The form fields for the create/update subpages
     return {
-        "path": query_param(req, "path"),
-        "source_url": query_param(req, "source_url"),
-        "spec": query_param(req, "spec"),
-        "auth": query_param(req, "auth"),
-        "git_branch": query_param(req, "git_branch"),
-        "git_auth": query_param(req, "git_auth"),
-        "params_rows": raw_kv_rows(req, "params"),
+        "path": utils.query_param(req, "path"),
+        "source_url": utils.query_param(req, "source_url"),
+        "spec": utils.query_param(req, "spec"),
+        "auth": utils.query_param(req, "auth"),
+        "git_branch": utils.query_param(req, "git_branch"),
+        "git_auth": utils.query_param(req, "git_auth"),
+        "params_rows": utils.raw_kv_rows(req, "params"),
         "bindings": posted_bindings(req),
-        "approve": query_param(req, "approve"),
+        "approve": utils.query_param(req, "approve"),
     }
 
 
@@ -1129,7 +1125,7 @@ def create_form_data(req, values, error):
         "GitAuthOptions": git_auth_options(),
         "BindingOptions": binding_options(),
         "Values": values,
-        "Perms": get_perms(),
+        "Perms": utils.get_perms(),
     }
 
 
@@ -1149,7 +1145,7 @@ def apps_create_page_handler(req):
 def apps_create_submit_handler(req):
     # POST: validate (dry run), create, or approve a new app
     values = form_values(req)
-    action = query_param(req, "action")
+    action = utils.query_param(req, "action")
 
     if action == "approve":
         # The app was created, approve its pending permissions
@@ -1158,7 +1154,7 @@ def apps_create_submit_handler(req):
             pending = openrun_admin.approve_apps(values["path"], dry_run=True)
             review = {"loads": [], "permissions": []}
             if not pending.error:
-                review = review_from_dryrun({"approve_results": pending.value.get("staged_update_results")})
+                review = utils.review_from_dryrun({"approve_results": pending.value.get("staged_update_results")})
             return approve_step_data(req, values, review, ret.error)
         return form_redirect(req, req.AppPath + "/apps")
 
@@ -1167,7 +1163,7 @@ def apps_create_submit_handler(req):
     if not values["source_url"]:
         return create_form_data(req, values, "Source url is required")
 
-    params, err = parse_kv_rows(req, "params")
+    params, err = utils.parse_kv_rows(req, "params")
     if err:
         return create_form_data(req, values, err)
 
@@ -1183,8 +1179,8 @@ def apps_create_submit_handler(req):
                                bindings=values["bindings"])
         if ret.error:
             return create_form_data(req, values, ret.error)
-        if needs_approval(ret.value):
-            return approve_step_data(req, values, review_from_dryrun(ret.value), "")
+        if utils.needs_approval(ret.value):
+            return approve_step_data(req, values, utils.review_from_dryrun(ret.value), "")
         return form_redirect(req, req.AppPath + "/apps")
 
     # Validate: dry run to check the create and gather the requested
@@ -1199,7 +1195,7 @@ def apps_create_submit_handler(req):
 
     data = create_form_data(req, values, "")
     data["Validated"] = True
-    data["Review"] = review_from_dryrun(ret.value)
+    data["Review"] = utils.review_from_dryrun(ret.value)
     return data
 
 
@@ -1215,13 +1211,13 @@ def update_form_data(req, app, values, error):
         "AuthOptions": auth_options(),
         "BindingOptions": binding_options(),
         "Values": values,
-        "Perms": get_perms(values.get("path", "")),
+        "Perms": utils.get_perms(values.get("path", "")),
     }
 
 
 def apps_update_page_handler(req):
     # App update form page, prefilled from the current app
-    path = query_param(req, "path")
+    path = utils.query_param(req, "path")
     ret = openrun.get_app(path)
     if ret.error:
         return update_form_data(req, None, {}, ret.error)
@@ -1230,7 +1226,7 @@ def apps_update_page_handler(req):
     values = {
         "path": app["path"],
         "auth": app["auth"] or "default",
-        "params_rows": kv_rows(app["params"]),
+        "params_rows": utils.kv_rows(app["params"]),
         "bindings": app_binding_refs(app),
     }
     return update_form_data(req, app, values, "")
@@ -1238,11 +1234,11 @@ def apps_update_page_handler(req):
 
 def apps_update_submit_handler(req):
     # POST: apply param/binding (staged) and auth (direct) changes
-    path = query_param(req, "path")
+    path = utils.query_param(req, "path")
     values = {
         "path": path,
-        "auth": query_param(req, "auth"),
-        "params_rows": raw_kv_rows(req, "params"),
+        "auth": utils.query_param(req, "auth"),
+        "params_rows": utils.raw_kv_rows(req, "params"),
         "bindings": posted_bindings(req),
     }
 
@@ -1251,7 +1247,7 @@ def apps_update_submit_handler(req):
         return update_form_data(req, None, values, ret.error)
     app = ret.value
 
-    params, err = parse_kv_rows(req, "params")
+    params, err = utils.parse_kv_rows(req, "params")
     if err:
         return update_form_data(req, app, values, err)
 
@@ -1291,7 +1287,7 @@ def apps_update_submit_handler(req):
 
 def bindings_data(req):
     # Bindings page: services table plus base/derived/auto binding tables
-    query = query_param(req, "query").lower()
+    query = utils.query_param(req, "query").lower()
 
     # Map app id -> app path, to show which app an auto binding belongs to
     app_paths = {}
@@ -1338,7 +1334,7 @@ def bindings_data(req):
             # staging has grant/config changes which are not applied to prod yet
             "has_staged": staged_grants != grants or staged_config != config,
             "config_keys": sorted(config.keys()),
-            "update_time": nonzero_time(entry["update_time"]),
+            "update_time": utils.nonzero_time(entry["update_time"]),
         }
 
         if path.startswith("/auto/"):
@@ -1370,7 +1366,7 @@ def bindings_data(req):
             "is_default": entry["is_default"],
             "staging": entry["staging"],
             "config_keys": entry["config_keys"] or [],
-            "update_time": nonzero_time(entry["update_time"]),
+            "update_time": utils.nonzero_time(entry["update_time"]),
         })
 
     return {
@@ -1378,24 +1374,24 @@ def bindings_data(req):
         "Nav": "bindings",
         "Query": query,
         "Total": total,
-        "Perms": get_perms(),
+        "Perms": utils.get_perms(),
         "FlashError": list_error,
         "Services": sorted(services, key=lambda svc: svc["id"]),
         "ServicesError": services_error,
         # Most recently updated bindings first
-        "Base": sort_recent(base, "update_time", "path"),
-        "Derived": sort_recent(derived, "update_time", "path"),
-        "Auto": sort_recent(auto, "update_time", "path"),
+        "Base": utils.sort_recent(base, "update_time", "path"),
+        "Derived": utils.sort_recent(derived, "update_time", "path"),
+        "Auto": utils.sort_recent(auto, "update_time", "path"),
     }
 
 
 def binding_form_values(req):
     # The form fields for the binding create/update subpages
     return {
-        "path": query_param(req, "path"),
-        "source": query_param(req, "source"),
-        "grants_text": query_param(req, "grants_text"),
-        "config_rows": raw_kv_rows(req, "config"),
+        "path": utils.query_param(req, "path"),
+        "source": utils.query_param(req, "source"),
+        "grants_text": utils.query_param(req, "grants_text"),
+        "config_rows": utils.raw_kv_rows(req, "config"),
     }
 
 
@@ -1407,7 +1403,7 @@ def binding_form_data(req, mode, values, error):
         "Mode": mode,
         "Error": error,
         "Values": values,
-        "Perms": get_perms(),
+        "Perms": utils.get_perms(),
     }
 
 
@@ -1419,17 +1415,17 @@ def bindings_create_page_handler(req):
 def bindings_create_submit_handler(req):
     # POST: validate (dry run) or create a binding
     values = binding_form_values(req)
-    action = query_param(req, "action")
+    action = utils.query_param(req, "action")
 
     if not values["path"]:
         return binding_form_data(req, "create", values, "Binding path is required")
     if not values["source"]:
         return binding_form_data(req, "create", values, "Source is required")
 
-    config, err = parse_kv_rows(req, "config")
+    config, err = utils.parse_kv_rows(req, "config")
     if err:
         return binding_form_data(req, "create", values, err)
-    grants = parse_lines(values["grants_text"])
+    grants = utils.parse_lines(values["grants_text"])
 
     if action == "validate":
         ret = openrun_admin.create_binding(values["path"], values["source"],
@@ -1460,7 +1456,7 @@ def find_binding(path):
 
 def bindings_update_page_handler(req):
     # Binding update form page, prefilled with the staged grants
-    path = query_param(req, "path")
+    path = utils.query_param(req, "path")
     binding = find_binding(path)
     if not binding:
         return binding_form_data(req, "update", {"path": path}, "binding %s not found" % path)
@@ -1479,7 +1475,7 @@ def bindings_update_page_handler(req):
 
 def bindings_update_submit_handler(req):
     # POST: apply the grant additions/removals from the textarea diff
-    path = query_param(req, "path")
+    path = utils.query_param(req, "path")
     values = binding_form_values(req)
     values["path"] = path
 
@@ -1488,7 +1484,7 @@ def bindings_update_submit_handler(req):
         return binding_form_data(req, "update", values, "binding %s not found" % path)
 
     current = binding["staged_metadata"]["grants"] or []
-    wanted = parse_lines(values["grants_text"])
+    wanted = utils.parse_lines(values["grants_text"])
     add_grants = [g for g in wanted if g not in current]
     delete_grants = [g for g in current if g not in wanted]
 
@@ -1506,10 +1502,10 @@ def bindings_update_submit_handler(req):
 
 def bindings_delete_handler(req):
     # POST: delete a binding from the bindings list
-    path = query_param(req, "path")
+    path = utils.query_param(req, "path")
     ret = openrun_admin.delete_binding(path)
     error = ret.error
-    return flash_result(bindings_data(req), error, "Deleted binding %s" % path, "Delete failed")
+    return utils.flash_result(bindings_data(req), error, "Deleted binding %s" % path, "Delete failed")
 
 
 def service_form_data(req, values, error):
@@ -1520,7 +1516,7 @@ def service_form_data(req, values, error):
         "Error": error,
         "Values": values,
         "Validated": False,
-        "Perms": get_perms(),
+        "Perms": utils.get_perms(),
     }
 
 
@@ -1533,14 +1529,14 @@ def services_create_page_handler(req):
 def services_create_submit_handler(req):
     # POST: validate (dry run) or create a service
     values = {
-        "id": query_param(req, "id").strip(),
-        "config_rows": raw_kv_rows(req, "config"),
-        "is_default": query_param(req, "is_default") == "on",
-        "staging": query_param(req, "staging").strip(),
+        "id": utils.query_param(req, "id").strip(),
+        "config_rows": utils.raw_kv_rows(req, "config"),
+        "is_default": utils.query_param(req, "is_default") == "on",
+        "staging": utils.query_param(req, "staging").strip(),
     }
-    action = query_param(req, "action")
+    action = utils.query_param(req, "action")
 
-    config, err = parse_kv_rows(req, "config")
+    config, err = utils.parse_kv_rows(req, "config")
     if err:
         return service_form_data(req, values, err)
 
@@ -1560,10 +1556,10 @@ def services_create_submit_handler(req):
 
 def services_delete_handler(req):
     # POST: delete a service from the bindings page
-    id = query_param(req, "id")
+    id = utils.query_param(req, "id")
     ret = openrun_admin.delete_service(id)
     error = ret.error
-    return flash_result(bindings_data(req), error, "Deleted service %s" % id, "Service delete failed")
+    return utils.flash_result(bindings_data(req), error, "Deleted service %s" % id, "Service delete failed")
 
 
 # ---------- Containers ----------
@@ -1573,9 +1569,9 @@ def containers_data(req):
     # Containers page: managed containers with state/search filters, plus
     # the app builder's agent containers, (on Kubernetes) kaniko image
     # build pods and the litestream replication sidecars as their own views
-    query = query_param(req, "query").lower()
+    query = utils.query_param(req, "query").lower()
     # running / exited / all / agent / kaniko / litestream
-    filter = query_param(req, "filter") or "running"
+    filter = utils.query_param(req, "filter") or "running"
 
     data = {
         "Title": "Containers",
@@ -1586,7 +1582,7 @@ def containers_data(req):
         "Running": 0,
         "Runtime": "",
         "Containers": [],
-        "Perms": get_perms(),
+        "Perms": utils.get_perms(),
     }
 
     ret = openrun.list_containers()
@@ -1654,14 +1650,14 @@ def containers_data(req):
 
 def container_lifecycle_action(req, data_fn):
     # Start or stop a container, re-rendering the given page
-    id = query_param(req, "id")
-    action = query_param(req, "action")
+    id = utils.query_param(req, "id")
+    action = utils.query_param(req, "action")
     if action == "start":
         ret = openrun_admin.start_container(id)
     else:
         ret = openrun_admin.stop_container(id)
     error = ret.error
-    return flash_result(data_fn(req), error, "Container %s requested" % action,
+    return utils.flash_result(data_fn(req), error, "Container %s requested" % action,
                         "Container %s failed" % action)
 
 
@@ -1678,15 +1674,15 @@ def containers_detail_lifecycle_handler(req):
 def containers_detail_data(req):
     # Fast path: basic info only. Stats, disk usage and logs are slow to
     # collect and are filled in asynchronously via the fragment routes
-    id = query_param(req, "id")
+    id = utils.query_param(req, "id")
     data = {
         "Title": "Container detail",
         "Nav": "containers",
         "Id": id,
         "Error": "",
         "Container": None,
-        "Perms": get_perms(),
-        "HelpUrl": docs_link("/docs/container/overview/"),
+        "Perms": utils.get_perms(),
+        "HelpUrl": utils.docs_link("/docs/container/overview/"),
     }
 
     ret = openrun.get_container(id, stats=False)
@@ -1695,14 +1691,14 @@ def containers_detail_data(req):
         return data
 
     c = dict(ret.value.items())
-    c["started_at"] = nonzero_time(c.get("started_at"))
+    c["started_at"] = utils.nonzero_time(c.get("started_at"))
     data["Container"] = c
     return data
 
 
 def containers_detail_stats_handler(req):
     # Slow fragment: live resource stats and disk usage
-    id = query_param(req, "id")
+    id = utils.query_param(req, "id")
     data = {"Id": id, "Container": None, "StatsError": "", "StatsLoaded": True}
 
     ret = openrun.get_container(id)
@@ -1711,12 +1707,12 @@ def containers_detail_stats_handler(req):
         return data
 
     c = dict(ret.value.items())
-    c["size_rw_human"] = human_size(c.get("size_rw") or 0)
-    c["size_root_human"] = human_size(c.get("size_root_fs") or 0)
+    c["size_rw_human"] = utils.human_size(c.get("size_rw") or 0)
+    c["size_root_human"] = utils.human_size(c.get("size_root_fs") or 0)
     if c.get("stats"):
         stats = dict(c["stats"].items())
-        stats["cpu_num"] = pct_num(stats.get("cpu_percent"))
-        stats["mem_num"] = pct_num(stats.get("mem_percent"))
+        stats["cpu_num"] = utils.pct_num(stats.get("cpu_percent"))
+        stats["mem_num"] = utils.pct_num(stats.get("mem_percent"))
         c["stats"] = stats
     data["Container"] = c
     return data
@@ -1734,7 +1730,7 @@ def containers_k8s_stats_handler(req):
 def containers_detail_k8s_handler(req):
     # Async fragment on the container detail page: kubernetes specific pod
     # status (conditions, container states, recent events)
-    id = query_param(req, "id")
+    id = utils.query_param(req, "id")
     data = {"Id": id, "K8s": None, "K8sError": ""}
     ret = openrun.container_kubernetes_status(id)
     if ret.error:
@@ -1748,12 +1744,12 @@ def containers_logs_stream_handler(req):
     # Streaming TEXT route: the last tail lines of the container logs,
     # optionally following new output (follow=1) until the client
     # disconnects. Rendered by the <log-tail> element on the detail page
-    id = query_param(req, "id")
-    tail = query_param(req, "tail")
+    id = utils.query_param(req, "id")
+    tail = utils.query_param(req, "tail")
     tail_int = int(tail) if tail.isdigit() else 500
     if tail_int > 10000:
         tail_int = 10000
-    follow = query_param(req, "follow") == "1"
+    follow = utils.query_param(req, "follow") == "1"
 
     ret = openrun.container_logs_stream(id, tail=tail_int, follow=follow)
     if ret.error:
@@ -1773,8 +1769,8 @@ def audit_data(req):
     # Audit logs page: filtered events with keyset-paged infinite scroll
     filters = {}
     for key in AUDIT_FILTERS:
-        filters[key] = query_param(req, key)
-    before = query_param(req, "before_timestamp")
+        filters[key] = utils.query_param(req, key)
+    before = utils.query_param(req, "before_timestamp")
 
     data = {
         "Title": "Audit Logs",
@@ -1784,7 +1780,7 @@ def audit_data(req):
         "Apps": [],
         "Operations": [],
         "NextPage": "",
-        "Perms": get_perms(),
+        "Perms": utils.get_perms(),
     }
 
     ret = openrun.list_audit_events(app_glob=filters["app_glob"], user_id=filters["user_id"],
@@ -2229,7 +2225,7 @@ def config_data(req):
         "Title": "Configuration",
         "Nav": "config",
         "Error": "",
-        "Perms": get_perms(),
+        "Perms": utils.get_perms(),
         "History": [],
         "Pages": [],
     }
@@ -2323,11 +2319,11 @@ def entry_summary(meta, values):
 
 def config_action_handler(req):
     # Top-level page action: history restore, live immediately
-    action = query_param(req, "action")
-    force = query_param(req, "force") == "true"
+    action = utils.query_param(req, "action")
+    force = utils.query_param(req, "force") == "true"
 
     if action == "restore":
-        ret = openrun_admin.restore_config(query_param(req, "restore_version"), force=force)
+        ret = openrun_admin.restore_config(utils.query_param(req, "restore_version"), force=force)
         ok = "Configuration restored"
     else:
         data = config_data(req)
@@ -2335,7 +2331,7 @@ def config_action_handler(req):
         return data
 
     error = ret.error
-    return flash_result(config_data(req), error, ok)
+    return utils.flash_result(config_data(req), error, ok)
 
 
 def config_page_data(req, page):
@@ -2346,7 +2342,7 @@ def config_page_data(req, page):
         "Title": meta["title"] + " configuration",
         "Nav": "config",
         "Error": "",
-        "Perms": get_perms(),
+        "Perms": utils.get_perms(),
         "Page": meta["page"],
         "PageTitle": meta["title"],
         "PageDesc": meta["desc"],
@@ -2446,20 +2442,20 @@ def config_page_action_handler(req, page):
     # Sub page actions: set/reset a settings field, delete a dynamic entry,
     # set/delete an app_config key. All take effect immediately
     meta = config_page_meta(page)
-    action = query_param(req, "action")
-    version_id = query_param(req, "version_id")
-    section = query_param(req, "section")
-    key = query_param(req, "key")
+    action = utils.query_param(req, "action")
+    version_id = utils.query_param(req, "version_id")
+    section = utils.query_param(req, "section")
+    key = utils.query_param(req, "key")
 
     if action == "set_value":
-        kind = query_param(req, "kind")
-        raw = query_param(req, "value")
+        kind = utils.query_param(req, "kind")
+        raw = utils.query_param(req, "value")
         if kind == "bool":
             ret = openrun_admin.set_config_value(section, key, raw == "on", version_id)
             ok = "Set %s %s - change is live" % (section, key)
         elif raw.strip() == "":
             # Clearing the field resets to the static config value
-            if query_param(req, "is_dynamic") == "true":
+            if utils.query_param(req, "is_dynamic") == "true":
                 ret = openrun_admin.delete_config_value(section, key, version_id)
                 ok = "Reset %s %s to the static config value" % (section, key)
             else:
@@ -2480,34 +2476,34 @@ def config_page_action_handler(req, page):
         ret = openrun_admin.delete_config_value(section, key, version_id)
         ok = "Reset %s %s to the static config value" % (section, key)
     elif action == "delete_entry":
-        name = query_param(req, "name")
+        name = utils.query_param(req, "name")
         ret = openrun_admin.delete_config_entry(section, name, version_id)
         ok = "Deleted %s entry %s - change is live" % (section, name)
     elif action == "kv_set":
-        kv_section = _page_kv_section(meta, query_param(req, "kv_section"))
-        kv_key = query_param(req, "key").strip()
+        kv_section = _page_kv_section(meta, utils.query_param(req, "kv_section"))
+        kv_key = utils.query_param(req, "key").strip()
         if not kv_section or not kv_key:
             data = config_page_data(req, page)
             data["FlashError"] = "key cannot be empty" if kv_section else "unknown kv section"
             return data
-        value = parse_config_value(query_param(req, "value"))
+        value = parse_config_value(utils.query_param(req, "value"))
         ret = openrun_admin.set_config_value(kv_section, kv_key, value, version_id)
         ok = "Set %s %s - applies on the next app reload" % (kv_section, kv_key)
     elif action == "kv_delete":
-        kv_section = _page_kv_section(meta, query_param(req, "kv_section"))
+        kv_section = _page_kv_section(meta, utils.query_param(req, "kv_section"))
         if not kv_section:
             data = config_page_data(req, page)
             data["FlashError"] = "unknown kv section"
             return data
-        ret = openrun_admin.delete_config_value(kv_section, query_param(req, "key"), version_id)
-        ok = "Removed %s %s" % (kv_section, query_param(req, "key"))
+        ret = openrun_admin.delete_config_value(kv_section, utils.query_param(req, "key"), version_id)
+        ok = "Removed %s %s" % (kv_section, utils.query_param(req, "key"))
     else:
         data = config_page_data(req, page)
         data["FlashError"] = "unknown action %s" % action
         return data
 
     error = ret.error
-    return flash_result(config_page_data(req, page), error, ok)
+    return utils.flash_result(config_page_data(req, page), error, ok)
 
 
 def config_auth_data(req):
@@ -2557,7 +2553,7 @@ def config_rbac_data(req):
         "Title": "RBAC configuration",
         "Nav": "config",
         "Error": "",
-        "Perms": get_perms(),
+        "Perms": utils.get_perms(),
     }
 
     ret = openrun.get_rbac_config()
@@ -2573,7 +2569,7 @@ def config_rbac_data(req):
     # The tables show the draft when one exists; enforcement uses live.
     # ?view=live switches to a read-only view of the live config while a
     # draft is pending (no-op without a draft, the tables show live anyway)
-    data["ViewLive"] = cfg["has_staged"] and query_param(req, "view") == "live"
+    data["ViewLive"] = cfg["has_staged"] and utils.query_param(req, "view") == "live"
     if cfg["has_staged"] and not data["ViewLive"]:
         data["View"] = rbac_section(cfg["staged"])
     else:
@@ -2588,9 +2584,9 @@ def config_rbac_data(req):
 def config_rbac_action_handler(req):
     # Publish / discard / toggle-enabled / delete actions on the RBAC page.
     # All of these edit the staged draft except publish/discard
-    action = query_param(req, "action")
-    draft_version = query_param(req, "draft_version")
-    force = query_param(req, "force") == "true"
+    action = utils.query_param(req, "action")
+    draft_version = utils.query_param(req, "draft_version")
+    force = utils.query_param(req, "force") == "true"
 
     if action == "publish":
         ret = openrun_admin.publish_rbac_config(draft_version, force=force)
@@ -2599,17 +2595,17 @@ def config_rbac_action_handler(req):
         ret = openrun_admin.discard_rbac_draft(draft_version)
         ok = "Discarded staged changes"
     elif action == "toggle_enabled":
-        enabled = query_param(req, "enabled") == "true"
+        enabled = utils.query_param(req, "enabled") == "true"
         ret = openrun_admin.update_rbac_enabled(enabled, draft_version)
         ok = "RBAC %s in the staged config - publish to apply" % ("enabled" if enabled else "disabled")
     elif action == "delete_group":
-        ret = openrun_admin.delete_rbac_group(query_param(req, "name"), draft_version)
-        ok = "Deleted group %s from the staged config" % query_param(req, "name")
+        ret = openrun_admin.delete_rbac_group(utils.query_param(req, "name"), draft_version)
+        ok = "Deleted group %s from the staged config" % utils.query_param(req, "name")
     elif action == "delete_role":
-        ret = openrun_admin.delete_rbac_role(query_param(req, "name"), draft_version)
-        ok = "Deleted role %s from the staged config" % query_param(req, "name")
+        ret = openrun_admin.delete_rbac_role(utils.query_param(req, "name"), draft_version)
+        ok = "Deleted role %s from the staged config" % utils.query_param(req, "name")
     elif action == "delete_grant":
-        ret = openrun_admin.delete_rbac_grant(int(query_param(req, "index")), draft_version)
+        ret = openrun_admin.delete_rbac_grant(int(utils.query_param(req, "index")), draft_version)
         ok = "Deleted grant from the staged config"
     else:
         data = config_rbac_data(req)
@@ -2617,7 +2613,7 @@ def config_rbac_action_handler(req):
         return data
 
     error = ret.error
-    return flash_result(config_rbac_data(req), error, ok)
+    return utils.flash_result(config_rbac_data(req), error, ok)
 
 
 # Documentation page per config section, for the entry form help link;
@@ -2654,17 +2650,17 @@ def config_entry_form_data(req, meta, name, values, is_edit, source, error):
         "Error": error,
         "FieldOptions": field_options,
         "VersionId": version_id,
-        "Perms": get_perms(),
+        "Perms": utils.get_perms(),
         "ReturnPath": "/config/" + config_page_for_section(meta["section"]),
-        "HelpUrl": docs_link(CONFIG_SECTION_DOCS.get(meta["section"], "/docs/configuration/overview/")),
+        "HelpUrl": utils.docs_link(CONFIG_SECTION_DOCS.get(meta["section"], "/docs/configuration/overview/")),
     }
 
 
 def config_entry_page_handler(req):
     # Generic entry form page (any CONFIG_SECTIONS section). With a name, the
     # form edits the dynamic entry, or overrides the static entry of that name
-    section = query_param(req, "section")
-    name = query_param(req, "name")
+    section = utils.query_param(req, "section")
+    name = utils.query_param(req, "name")
     meta = config_section_meta(section)
     if not meta:
         return ace.redirect(req.AppPath + "/config")
@@ -2684,50 +2680,50 @@ def config_entry_page_handler(req):
     if meta.get("kv"):
         # Free-form entries edit as key/value rows; secret-ish values arrive
         # redacted and round-trip through the placeholder
-        values = {"properties_rows": kv_rows(values)}
+        values = {"properties_rows": utils.kv_rows(values)}
     for field in meta["fields"]:
         # kvtable fields edit their dict value as key/value rows
         if field.get("kind") == "kvtable":
-            values[field["name"] + "_rows"] = kv_rows(values.get(field["name"]) or {})
+            values[field["name"] + "_rows"] = utils.kv_rows(values.get(field["name"]) or {})
     return config_entry_form_data(req, meta, name, values, source == "dynamic", source, "")
 
 
 def config_entry_submit_handler(req):
     # POST: save one dynamic config entry. The change is validated and takes
     # effect immediately (config entries are not staged, unlike RBAC)
-    section = query_param(req, "section")
+    section = utils.query_param(req, "section")
     meta = config_section_meta(section)
     if not meta:
         return form_redirect(req, req.AppPath + "/config")
 
-    name = query_param(req, "name").strip()
-    is_edit = query_param(req, "is_edit") == "true"
+    name = utils.query_param(req, "name").strip()
+    is_edit = utils.query_param(req, "is_edit") == "true"
     values = {}
     if meta.get("kv"):
-        rows = raw_kv_rows(req, "properties")
-        parsed, error = parse_kv_rows(req, "properties")
+        rows = utils.raw_kv_rows(req, "properties")
+        parsed, error = utils.parse_kv_rows(req, "properties")
         if error:
             return config_entry_form_data(req, meta, name, {"properties_rows": rows},
-                                          is_edit, query_param(req, "source"), error)
+                                          is_edit, utils.query_param(req, "source"), error)
         for key in parsed:
             values[key] = parse_config_value(parsed[key])
-        ret = openrun_admin.set_config_entry(section, name, values, query_param(req, "version_id"))
+        ret = openrun_admin.set_config_entry(section, name, values, utils.query_param(req, "version_id"))
         if ret.error:
             return config_entry_form_data(req, meta, name, {"properties_rows": rows},
-                                          is_edit, query_param(req, "source"), ret.error)
+                                          is_edit, utils.query_param(req, "source"), ret.error)
         return form_redirect(req, req.AppPath + "/config/" + config_page_for_section(section))
     for field in meta["fields"]:
         kind = field.get("kind") or "text"
-        raw = query_param(req, field["name"])
+        raw = utils.query_param(req, field["name"])
         if kind == "bool":
             if raw == "on":
                 values[field["name"]] = True
         elif kind == "list":
-            lines = parse_lines(raw)
+            lines = utils.parse_lines(raw)
             if lines:
                 values[field["name"]] = lines
         elif kind == "checklist":
-            picked = [v.strip() for v in query_param_list(req, field["name"]) if v.strip()]
+            picked = [v.strip() for v in utils.query_param_list(req, field["name"]) if v.strip()]
             if picked:
                 values[field["name"]] = picked
         elif kind == "textarea":
@@ -2737,27 +2733,27 @@ def config_entry_submit_handler(req):
         elif kind == "kvtable":
             # key/value rows (kv_table template); the _rows key is for form
             # re-render only and is stripped before the entry is saved
-            values[field["name"] + "_rows"] = raw_kv_rows(req, field["name"])
-            parsed, error = parse_kv_rows(req, field["name"])
+            values[field["name"] + "_rows"] = utils.raw_kv_rows(req, field["name"])
+            parsed, error = utils.parse_kv_rows(req, field["name"])
             if error:
                 return config_entry_form_data(req, meta, name, values, is_edit,
-                                              query_param(req, "source"),
+                                              utils.query_param(req, "source"),
                                               "%s: %s" % (field["label"], error))
             if parsed:
                 values[field["name"]] = parsed
         elif kind == "secret":
             if raw:
                 values[field["name"]] = raw
-            elif is_edit and query_param(req, field["name"] + "__keep") == "true":
+            elif is_edit and utils.query_param(req, field["name"] + "__keep") == "true":
                 # Blank on edit keeps the stored secret via the placeholder
                 values[field["name"]] = REDACTED_VALUE
         elif raw.strip():
             values[field["name"]] = raw.strip()
 
     submit_values = {k: values[k] for k in values.keys() if not k.endswith("_rows")}
-    ret = openrun_admin.set_config_entry(section, name, submit_values, query_param(req, "version_id"))
+    ret = openrun_admin.set_config_entry(section, name, submit_values, utils.query_param(req, "version_id"))
     if ret.error:
-        return config_entry_form_data(req, meta, name, values, is_edit, query_param(req, "source"), ret.error)
+        return config_entry_form_data(req, meta, name, values, is_edit, utils.query_param(req, "source"), ret.error)
     return form_redirect(req, req.AppPath + "/config/" + config_page_for_section(section))
 
 
@@ -2785,7 +2781,7 @@ def config_form_data(req, kind, values, error, cfg=None):
         "Kind": kind,
         "Error": error,
         "Values": values,
-        "Perms": get_perms(),
+        "Perms": utils.get_perms(),
         "PermGroups": rbac_permission_groups(),
         "DraftVersion": cfg["draft_version"],
         # Built-in roles (admin + openrun-*) are selectable in grants too
@@ -2796,7 +2792,7 @@ def config_form_data(req, kind, values, error, cfg=None):
 
 def config_group_page_handler(req):
     # RBAC group form page, prefilled when editing
-    name = query_param(req, "name")
+    name = utils.query_param(req, "name")
     cfg = load_rbac_config()
     values = {"name": name, "users_text": "", "is_edit": bool(name)}
     if name:
@@ -2807,12 +2803,12 @@ def config_group_page_handler(req):
 def config_group_submit_handler(req):
     # POST: save a group to the staged config
     values = {
-        "name": query_param(req, "name").strip(),
-        "users_text": query_param(req, "users_text"),
-        "is_edit": query_param(req, "is_edit") == "true",
+        "name": utils.query_param(req, "name").strip(),
+        "users_text": utils.query_param(req, "users_text"),
+        "is_edit": utils.query_param(req, "is_edit") == "true",
     }
-    users = parse_lines(values["users_text"])
-    ret = openrun_admin.set_rbac_group(values["name"], users, query_param(req, "draft_version"))
+    users = utils.parse_lines(values["users_text"])
+    ret = openrun_admin.set_rbac_group(values["name"], users, utils.query_param(req, "draft_version"))
     if ret.error:
         return config_form_data(req, "group", values, ret.error)
     return form_redirect(req, req.AppPath + "/config/rbac")
@@ -2820,7 +2816,7 @@ def config_group_submit_handler(req):
 
 def config_role_page_handler(req):
     # RBAC role form page, prefilled when editing
-    name = query_param(req, "name")
+    name = utils.query_param(req, "name")
     cfg = load_rbac_config()
     values = {"name": name, "selected": {}, "custom_text": "", "is_edit": bool(name)}
     if name:
@@ -2842,15 +2838,15 @@ def config_role_page_handler(req):
 
 def config_role_submit_handler(req):
     # POST: save a role (checkboxes + custom entries) to the staged config
-    name = query_param(req, "name").strip()
+    name = utils.query_param(req, "name").strip()
     perms = req.Form.get("permissions") or []
-    custom_text = query_param(req, "custom_text")
+    custom_text = utils.query_param(req, "custom_text")
     values = {"name": name, "selected": {}, "custom_text": custom_text,
-              "is_edit": query_param(req, "is_edit") == "true"}
+              "is_edit": utils.query_param(req, "is_edit") == "true"}
     for p in perms:
         values["selected"][p] = True
-    all_perms = list(perms) + parse_lines(custom_text)
-    ret = openrun_admin.set_rbac_role(name, all_perms, query_param(req, "draft_version"))
+    all_perms = list(perms) + utils.parse_lines(custom_text)
+    ret = openrun_admin.set_rbac_role(name, all_perms, utils.query_param(req, "draft_version"))
     if ret.error:
         return config_form_data(req, "role", values, ret.error)
     return form_redirect(req, req.AppPath + "/config/rbac")
@@ -2858,7 +2854,7 @@ def config_role_submit_handler(req):
 
 def config_grant_page_handler(req):
     # RBAC grant form page, prefilled when editing by index
-    index = query_param(req, "index")
+    index = utils.query_param(req, "index")
     cfg = load_rbac_config()
     values = {"index": index, "description": "", "users_text": "",
               "roles": {}, "targets_text": "", "is_edit": index != ""}
@@ -2875,22 +2871,22 @@ def config_grant_page_handler(req):
 
 def config_grant_submit_handler(req):
     # POST: add or update a grant in the staged config
-    index = query_param(req, "index")
+    index = utils.query_param(req, "index")
     roles = req.Form.get("roles") or []
     values = {
         "index": index,
-        "description": query_param(req, "description").strip(),
-        "users_text": query_param(req, "users_text"),
+        "description": utils.query_param(req, "description").strip(),
+        "users_text": utils.query_param(req, "users_text"),
         "roles": {},
-        "targets_text": query_param(req, "targets_text"),
+        "targets_text": utils.query_param(req, "targets_text"),
         "is_edit": index != "",
     }
     for r in roles:
         values["roles"][r] = True
 
-    users = parse_lines(values["users_text"])
-    targets = parse_lines(values["targets_text"])
-    draft_version = query_param(req, "draft_version")
+    users = utils.parse_lines(values["users_text"])
+    targets = utils.parse_lines(values["targets_text"])
+    draft_version = utils.query_param(req, "draft_version")
     if index != "":
         ret = openrun_admin.update_rbac_grant(int(index), values["description"], users,
                                               list(roles), targets, draft_version)
@@ -2904,14 +2900,14 @@ def config_grant_submit_handler(req):
 
 def config_version_handler(req):
     # Config history page: one snapshot rendered as formatted json
-    version = query_param(req, "version")
+    version = utils.query_param(req, "version")
     data = {
         "Title": "Config version",
         "Nav": "config",
         "Version": version,
         "Error": "",
         "Json": "",
-        "Perms": get_perms(),
+        "Perms": utils.get_perms(),
     }
     ret = openrun.get_config_version(version)
     if ret.error:
@@ -2926,14 +2922,14 @@ def config_version_handler(req):
 
 def syncs_data(req):
     # Syncs page: all sync entries with state and last run info
-    query = query_param(req, "query").lower()
+    query = utils.query_param(req, "query").lower()
 
     data = {
         "Title": "Syncs",
         "Nav": "syncs",
         "Query": query,
         "Total": 0,
-        "Perms": get_perms(),
+        "Perms": utils.get_perms(),
         "Syncs": [],
     }
 
@@ -2959,11 +2955,11 @@ def syncs_data(req):
             "branch": metadata["git_branch"],
             "is_scheduled": entry["is_scheduled"],
             "schedule_frequency": metadata["schedule_frequency"],
-            "flags": sync_flags(metadata),
+            "flags": utils.sync_flags(metadata),
             "state": status["state"],  # Enabled / Disabled / Failing
             "clobber": metadata["clobber"],
-            "commit": short_sha(status["commit_id"]),
-            "last_exec": nonzero_time(status["last_execution_time"]),
+            "commit": utils.short_sha(status["commit_id"]),
+            "last_exec": utils.nonzero_time(status["last_execution_time"]),
             "error": status["error"],
             "failure_count": status["failure_count"],
         })
@@ -2983,12 +2979,12 @@ def syncs_create_page_handler(req):
 def sync_form_values(req):
     # The form fields for the sync create subpage
     return {
-        "path": query_param(req, "path"),
-        "git_branch": query_param(req, "git_branch"),
-        "git_auth": query_param(req, "git_auth"),
-        "minutes": query_param(req, "minutes"),
-        "promote": query_param(req, "promote"),
-        "approve": query_param(req, "approve"),
+        "path": utils.query_param(req, "path"),
+        "git_branch": utils.query_param(req, "git_branch"),
+        "git_auth": utils.query_param(req, "git_auth"),
+        "minutes": utils.query_param(req, "minutes"),
+        "promote": utils.query_param(req, "promote"),
+        "approve": utils.query_param(req, "approve"),
     }
 
 
@@ -3001,14 +2997,14 @@ def sync_form_data(req, values, error):
         "Error": error,
         "Values": values,
         "GitAuthOptions": git_auth_options(),
-        "Perms": get_perms(),
+        "Perms": utils.get_perms(),
     }
 
 
 def syncs_create_submit_handler(req):
     # POST: validate (dry run) or create a sync entry
     values = sync_form_values(req)
-    action = query_param(req, "action")
+    action = utils.query_param(req, "action")
 
     if not values["path"]:
         return sync_form_data(req, values, "Source path is required")
@@ -3036,10 +3032,10 @@ def syncs_create_submit_handler(req):
 
 def syncs_delete_handler(req):
     # POST: delete a sync entry from the syncs list
-    sync_id = query_param(req, "sync_id")
+    sync_id = utils.query_param(req, "sync_id")
     ret = openrun_admin.delete_sync(sync_id)
     error = ret.error
-    return flash_result(syncs_data(req), error, "Sync source removed", "Delete failed")
+    return utils.flash_result(syncs_data(req), error, "Sync source removed", "Delete failed")
 
 
 def syncs_run_handler(req):
@@ -3049,15 +3045,15 @@ def syncs_run_handler(req):
 
 def syncs_detail_data(req):
     # Sync detail page: settings, status and the last invocation results
-    id = query_param(req, "id")
+    id = utils.query_param(req, "id")
     data = {
         "Title": "Sync detail",
         "Nav": "syncs",
         "Id": id,
         "Error": "",
         "Sync": None,
-        "Perms": get_perms(),
-        "HelpUrl": docs_link("/docs/applications/overview/"),
+        "Perms": utils.get_perms(),
+        "HelpUrl": utils.docs_link("/docs/applications/overview/"),
     }
 
     ret = openrun.list_sync()
@@ -3076,7 +3072,7 @@ def syncs_detail_data(req):
 
     status = entry["status"]
     metadata = entry["metadata"]
-    last_exec = nonzero_time(status["last_execution_time"])
+    last_exec = utils.nonzero_time(status["last_execution_time"])
 
     data["Sync"] = {
         "id": entry["id"],
@@ -3087,19 +3083,19 @@ def syncs_detail_data(req):
         "is_scheduled": entry["is_scheduled"],
         "schedule_frequency": metadata["schedule_frequency"],
         "webhook_url": metadata["webhook_url"],
-        "flags": sync_flags(metadata),
+        "flags": utils.sync_flags(metadata),
         "state": status["state"],
         "commit": status["commit_id"],
-        "commit_short": short_sha(status["commit_id"]),
+        "commit_short": utils.short_sha(status["commit_id"]),
         "last_exec": last_exec,
         "error": status["error"],
         "failure_count": status["failure_count"],
         "user": entry["user_id"],
-        "create_time": nonzero_time(entry["create_time"]),
+        "create_time": utils.nonzero_time(entry["create_time"]),
     }
     if last_exec:
         # Details of what the last invocation applied
-        data["LastResult"] = sync_result_summary(status)
+        data["LastResult"] = utils.sync_result_summary(status)
 
     # Apps last applied by this sync, filtered server side by sync_id
     apps_ret = openrun.list_apps(sync_id=id, include_internal=True)
@@ -3113,7 +3109,7 @@ def syncs_detail_data(req):
 
 def syncs_detail_run_handler(req):
     # POST: run the sync from its detail page
-    sync_id = query_param(req, "id")
+    sync_id = utils.query_param(req, "id")
     ret = openrun_admin.run_sync(sync_id)
     error = ret.error
     data = syncs_detail_data(req)
@@ -3129,7 +3125,7 @@ def syncs_detail_run_handler(req):
 
 def syncs_detail_delete_handler(req):
     # POST: delete the sync and return to the syncs list
-    sync_id = query_param(req, "id")
+    sync_id = utils.query_param(req, "id")
     ret = openrun_admin.delete_sync(sync_id)
     if ret.error:
         data = syncs_detail_data(req)
@@ -3146,17 +3142,17 @@ def secret_input_data(req):
     # Common re-render context for the secret-input component fragments: the
     # component echoes its rendering attributes (field, prefix, masked, ...)
     # so the response fragment can reproduce the element
-    perms = get_perms()
+    perms = utils.get_perms()
     return {
-        "Name": query_param(req, "field"),
+        "Name": utils.query_param(req, "field"),
         "AppPath": req.AppPath,
-        "Prefix": query_param(req, "prefix"),
-        "InputId": query_param(req, "input_id"),
-        "Placeholder": query_param(req, "placeholder"),
-        "Masked": query_param(req, "masked") == "true",
-        "File": query_param(req, "file") == "true",
-        "Small": query_param(req, "small") == "true",
-        "Description": query_param(req, "description"),
+        "Prefix": utils.query_param(req, "prefix"),
+        "InputId": utils.query_param(req, "input_id"),
+        "Placeholder": utils.query_param(req, "placeholder"),
+        "Masked": utils.query_param(req, "masked") == "true",
+        "File": utils.query_param(req, "file") == "true",
+        "Small": utils.query_param(req, "small") == "true",
+        "Description": utils.query_param(req, "description"),
         "CanCreate": perms.get("secret:create", False),
         "CanDelete": perms.get("secret:delete", False),
     }
@@ -3171,10 +3167,10 @@ def secrets_store_handler(req):
     # falling back to the field's default) generates the name
     data = secret_input_data(req)
 
-    value = query_param(req, "value").strip()
-    value_b64 = query_param(req, "value_b64")
-    store_key = query_param(req, "store_key").strip()
-    store_prefix = query_param(req, "store_prefix").strip() or data["Prefix"]
+    value = utils.query_param(req, "value").strip()
+    value_b64 = utils.query_param(req, "value_b64")
+    store_key = utils.query_param(req, "store_key").strip()
+    store_prefix = utils.query_param(req, "store_prefix").strip() or data["Prefix"]
     if not store_key and not store_prefix:
         data["Error"] = "no secret name prefix is configured for this field"
         data["Value"] = value
@@ -3189,14 +3185,14 @@ def secrets_store_handler(req):
             name=store_key,
             encoding="base64" if value_b64 else "",
             description=data["Description"],
-            source_file=query_param(req, "source_file"))
+            source_file=utils.query_param(req, "source_file"))
     else:
         ret = openrun_admin.create_secret(
             value=value_b64 if value_b64 else value,
             prefix=store_prefix,
             encoding="base64" if value_b64 else "",
             description=data["Description"],
-            source_file=query_param(req, "source_file"))
+            source_file=utils.query_param(req, "source_file"))
     if ret.error:
         # The field goes back to the plain (unencrypted) value with the
         # error shown inline, e.g. when the exact name already exists
@@ -3214,17 +3210,17 @@ def secrets_delete_handler(req):
     # echoes the original ref so a failure re-renders the locked state
     data = secret_input_data(req)
 
-    name = query_param(req, "name").strip()
+    name = utils.query_param(req, "name").strip()
     if not name:
         data["Error"] = "no secret name to delete"
-        data["Value"] = query_param(req, "ref")
+        data["Value"] = utils.query_param(req, "ref")
         return data
 
-    ret = openrun_admin.delete_secret(name=name, provider=query_param(req, "provider"))
+    ret = openrun_admin.delete_secret(name=name, provider=utils.query_param(req, "provider"))
     error = ret.error
     if error:
         data["Error"] = error
-        data["Value"] = query_param(req, "ref")
+        data["Value"] = utils.query_param(req, "ref")
         return data
     # Deleted: the field goes back to accepting a plain value
     data["Value"] = ""
@@ -3277,9 +3273,9 @@ def builder_publish_prefill(session_name, dest_mode, dest_target):
 def builder_publish_target_path(req, config):
     # Compose the publish target from the dialog input based on the session
     # profile's destination mode. Republishes target the existing path
-    if query_param(req, "publish_choice").strip() == "__same__":
-        return query_param(req, "current_path").strip()
-    value = query_param(req, "publish_input").strip()
+    if utils.query_param(req, "publish_choice").strip() == "__same__":
+        return utils.query_param(req, "current_path").strip()
+    value = utils.query_param(req, "publish_input").strip()
     if not value:
         return ""
     mode = config["publish_mode"]
@@ -3354,9 +3350,9 @@ def builder_data(req):
     # Builder sessions list (/builder), filtered by the search query. Other
     # users' sessions are included when the caller holds the admin permission
     # (the backend enforces this; the perms map only picks the request shape)
-    perms = get_perms()
-    query = query_param(req, "query").strip().lower()
-    data = {"Title": "Builder", "Nav": "builder", "Perms": perms, "Query": query_param(req, "query"),
+    perms = utils.get_perms()
+    query = utils.query_param(req, "query").strip().lower()
+    data = {"Title": "Builder", "Nav": "builder", "Perms": perms, "Query": utils.query_param(req, "query"),
             "Sessions": [], "Enabled": False, "Flash": "", "FlashError": ""}
 
     if perms.get("feature:system_blocked"):
@@ -3397,7 +3393,7 @@ def builder_data(req):
 
 def builder_rows_action(req, action):
     # Row actions on the sessions list re-render the list with a flash
-    id = query_param(req, "id").strip()
+    id = utils.query_param(req, "id").strip()
     if not id:
         return builder_data(req)
     if action == "stop":
@@ -3422,9 +3418,9 @@ def builder_create_page_handler(req):
     # profile applies silently; none uses the built-in default). With
     # ?edit=<path> the session modifies an existing builder-published app
     # (source only, no declaration change)
-    data = {"Title": "Builder", "Nav": "builder", "Perms": get_perms(),
+    data = {"Title": "Builder", "Nav": "builder", "Perms": utils.get_perms(),
             "Profiles": [], "Values": {},
-            "EditApp": query_param(req, "edit").strip()}
+            "EditApp": utils.query_param(req, "edit").strip()}
     config, error = builder_publish_config()
     if error:
         data["Error"] = error
@@ -3455,7 +3451,7 @@ def builder_create_services_handler(req):
     data = {"ServicesOffer": [], "ServicesChecked": {}}
     config, error = builder_publish_config()
     if not error and config["enabled"]:
-        profile = query_param(req, "profile").strip()
+        profile = utils.query_param(req, "profile").strip()
         data["ServicesOffer"] = builder_services_offer(
             config, builder_effective_profile(config, profile))
     return ace.response(data, block="builder_services_checklist")
@@ -3465,11 +3461,11 @@ def builder_create_submit_handler(req):
     # Create the session and go to its workspace; generation continues
     # asynchronously and streams into the chat
     data = builder_create_page_handler(req)
-    name = query_param(req, "name").strip()
-    prompt = query_param(req, "prompt").strip()
-    profile = query_param(req, "profile").strip()
-    edit_app = query_param(req, "edit_app").strip()
-    services = [v.strip() for v in query_param_list(req, "services") if v.strip()]
+    name = utils.query_param(req, "name").strip()
+    prompt = utils.query_param(req, "prompt").strip()
+    profile = utils.query_param(req, "profile").strip()
+    edit_app = utils.query_param(req, "edit_app").strip()
+    services = [v.strip() for v in utils.query_param_list(req, "services") if v.strip()]
     data["EditApp"] = edit_app
     data["Values"] = {"name": name, "prompt": prompt, "profile": profile}
     checked = {}
@@ -3494,13 +3490,13 @@ def builder_detail_data(req):
     # Session workspace (/builder/detail?id=...): transcript, preview and
     # publish state. The chat pane live-updates over the event stream; this
     # page render is the durable transcript
-    id = query_param(req, "id").strip()
-    data = {"Title": "Builder", "Nav": "builder", "Perms": get_perms(), "Id": id,
+    id = utils.query_param(req, "id").strip()
+    data = {"Title": "Builder", "Nav": "builder", "Perms": utils.get_perms(), "Id": id,
             "Flash": "", "FlashError": "", "PublishResult": None,
             # Publish dialog re-render state (set by builder_publish_form_error)
             "PublishError": "", "PublishInput": "", "PublishCommitMsg": "",
             # No dedicated builder docs page yet, link the docs root
-            "HelpUrl": docs_link("/docs/")}
+            "HelpUrl": utils.docs_link("/docs/")}
     if not id:
         data["Error"] = "session id is required"
         return data
@@ -3589,11 +3585,11 @@ def builder_detail_data(req):
 
 def builder_detail_action(req, action):
     # Session workspace actions re-render the workspace with a flash
-    id = query_param(req, "id").strip()
+    id = utils.query_param(req, "id").strip()
     flash = ""
     error = None
     if action == "message":
-        message = query_param(req, "message").strip()
+        message = utils.query_param(req, "message").strip()
         if message:
             ret = build.send_message(id, message=message)
             if ret.error:
@@ -3642,14 +3638,14 @@ def builder_detail_action(req, action):
 def builder_delete_handler(req):
     # Delete the draft (workspace, preview app, sandbox) and go back to the
     # list. Published entries stay until unpublished; the dialog says so
-    id = query_param(req, "id").strip()
+    id = utils.query_param(req, "id").strip()
     ret = build.delete_session(id)
     error = ret.error
     if error:
         data = builder_detail_data(req)
         data["FlashError"] = error
         return data
-    data = {"Title": "Builder", "Nav": "builder", "Perms": get_perms()}
+    data = {"Title": "Builder", "Nav": "builder", "Perms": utils.get_perms()}
     return ace.response(data, "builder_session.go.html",
                         redirect=req.AppPath + "/builder")
 
@@ -3660,8 +3656,8 @@ def builder_publish_form_error(req, error):
     # the error inline, instead of a page flash after the dialog closed
     data = builder_detail_data(req)
     data["PublishError"] = error
-    data["PublishInput"] = query_param(req, "publish_input").strip()
-    data["PublishCommitMsg"] = query_param(req, "commit_msg").strip()
+    data["PublishInput"] = utils.query_param(req, "publish_input").strip()
+    data["PublishCommitMsg"] = utils.query_param(req, "commit_msg").strip()
     return ace.response(data, block="publish_form",
                         retarget="#publish-form", reswap="outerHTML")
 
@@ -3669,8 +3665,8 @@ def builder_publish_form_error(req, error):
 def builder_publish_handler(req):
     # Publish: the dialog's single input composed per the profile's
     # destination mode (subdomain label / app name / full path)
-    id = query_param(req, "id").strip()
-    commit_msg = query_param(req, "commit_msg").strip()
+    id = utils.query_param(req, "id").strip()
+    commit_msg = utils.query_param(req, "commit_msg").strip()
 
     config, error = builder_publish_config(session_id=id)
     if error:
@@ -3701,7 +3697,7 @@ def builder_publish_check_handler(req):
     # Validate the publish destination without publishing: the same
     # normalization, profile restriction and app RBAC checks as the real
     # publish, rendered into the dialog's #publish-check-result slot
-    id = query_param(req, "id").strip()
+    id = utils.query_param(req, "id").strip()
     result = {"CheckError": "", "CheckPath": "", "CheckExists": False}
     config, error = builder_publish_config(session_id=id)
     if error:
@@ -3731,7 +3727,7 @@ def builder_promote_handler(req):
 
 
 def builder_unpublish_handler(req):
-    id = query_param(req, "id").strip()
+    id = utils.query_param(req, "id").strip()
     ret = build.unpublish_app(id)
     error = ret.error
     data = builder_detail_data(req)
@@ -3762,8 +3758,8 @@ def build_file_tree(files):
 def builder_file_handler(req):
     # Streaming TEXT route: raw content of one workspace file, rendered by
     # the <builder-files> viewer (client side syntax highlighting)
-    id = query_param(req, "id").strip()
-    path = query_param(req, "path").strip()
+    id = utils.query_param(req, "id").strip()
+    path = utils.query_param(req, "path").strip()
     ret = build.read_file(id, path)
     if ret.error:
         return "error: %s" % ret.error
@@ -3774,7 +3770,7 @@ def builder_download_handler(req):
     # Bundle the workspace source into a zip and stream it back to the client
     # as an attachment (chunked, no disk/db staging); errors render the
     # session page with a flash
-    ret = build.get_source_zip(query_param(req, "id").strip())
+    ret = build.get_source_zip(utils.query_param(req, "id").strip())
     error = ret.error
     if error:
         data = builder_detail_data(req)
@@ -3787,7 +3783,7 @@ def builder_download_handler(req):
 def builder_events_handler(req):
     # Streaming TEXT route: session events as JSON lines, consumed by the
     # <builder-chat> element until the sandbox stops or the client leaves
-    id = query_param(req, "id").strip()
+    id = utils.query_param(req, "id").strip()
     ret = build.session_events(id)
     if ret.error:
         return "error: %s" % ret.error

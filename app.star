@@ -1,47 +1,6 @@
 # Copyright (c) ClaceIO, LLC
 # SPDX-License-Identifier: Apache-2.0
-load("handler.star",
-     "overview_data", "overview_containers_handler", "overview_replication_handler",
-     "overview_activity_handler", "overview_approvals_handler", "replication_data",
-     "apps_data", "apps_detail_data", "apps_detail_replication_handler",
-     "apps_switch_handler", "apps_promote_handler",
-     "apps_approve_handler", "apps_detail_reload_handler", "apps_detail_delete_handler",
-     "apps_files_handler", "apps_files_download_handler",
-     "apps_create_page_handler", "apps_create_submit_handler",
-     "apps_update_page_handler", "apps_update_submit_handler", "apps_delete_handler",
-     "apps_reload_handler", "apps_sync_handler",
-     "apps_list_promote_handler", "apps_list_approve_handler",
-     "syncs_data", "syncs_detail_data", "syncs_detail_run_handler",
-     "syncs_detail_delete_handler", "syncs_create_page_handler",
-     "syncs_create_submit_handler", "syncs_run_handler", "syncs_delete_handler",
-     "audit_data",
-     "config_data", "config_action_handler", "config_version_handler",
-     "config_rbac_data", "config_rbac_action_handler",
-     "config_entry_page_handler", "config_entry_submit_handler",
-     "config_auth_data", "config_auth_action_handler",
-     "config_git_data", "config_git_action_handler",
-     "config_secrets_data", "config_secrets_action_handler",
-     "config_system_data", "config_system_action_handler",
-     "config_builder_data", "config_builder_action_handler",
-     "config_group_page_handler", "config_group_submit_handler",
-     "config_role_page_handler", "config_role_submit_handler",
-     "config_grant_page_handler", "config_grant_submit_handler",
-     "containers_data", "containers_lifecycle_handler", "containers_detail_data",
-     "containers_detail_stats_handler", "containers_logs_stream_handler",
-     "containers_detail_lifecycle_handler", "containers_k8s_stats_handler",
-     "containers_detail_k8s_handler",
-     "bindings_data", "bindings_create_page_handler", "bindings_create_submit_handler",
-     "bindings_update_page_handler", "bindings_update_submit_handler",
-     "bindings_delete_handler", "services_create_page_handler",
-     "services_create_submit_handler", "services_delete_handler",
-     "secrets_store_handler", "secrets_delete_handler",
-     "builder_data", "builder_create_page_handler", "builder_create_submit_handler",
-     "builder_create_services_handler",
-     "builder_detail_data", "builder_detail_action", "builder_delete_handler",
-     "builder_publish_handler", "builder_publish_check_handler", "builder_unpublish_handler",
-     "builder_promote_handler",
-     "builder_events_handler", "builder_file_handler", "builder_rows_action",
-     "builder_download_handler")
+load("handler.star", "handler")
 load("ext.star", "ext_routes", "ext_permissions")
 
 # OpenRun management console. Routes mirror the UI layout: one route per
@@ -176,95 +135,95 @@ def build_routes():
         # (the landing page) and /overview (the nav URL). The lazy fragments
         # live on /overview so their paths (/overview/containers) cannot
         # collide with the real /containers page
-        ace.html("/", full="overview.go.html", partial="overview_content", handler=overview_data),
-        ace.html("/overview", full="overview.go.html", partial="overview_content", handler=overview_data,
+        ace.html("/", full="overview.go.html", partial="overview_content", handler=handler.overview_data),
+        ace.html("/overview", full="overview.go.html", partial="overview_content", handler=handler.overview_data,
                  fragments=[
                      # External-call tiles (container daemon, replica store):
                      # skeleton first, loaded async
-                     ace.fragment("containers", partial="ov_containers_tile", handler=overview_containers_handler),
-                     ace.fragment("replication", partial="ov_replication_tile", handler=overview_replication_handler),
+                     ace.fragment("containers", partial="ov_containers_tile", handler=handler.overview_containers_handler),
+                     ace.fragment("replication", partial="ov_replication_tile", handler=handler.overview_replication_handler),
                      # The apps tile's needs-approval chip (check_approval
                      # audit sweep, cached server-side) loads async too
-                     ace.fragment("approvals", partial="ov_approval_chip", handler=overview_approvals_handler),
+                     ace.fragment("approvals", partial="ov_approval_chip", handler=handler.overview_approvals_handler),
                      # Activity tile re-render for the System/All scope chips
-                     ace.fragment("activity", partial="ov_activity_tile", handler=overview_activity_handler),
+                     ace.fragment("activity", partial="ov_activity_tile", handler=handler.overview_activity_handler),
                  ]),
         # Apps list, with the row actions posting back to the list
-        ace.html("/apps", full="apps.go.html", partial="app_groups", handler=apps_data,
+        ace.html("/apps", full="apps.go.html", partial="app_groups", handler=handler.apps_data,
                  fragments=[
-                     ace.fragment("delete", method="POST", handler=apps_delete_handler),
-                     ace.fragment("reload", method="POST", handler=apps_reload_handler),
-                     ace.fragment("sync", method="POST", handler=apps_sync_handler),
+                     ace.fragment("delete", method="POST", handler=handler.apps_delete_handler),
+                     ace.fragment("reload", method="POST", handler=handler.apps_reload_handler),
+                     ace.fragment("sync", method="POST", handler=handler.apps_sync_handler),
                      # Row actions of the pending promotion / needs approval tabs
-                     ace.fragment("promote", method="POST", handler=apps_list_promote_handler),
-                     ace.fragment("approve", method="POST", handler=apps_list_approve_handler),
+                     ace.fragment("promote", method="POST", handler=handler.apps_list_promote_handler),
+                     ace.fragment("approve", method="POST", handler=handler.apps_list_approve_handler),
                  ] if ENABLE_UPDATES else []),
         # App detail, with the version/lifecycle actions re-rendering the
         # detail content
-        ace.html("/apps/detail", full="app_detail.go.html", partial="detail_content", handler=apps_detail_data,
+        ace.html("/apps/detail", full="app_detail.go.html", partial="detail_content", handler=handler.apps_detail_data,
                  fragments=[
                      # Lazy replication status chips (read-only, always on)
-                     ace.fragment("replication", partial="app_repl_status", handler=apps_detail_replication_handler),
+                     ace.fragment("replication", partial="app_repl_status", handler=handler.apps_detail_replication_handler),
                  ] + ([
-                     ace.fragment("switch", method="POST", handler=apps_switch_handler),
-                     ace.fragment("promote", method="POST", handler=apps_promote_handler),
-                     ace.fragment("approve", method="POST", handler=apps_approve_handler),
-                     ace.fragment("reload", method="POST", handler=apps_detail_reload_handler),
-                     ace.fragment("delete", method="POST", handler=apps_detail_delete_handler),
+                     ace.fragment("switch", method="POST", handler=handler.apps_switch_handler),
+                     ace.fragment("promote", method="POST", handler=handler.apps_promote_handler),
+                     ace.fragment("approve", method="POST", handler=handler.apps_approve_handler),
+                     ace.fragment("reload", method="POST", handler=handler.apps_detail_reload_handler),
+                     ace.fragment("delete", method="POST", handler=handler.apps_detail_delete_handler),
                  ] if ENABLE_UPDATES else [])),
-        ace.html("/apps/files", full="app_files.go.html", handler=apps_files_handler,
+        ace.html("/apps/files", full="app_files.go.html", handler=handler.apps_files_handler,
                  fragments=[
                      # Zip download of the version files (redirects to a
                      # single-access temp file url)
-                     ace.fragment("download", handler=apps_files_download_handler),
+                     ace.fragment("download", handler=handler.apps_files_download_handler),
                  ]),
-        ace.html("/syncs", full="syncs.go.html", partial="sync_rows", handler=syncs_data,
+        ace.html("/syncs", full="syncs.go.html", partial="sync_rows", handler=handler.syncs_data,
                  fragments=[
-                     ace.fragment("run", method="POST", handler=syncs_run_handler),
-                     ace.fragment("delete", method="POST", handler=syncs_delete_handler),
+                     ace.fragment("run", method="POST", handler=handler.syncs_run_handler),
+                     ace.fragment("delete", method="POST", handler=handler.syncs_delete_handler),
                  ] if ENABLE_UPDATES else []),
-        ace.html("/syncs/detail", full="sync_detail.go.html", partial="sync_content", handler=syncs_detail_data,
+        ace.html("/syncs/detail", full="sync_detail.go.html", partial="sync_content", handler=handler.syncs_detail_data,
                  fragments=[
-                     ace.fragment("run", method="POST", handler=syncs_detail_run_handler),
-                     ace.fragment("delete", method="POST", handler=syncs_detail_delete_handler),
+                     ace.fragment("run", method="POST", handler=handler.syncs_detail_run_handler),
+                     ace.fragment("delete", method="POST", handler=handler.syncs_detail_delete_handler),
                  ] if ENABLE_UPDATES else []),
-        ace.html("/audit", full="audit.go.html", partial="audit_rows", handler=audit_data),
+        ace.html("/audit", full="audit.go.html", partial="audit_rows", handler=handler.audit_data),
         # Replication detail (linked from the overview replication tile):
         # read-only, always registered like the overview it extends
-        ace.html("/replication", full="replication.go.html", partial="repl_rows", handler=replication_data),
-        ace.html("/bindings", full="bindings.go.html", partial="binding_groups", handler=bindings_data,
+        ace.html("/replication", full="replication.go.html", partial="repl_rows", handler=handler.replication_data),
+        ace.html("/bindings", full="bindings.go.html", partial="binding_groups", handler=handler.bindings_data,
                  fragments=[
-                     ace.fragment("delete", method="POST", handler=bindings_delete_handler),
-                     ace.fragment("services/delete", method="POST", handler=services_delete_handler),
+                     ace.fragment("delete", method="POST", handler=handler.bindings_delete_handler),
+                     ace.fragment("services/delete", method="POST", handler=handler.services_delete_handler),
                  ] if ENABLE_UPDATES else []),
     ]
 
     if ENABLE_UPDATES:
         # App/sync/binding/service write subpages
         routes += [
-            ace.html("/apps/create", full="app_form.go.html", partial="op_form", handler=apps_create_page_handler,
+            ace.html("/apps/create", full="app_form.go.html", partial="op_form", handler=handler.apps_create_page_handler,
                      fragments=[
-                         ace.fragment("", method="POST", handler=apps_create_submit_handler),
+                         ace.fragment("", method="POST", handler=handler.apps_create_submit_handler),
                      ]),
-            ace.html("/apps/update", full="app_form.go.html", partial="op_form", handler=apps_update_page_handler,
+            ace.html("/apps/update", full="app_form.go.html", partial="op_form", handler=handler.apps_update_page_handler,
                      fragments=[
-                         ace.fragment("", method="POST", handler=apps_update_submit_handler),
+                         ace.fragment("", method="POST", handler=handler.apps_update_submit_handler),
                      ]),
-            ace.html("/syncs/create", full="sync_form.go.html", partial="op_form", handler=syncs_create_page_handler,
+            ace.html("/syncs/create", full="sync_form.go.html", partial="op_form", handler=handler.syncs_create_page_handler,
                      fragments=[
-                         ace.fragment("", method="POST", handler=syncs_create_submit_handler),
+                         ace.fragment("", method="POST", handler=handler.syncs_create_submit_handler),
                      ]),
-            ace.html("/bindings/services/create", full="service_form.go.html", partial="op_form", handler=services_create_page_handler,
+            ace.html("/bindings/services/create", full="service_form.go.html", partial="op_form", handler=handler.services_create_page_handler,
                      fragments=[
-                         ace.fragment("", method="POST", handler=services_create_submit_handler),
+                         ace.fragment("", method="POST", handler=handler.services_create_submit_handler),
                      ]),
-            ace.html("/bindings/create", full="binding_form.go.html", partial="op_form", handler=bindings_create_page_handler,
+            ace.html("/bindings/create", full="binding_form.go.html", partial="op_form", handler=handler.bindings_create_page_handler,
                      fragments=[
-                         ace.fragment("", method="POST", handler=bindings_create_submit_handler),
+                         ace.fragment("", method="POST", handler=handler.bindings_create_submit_handler),
                      ]),
-            ace.html("/bindings/update", full="binding_form.go.html", partial="op_form", handler=bindings_update_page_handler,
+            ace.html("/bindings/update", full="binding_form.go.html", partial="op_form", handler=handler.bindings_update_page_handler,
                      fragments=[
-                         ace.fragment("", method="POST", handler=bindings_update_submit_handler),
+                         ace.fragment("", method="POST", handler=handler.bindings_update_submit_handler),
                      ]),
         ]
 
@@ -274,55 +233,55 @@ def build_routes():
         # action fragments and the edit subpages additionally need
         # enable_updates
         routes += [
-            ace.html("/config", full="config.go.html", partial="config_content", handler=config_data,
+            ace.html("/config", full="config.go.html", partial="config_content", handler=handler.config_data,
                      fragments=[
-                         ace.fragment("action", method="POST", handler=config_action_handler),
+                         ace.fragment("action", method="POST", handler=handler.config_action_handler),
                      ] if ENABLE_UPDATES else []),
-            ace.html("/config/history", full="config_version.go.html", handler=config_version_handler),
-            ace.html("/config/auth", full="config_page.go.html", partial="page_content", handler=config_auth_data,
+            ace.html("/config/history", full="config_version.go.html", handler=handler.config_version_handler),
+            ace.html("/config/auth", full="config_page.go.html", partial="page_content", handler=handler.config_auth_data,
                      fragments=[
-                         ace.fragment("action", method="POST", handler=config_auth_action_handler),
+                         ace.fragment("action", method="POST", handler=handler.config_auth_action_handler),
                      ] if ENABLE_UPDATES else []),
-            ace.html("/config/git", full="config_page.go.html", partial="page_content", handler=config_git_data,
+            ace.html("/config/git", full="config_page.go.html", partial="page_content", handler=handler.config_git_data,
                      fragments=[
-                         ace.fragment("action", method="POST", handler=config_git_action_handler),
+                         ace.fragment("action", method="POST", handler=handler.config_git_action_handler),
                      ] if ENABLE_UPDATES else []),
-            ace.html("/config/secrets", full="config_page.go.html", partial="page_content", handler=config_secrets_data,
+            ace.html("/config/secrets", full="config_page.go.html", partial="page_content", handler=handler.config_secrets_data,
                      fragments=[
-                         ace.fragment("action", method="POST", handler=config_secrets_action_handler),
+                         ace.fragment("action", method="POST", handler=handler.config_secrets_action_handler),
                      ] if ENABLE_UPDATES else []),
-            ace.html("/config/system", full="config_page.go.html", partial="page_content", handler=config_system_data,
+            ace.html("/config/system", full="config_page.go.html", partial="page_content", handler=handler.config_system_data,
                      fragments=[
-                         ace.fragment("action", method="POST", handler=config_system_action_handler),
+                         ace.fragment("action", method="POST", handler=handler.config_system_action_handler),
                      ] if ENABLE_UPDATES else []),
-            ace.html("/config/builder", full="config_page.go.html", partial="page_content", handler=config_builder_data,
+            ace.html("/config/builder", full="config_page.go.html", partial="page_content", handler=handler.config_builder_data,
                      fragments=[
-                         ace.fragment("action", method="POST", handler=config_builder_action_handler),
+                         ace.fragment("action", method="POST", handler=handler.config_builder_action_handler),
                      ] if ENABLE_UPDATES else []),
-            ace.html("/config/rbac", full="config_rbac.go.html", partial="rbac_content", handler=config_rbac_data,
+            ace.html("/config/rbac", full="config_rbac.go.html", partial="rbac_content", handler=handler.config_rbac_data,
                      fragments=[
-                         ace.fragment("action", method="POST", handler=config_rbac_action_handler),
+                         ace.fragment("action", method="POST", handler=handler.config_rbac_action_handler),
                      ] if ENABLE_UPDATES else []),
         ]
 
     if ENABLE_CONFIG and ENABLE_UPDATES:
         # Config entry and RBAC edit subpages (config writes)
         routes += [
-            ace.html("/config/entry", full="config_entry_form.go.html", partial="op_form", handler=config_entry_page_handler,
+            ace.html("/config/entry", full="config_entry_form.go.html", partial="op_form", handler=handler.config_entry_page_handler,
                      fragments=[
-                         ace.fragment("", method="POST", handler=config_entry_submit_handler),
+                         ace.fragment("", method="POST", handler=handler.config_entry_submit_handler),
                      ]),
-            ace.html("/config/rbac/group", full="config_form.go.html", partial="op_form", handler=config_group_page_handler,
+            ace.html("/config/rbac/group", full="config_form.go.html", partial="op_form", handler=handler.config_group_page_handler,
                      fragments=[
-                         ace.fragment("", method="POST", handler=config_group_submit_handler),
+                         ace.fragment("", method="POST", handler=handler.config_group_submit_handler),
                      ]),
-            ace.html("/config/rbac/role", full="config_form.go.html", partial="op_form", handler=config_role_page_handler,
+            ace.html("/config/rbac/role", full="config_form.go.html", partial="op_form", handler=handler.config_role_page_handler,
                      fragments=[
-                         ace.fragment("", method="POST", handler=config_role_submit_handler),
+                         ace.fragment("", method="POST", handler=handler.config_role_submit_handler),
                      ]),
-            ace.html("/config/rbac/grant", full="config_form.go.html", partial="op_form", handler=config_grant_page_handler,
+            ace.html("/config/rbac/grant", full="config_form.go.html", partial="op_form", handler=handler.config_grant_page_handler,
                      fragments=[
-                         ace.fragment("", method="POST", handler=config_grant_submit_handler),
+                         ace.fragment("", method="POST", handler=handler.config_grant_submit_handler),
                      ]),
         ]
 
@@ -331,41 +290,41 @@ def build_routes():
         # workspace (chat + preview). Session mutations and publishing are
         # writes: those fragments additionally need enable_updates
         routes += [
-            ace.html("/builder", full="builder.go.html", partial="builder_rows", handler=builder_data,
+            ace.html("/builder", full="builder.go.html", partial="builder_rows", handler=handler.builder_data,
                      fragments=[
-                         ace.fragment("stop", method="POST", handler=lambda req: builder_rows_action(req, "stop")),
-                         ace.fragment("resume", method="POST", handler=lambda req: builder_rows_action(req, "resume")),
-                         ace.fragment("delete", method="POST", handler=lambda req: builder_rows_action(req, "delete")),
+                         ace.fragment("stop", method="POST", handler=lambda req: handler.builder_rows_action(req, "stop")),
+                         ace.fragment("resume", method="POST", handler=lambda req: handler.builder_rows_action(req, "resume")),
+                         ace.fragment("delete", method="POST", handler=lambda req: handler.builder_rows_action(req, "delete")),
                      ] if ENABLE_UPDATES else []),
-            ace.html("/builder/detail", full="builder_session.go.html", partial="session_content", handler=builder_detail_data,
+            ace.html("/builder/detail", full="builder_session.go.html", partial="session_content", handler=handler.builder_detail_data,
                      fragments=[
-                         ace.fragment("message", method="POST", handler=lambda req: builder_detail_action(req, "message")),
-                         ace.fragment("cancel", method="POST", handler=lambda req: builder_detail_action(req, "cancel")),
-                         ace.fragment("stop", method="POST", handler=lambda req: builder_detail_action(req, "stop")),
-                         ace.fragment("resume", method="POST", handler=lambda req: builder_detail_action(req, "resume")),
-                         ace.fragment("approve", method="POST", handler=lambda req: builder_detail_action(req, "approve")),
-                         ace.fragment("delete", method="POST", handler=builder_delete_handler),
-                         ace.fragment("publish", method="POST", handler=builder_publish_handler),
+                         ace.fragment("message", method="POST", handler=lambda req: handler.builder_detail_action(req, "message")),
+                         ace.fragment("cancel", method="POST", handler=lambda req: handler.builder_detail_action(req, "cancel")),
+                         ace.fragment("stop", method="POST", handler=lambda req: handler.builder_detail_action(req, "stop")),
+                         ace.fragment("resume", method="POST", handler=lambda req: handler.builder_detail_action(req, "resume")),
+                         ace.fragment("approve", method="POST", handler=lambda req: handler.builder_detail_action(req, "approve")),
+                         ace.fragment("delete", method="POST", handler=handler.builder_delete_handler),
+                         ace.fragment("publish", method="POST", handler=handler.builder_publish_handler),
                          # Validate the publish target without publishing
-                         ace.fragment("publish_check", method="POST", handler=builder_publish_check_handler),
-                         ace.fragment("unpublish", method="POST", handler=builder_unpublish_handler),
+                         ace.fragment("publish_check", method="POST", handler=handler.builder_publish_check_handler),
+                         ace.fragment("unpublish", method="POST", handler=handler.builder_unpublish_handler),
                          # Promote the staging app after a local-mode publish
-                         ace.fragment("promote", method="POST", handler=builder_promote_handler),
+                         ace.fragment("promote", method="POST", handler=handler.builder_promote_handler),
                      ] if ENABLE_UPDATES else []),
             # Event stream consumed by the <builder-chat> element
-            ace.api("/builder/events", handler=builder_events_handler, type="TEXT"),
+            ace.api("/builder/events", handler=handler.builder_events_handler, type="TEXT"),
             # Raw workspace file content for the <builder-files> viewer
-            ace.api("/builder/file", handler=builder_file_handler, type="TEXT"),
+            ace.api("/builder/file", handler=handler.builder_file_handler, type="TEXT"),
             # Source zip download: redirects to a single-access temp file url
-            ace.html("/builder/download", full="builder_session.go.html", handler=builder_download_handler),
+            ace.html("/builder/download", full="builder_session.go.html", handler=handler.builder_download_handler),
         ]
         if ENABLE_UPDATES:
             routes += [
-                ace.html("/builder/create", full="builder_form.go.html", partial="op_form", handler=builder_create_page_handler,
+                ace.html("/builder/create", full="builder_form.go.html", partial="op_form", handler=handler.builder_create_page_handler,
                          fragments=[
-                             ace.fragment("", method="POST", handler=builder_create_submit_handler),
+                             ace.fragment("", method="POST", handler=handler.builder_create_submit_handler),
                              # Services checklist re-render when the profile changes
-                             ace.fragment("services", handler=builder_create_services_handler),
+                             ace.fragment("services", handler=handler.builder_create_services_handler),
                          ]),
             ]
 
@@ -374,20 +333,20 @@ def build_routes():
         # partial block for their async HTMX loads. Start/stop (the
         # lifecycle fragments) additionally needs enable_updates
         routes += [
-            ace.html("/containers", full="containers.go.html", partial="container_rows", handler=containers_data,
+            ace.html("/containers", full="containers.go.html", partial="container_rows", handler=handler.containers_data,
                      fragments=[
-                         ace.fragment("k8s_stats", partial="k8s_stats", handler=containers_k8s_stats_handler),
+                         ace.fragment("k8s_stats", partial="k8s_stats", handler=handler.containers_k8s_stats_handler),
                      ] + ([
-                         ace.fragment("lifecycle", method="POST", handler=containers_lifecycle_handler),
+                         ace.fragment("lifecycle", method="POST", handler=handler.containers_lifecycle_handler),
                      ] if ENABLE_UPDATES else [])),
-            ace.html("/containers/detail", full="container_detail.go.html", partial="container_content", handler=containers_detail_data,
+            ace.html("/containers/detail", full="container_detail.go.html", partial="container_content", handler=handler.containers_detail_data,
                      fragments=[
-                         ace.fragment("stats", partial="container_stats", handler=containers_detail_stats_handler),
-                         ace.fragment("k8s", partial="container_k8s", handler=containers_detail_k8s_handler),
+                         ace.fragment("stats", partial="container_stats", handler=handler.containers_detail_stats_handler),
+                         ace.fragment("k8s", partial="container_k8s", handler=handler.containers_detail_k8s_handler),
                      ] + ([
-                         ace.fragment("lifecycle", method="POST", handler=containers_detail_lifecycle_handler),
+                         ace.fragment("lifecycle", method="POST", handler=handler.containers_detail_lifecycle_handler),
                      ] if ENABLE_UPDATES else [])),
-            ace.api("/containers/logs_stream", handler=containers_logs_stream_handler, type="TEXT"),
+            ace.api("/containers/logs_stream", handler=handler.containers_logs_stream_handler, type="TEXT"),
         ]
 
     if ENABLE_UPDATES:
@@ -397,10 +356,10 @@ def build_routes():
         # {{secret ...}} reference. The response template is a base-templates
         # define referenced by name (no page file)
         routes += [
-            ace.html("/secrets/store", method="POST", full="secret_input_response", handler=secrets_store_handler),
+            ace.html("/secrets/store", method="POST", full="secret_input_response", handler=handler.secrets_store_handler),
             # Unlocking a stored field offers deleting the secret; the
             # response is the same component fragment (empty on success)
-            ace.html("/secrets/delete", method="POST", full="secret_input_response", handler=secrets_delete_handler),
+            ace.html("/secrets/delete", method="POST", full="secret_input_response", handler=handler.secrets_delete_handler),
         ]
 
     return routes
