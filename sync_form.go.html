@@ -149,26 +149,23 @@
                   </div>
                 </div>
 
-                <div class="flex flex-col gap-3 pt-1">
-                  <label class="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      name="promote"
-                      class="checkbox checkbox-sm checkbox-primary"
-                      {{ if .Data.Values.promote }}checked{{ end }} />
-                    <span class="text-sm">
-                      Promote
-                      <span class="block text-xs text-base-content/70">
-                        Push changes from staging to prod on each sync run
-                      </span>
-                    </span>
-                  </label>
-                  <label class="flex items-center gap-3 cursor-pointer">
+                <div class="flex flex-col gap-4 pt-1">
+                  {{ $canApprove := or (index .Data.Perms "app:approve") (index .Data.Perms "admin") }}
+                  <label
+                    class="flex items-center gap-3 {{ if $canApprove }}
+                      cursor-pointer
+                    {{ else }}
+                      tooltip tooltip-top
+                    {{ end }}"
+                    {{ if not $canApprove }}
+                      data-tip="requires app:approve"
+                    {{ end }}>
                     <input
                       type="checkbox"
                       name="approve"
                       class="checkbox checkbox-sm checkbox-primary"
-                      {{ if .Data.Values.approve }}checked{{ end }} />
+                      {{ if .Data.Values.approve }}checked{{ end }}
+                      {{ if not $canApprove }}disabled{{ end }} />
                     <span class="text-sm">
                       Approve
                       <span class="block text-xs text-base-content/70">
@@ -177,6 +174,67 @@
                       </span>
                     </span>
                   </label>
+                  {{ $canPromote := index .Data.Perms "app:promote" }}
+                  {{ $mode := .Data.Values.promote_mode }}
+                  <fieldset
+                    class="border border-base-300 rounded-box px-4 pb-3 pt-1">
+                    <legend class="text-sm font-medium px-1">Promotion</legend>
+                    <div
+                      class="flex flex-col gap-2 {{ if not $canPromote }}tooltip tooltip-top{{ end }}"
+                      {{ if not $canPromote }}
+                        data-tip="requires app:promote"
+                      {{ end }}>
+                      <label
+                        class="flex items-center gap-3 {{ if $canPromote }}cursor-pointer{{ end }}">
+                        <input
+                          type="radio"
+                          name="promote_mode"
+                          value="none"
+                          class="radio radio-sm radio-primary"
+                          {{ if or (eq $mode "none") (not $mode) }}checked{{ end }}
+                          {{ if not $canPromote }}disabled{{ end }} />
+                        <span class="text-sm">
+                          No promotion
+                          <span class="block text-xs text-base-content/70">
+                            Changes stay in staging for manual promotion
+                          </span>
+                        </span>
+                      </label>
+                      <label
+                        class="flex items-center gap-3 {{ if $canPromote }}cursor-pointer{{ end }}">
+                        <input
+                          type="radio"
+                          name="promote_mode"
+                          value="noverify"
+                          class="radio radio-sm radio-primary"
+                          {{ if eq $mode "noverify" }}checked{{ end }}
+                          {{ if not $canPromote }}disabled{{ end }} />
+                        <span class="text-sm">
+                          Promote without verification
+                          <span class="block text-xs text-base-content/70">
+                            Push changes from staging to prod on each sync run
+                          </span>
+                        </span>
+                      </label>
+                      <label
+                        class="flex items-center gap-3 {{ if $canPromote }}cursor-pointer{{ end }}">
+                        <input
+                          type="radio"
+                          name="promote_mode"
+                          value="verify"
+                          class="radio radio-sm radio-primary"
+                          {{ if eq $mode "verify" }}checked{{ end }}
+                          {{ if not $canPromote }}disabled{{ end }} />
+                        <span class="text-sm">
+                          Promote with verification
+                          <span class="block text-xs text-base-content/70">
+                            Reload app containers to verify staging before
+                            promoting; a failed verification is rolled back
+                          </span>
+                        </span>
+                      </label>
+                    </div>
+                  </fieldset>
                 </div>
               </div>
 

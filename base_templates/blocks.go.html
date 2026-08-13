@@ -240,13 +240,7 @@
                         {{ else }}
                           Reload from source
                         {{ end }}"
-                        hx-post="{{ $root }}/apps/reload" hx-disabled-elt="this"
-                        hx-vals='{"path": "{{ .path }}"}' hx-confirm="Reload
-                        {{ .path }} from its source? The changes apply to
-                        staging first." hx-target="#app-groups"
-                        hx-swap="innerHTML transition:true"
-                        hx-include="#page-search, #app-filter-value,
-                        #app-tab-value" hx-indicator="#page-progress"
+                        onclick="showReloadDialog({{ .path }}, {{ .is_dev }})"
                       {{ else }}
                         disabled data-tip="requires app:reload"
                       {{ end }}>
@@ -762,4 +756,141 @@
       {{ .Data.SendError }}
     </div>
   {{ end }}
+{{ end }}
+
+{{/* reload_dialog renders the reload-options dialog opened by
+  showReloadDialog(path, isDev) in console.js, which fills in the app path
+  and hides the promotion choices for dev apps (they reload straight from
+  source, nothing to promote). Approve is gated on app:approve/admin and
+  the promotion radios on app:promote - disabled inputs are not submitted,
+  so the handler falls back to no approval / no promotion. Context: dict
+  with PostUrl, Target, Perms and optional Include (extra hx-include
+  selectors, the apps list passes its search/filter/tab inputs). The form
+  posts over HTMX like the old reload row button did; the dialog closes on
+  submit while the swap happens behind it */}}
+{{ define "reload_dialog" }}
+  <dialog
+    id="reload-dialog"
+    class="modal"
+    aria-labelledby="reload-dialog-title"
+    aria-describedby="reload-dialog-text">
+    <div class="modal-box max-w-md">
+      <h3 id="reload-dialog-title" class="text-base font-semibold mb-2">
+        Reload app
+      </h3>
+      <p
+        id="reload-dialog-text"
+        class="text-sm text-base-content/70 break-all mb-4">
+        Reload <span id="reload-dialog-path" class="font-mono"></span> from its
+        source.
+      </p>
+      <form
+        hx-post="{{ .PostUrl }}"
+        hx-target="{{ .Target }}"
+        hx-swap="innerHTML transition:true"
+        {{ if .Include }}hx-include="{{ .Include }}"{{ end }}
+        hx-indicator="#page-progress"
+        onsubmit="this.closest('dialog').close()">
+        <input type="hidden" name="path" value="" />
+        <div class="flex flex-col gap-4">
+          {{ $canApprove := or (index .Perms "app:approve") (index .Perms "admin") }}
+          <label
+            class="flex items-center gap-3 {{ if $canApprove }}
+              cursor-pointer
+            {{ else }}
+              tooltip tooltip-top
+            {{ end }}"
+            {{ if not $canApprove }}
+              data-tip="requires app:approve"
+            {{ end }}>
+            <input
+              type="checkbox"
+              name="approve"
+              class="checkbox checkbox-sm checkbox-primary"
+              {{ if not $canApprove }}disabled{{ end }} />
+            <span class="text-sm">
+              Approve permissions
+              <span class="block text-xs text-base-content/70">
+                Approve any new plugin permissions the app requests
+              </span>
+            </span>
+          </label>
+          <fieldset
+            id="reload-promote-group"
+            class="border border-base-300 rounded-box px-4 pb-3 pt-1">
+            <legend class="text-sm font-medium px-1">Promotion</legend>
+            {{ $canPromote := index .Perms "app:promote" }}
+            <div
+              class="flex flex-col gap-2 {{ if not $canPromote }}tooltip tooltip-top{{ end }}"
+              {{ if not $canPromote }}
+                data-tip="requires app:promote"
+              {{ end }}>
+              <label
+                class="flex items-center gap-3 {{ if $canPromote }}cursor-pointer{{ end }}">
+                <input
+                  type="radio"
+                  name="promote_mode"
+                  value="none"
+                  class="radio radio-sm radio-primary"
+                  checked
+                  {{ if not $canPromote }}disabled{{ end }} />
+                <span class="text-sm">
+                  No promotion
+                  <span class="block text-xs text-base-content/70">
+                    Changes stay in staging for manual promotion
+                  </span>
+                </span>
+              </label>
+              <label
+                class="flex items-center gap-3 {{ if $canPromote }}cursor-pointer{{ end }}">
+                <input
+                  type="radio"
+                  name="promote_mode"
+                  value="noverify"
+                  class="radio radio-sm radio-primary"
+                  {{ if not $canPromote }}disabled{{ end }} />
+                <span class="text-sm">
+                  Promote without verification
+                  <span class="block text-xs text-base-content/70">
+                    Push the reloaded version to prod immediately
+                  </span>
+                </span>
+              </label>
+              <label
+                class="flex items-center gap-3 {{ if $canPromote }}cursor-pointer{{ end }}">
+                <input
+                  type="radio"
+                  name="promote_mode"
+                  value="verify"
+                  class="radio radio-sm radio-primary"
+                  {{ if not $canPromote }}disabled{{ end }} />
+                <span class="text-sm">
+                  Promote with verification
+                  <span class="block text-xs text-base-content/70">
+                    Reload app containers to verify staging before promoting;
+                    a failed verification is rolled back
+                  </span>
+                </span>
+              </label>
+            </div>
+          </fieldset>
+        </div>
+        <div class="modal-action mt-5">
+          <button
+            type="button"
+            id="reload-dialog-cancel"
+            class="btn btn-ghost btn-sm"
+            onclick="this.closest('dialog').close()">
+            Cancel
+          </button>
+          <button
+            type="submit"
+            class="btn btn-primary btn-sm transition-transform duration-150 active:scale-95">
+            Reload
+          </button>
+        </div>
+      </form>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  </dialog>
 {{ end }}

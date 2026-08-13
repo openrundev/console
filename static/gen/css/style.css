@@ -4261,6 +4261,14 @@
       --size: calc(var(--size-selector, 0.25rem) * 4);
     }
   }
+  .radio-sm {
+    @layer daisyui.l1.l2 {
+      padding: 0.1875rem;
+      &:is([type="radio"]) {
+        --size: calc(var(--size-selector, 0.25rem) * 5);
+      }
+    }
+  }
   .radio-xs {
     @layer daisyui.l1.l2 {
       padding: 0.125rem;
@@ -4389,6 +4397,9 @@
   }
   .pb-1 {
     padding-bottom: var(--spacing);
+  }
+  .pb-3 {
+    padding-bottom: calc(var(--spacing) * 3);
   }
   .pl-1 {
     padding-left: var(--spacing);

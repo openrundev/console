@@ -432,6 +432,13 @@
             {{ end }}
             <!-- End of "app_groups" block -->
           </div>
+
+          {{ template "reload_dialog" (dict
+            "PostUrl" (print .AppPath "/apps/reload")
+            "Target" "#app-groups"
+            "Include" "#page-search, #app-filter-value, #app-tab-value"
+            "Perms" .Data.Perms)
+          }}
         </main>
       </div>
 

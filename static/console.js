@@ -666,6 +666,26 @@ function showApiError(message) {
 	showApiError.timer = setTimeout(() => toast.remove(), 8000);
 }
 
+// Open the reload-options dialog (the reload_dialog template define) for one
+// app: fills in the path and hides the promotion choices for dev apps, which
+// reload straight from source with nothing to promote. The dialog's form
+// posts over HTMX and closes itself on submit
+function showReloadDialog(path, isDev) {
+	const dialog = document.getElementById('reload-dialog');
+	if (!dialog) {
+		return;
+	}
+	dialog.querySelector('#reload-dialog-path').innerText = path;
+	dialog.querySelector('input[name=path]').value = path;
+	const promote = dialog.querySelector('#reload-promote-group');
+	if (promote) {
+		promote.classList.toggle('hidden', !!isDev);
+	}
+	dialog.showModal();
+	// Focus Cancel so Enter does not trigger the reload by accident
+	dialog.querySelector('#reload-dialog-cancel').focus();
+}
+
 // Styled replacement for the native hx-confirm dialog. The confirm button
 // picks up a destructive style when the question starts with Delete/Remove
 function showConfirmDialog(question, onConfirm) {

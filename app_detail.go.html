@@ -160,12 +160,7 @@
                         class="tooltip tooltip-left"
                         {{ if index .Data.Perms "app:reload" }}
                           data-tip="Reload staging from {{ if .Data.App.git_branch }}git{{ else }}source{{ end }}"
-                          hx-post="{{ .AppPath }}/apps/detail/reload"
-                          hx-vals='{"path": "{{ .Data.Path }}"}'
-                          hx-confirm="Reload {{ .Data.Path }} staging from its source?"
-                          hx-target="#detail-content"
-                          hx-swap="innerHTML transition:true"
-                          hx-indicator="#page-progress"
+                          onclick="showReloadDialog({{ .Data.Path }}, {{ if .Data.App.is_dev }}true{{ else }}false{{ end }})"
                         {{ else }}
                           disabled data-tip="requires app:reload"
                         {{ end }}>
@@ -587,6 +582,12 @@
           {{ end }}
           <!-- End of "detail_content" block -->
           </div>
+
+          {{ template "reload_dialog" (dict
+            "PostUrl" (print .AppPath "/apps/detail/reload")
+            "Target" "#detail-content"
+            "Perms" .Data.Perms)
+          }}
         </main>
       </div>
 

@@ -872,25 +872,38 @@ def apps_approve_handler(req):
     return data
 
 
-def reload_app_staging(path):
-    # Staging-first reload: approval is requested only when the user holds
-    # it (the approve flag hard-fails otherwise), promotion is a next step
-    perms = utils.get_perms(path)
-    return openrun_admin.reload_apps(path, approve=bool(perms.get("app:approve") or perms.get("admin")), promote=False)
+def reload_app_options(req, path):
+    # Reload with the reload-dialog options. The dialog disables the approve
+    # checkbox and promotion radios when the user lacks the permission, and
+    # disabled inputs are not submitted: missing params mean no approval and
+    # no promotion (the approve/promote flags hard-fail server-side without
+    # the permission). promote_mode verify reloads app containers to verify
+    # staging before promoting; a failed verification rolls everything back
+    mode = utils.query_param(req, "promote_mode") or "none"
+    return openrun_admin.reload_apps(path,
+                                   approve=bool(utils.query_param(req, "approve")),
+                                   promote=mode == "verify" or mode == "noverify",
+                                   verify=mode == "verify")
 
 
 def apps_detail_reload_handler(req):
-    # POST: reload staging from source, staying on the detail page
+    # POST: reload from source with the dialog options, staying on the
+    # detail page. A staging-only reload prompts for promotion as the next
+    # step; a promoting reload is done in one go
     path, error_data = require_app_path(req, apps_detail_data)
     if error_data:
         return error_data
-    ret = reload_app_staging(path)
+    ret = reload_app_options(req, path)
     error = ret.error
     data = apps_detail_data(req)
     if error:
         data["FlashError"] = "Reload failed: %s" % error
     elif ret.value.get("skipped_results") and not ret.value.get("reload_results"):
         data["Flash"] = "%s is already up to date" % path
+    elif ret.value.get("promote_results"):
+        data["Flash"] = "Reloaded and promoted to prod"
+    elif data.get("App") and data["App"].get("is_dev"):
+        data["Flash"] = "Reloaded from source"
     else:
         data["Flash"] = "Staging reloaded from source"
         data["AskPromote"] = "reload"
@@ -976,11 +989,13 @@ def apps_delete_handler(req):
 
 
 def apps_reload_handler(req):
-    # POST: reload staging from the apps list, then go to the detail page
+    # POST: reload from the apps list with the dialog options. A promoting
+    # reload stays on the list with a flash; a staging-only reload continues
+    # on the detail page to review and promote
     path, error_data = require_app_path(req, apps_data)
     if error_data:
         return error_data
-    ret = reload_app_staging(path)
+    ret = reload_app_options(req, path)
 
     if ret.error:
         data = apps_data(req)
@@ -989,6 +1004,10 @@ def apps_reload_handler(req):
     if ret.value.get("skipped_results") and not ret.value.get("reload_results"):
         data = apps_data(req)
         data["Flash"] = "%s is already up to date" % path
+        return data
+    if ret.value.get("promote_results"):
+        data = apps_data(req)
+        data["Flash"] = "Reloaded %s and promoted to prod" % path
         return data
 
     # Staging reloaded; continue on the detail page to review and promote
@@ -1043,9 +1062,13 @@ def auth_options():
 
 
 def git_auth_options():
-    # The git_auth entry names configured on the server, for private repos
+    # The git_auth entries configured on the server plus the
+    # security.default_git_auth entry name; the create forms preselect the
+    # default. Errors degrade to no options and no default
     ret = openrun.list_git_auths()
-    return ret.value if not ret.error else []
+    if ret.error:
+        return {"entries": [], "default": ""}
+    return ret.value
 
 
 def binding_options():
@@ -1122,7 +1145,7 @@ def create_form_data(req, values, error):
         "Error": error,
         "Specs": openrun.list_specs().value,
         "AuthOptions": auth_options(),
-        "GitAuthOptions": git_auth_options(),
+        "GitAuthOptions": git_auth_options()["entries"],
         "BindingOptions": binding_options(),
         "Values": values,
         "Perms": utils.get_perms(),
@@ -1138,8 +1161,12 @@ def approve_step_data(req, values, review, error):
 
 
 def apps_create_page_handler(req):
-    # App create form page
-    return create_form_data(req, form_values(req), "")
+    # App create form page; git auth preselects the server's default entry
+    # (error re-renders keep the submitted choice instead)
+    values = form_values(req)
+    if not values["git_auth"]:
+        values["git_auth"] = git_auth_options()["default"]
+    return create_form_data(req, values, "")
 
 
 def apps_create_submit_handler(req):
@@ -1982,7 +2009,7 @@ CONFIG_SECTIONS = [
             {"name": "branch", "label": "Branch",
              "help": "branch for publish commits; empty means main"},
             {"name": "auth", "label": "Git auth", "kind": "select", "options": "git_auths",
-             "empty_label": "none (public repo)",
+             "empty_label": "none (public repo)", "default_from": "git_auth_default",
              "help": "git_auth entry for this repo; empty for public/unauthenticated"},
             {"name": "apps_file", "label": "Apps file",
              "help": "declarative file relative to the repo root; empty means apps.star"},
@@ -2117,7 +2144,7 @@ def config_setting_options(source):
         return [a for a in (ret.value if not ret.error else []) if a != "default"]
     if source == "git_auths":
         ret = openrun.list_git_auths()
-        return list(ret.value) if not ret.error else []
+        return list(ret.value["entries"]) if not ret.error else []
     if source == "specs":
         ret = openrun.list_specs()
         error = ret.error
@@ -2685,6 +2712,10 @@ def config_entry_page_handler(req):
         # kvtable fields edit their dict value as key/value rows
         if field.get("kind") == "kvtable":
             values[field["name"] + "_rows"] = utils.kv_rows(values.get(field["name"]) or {})
+        # New-entry forms preselect declared field defaults (the builder_git
+        # auth select starts on the server's default git auth)
+        if not name and field.get("default_from") == "git_auth_default":
+            values[field["name"]] = git_auth_options()["default"]
     return config_entry_form_data(req, meta, name, values, source == "dynamic", source, "")
 
 
@@ -2969,21 +3000,28 @@ def syncs_data(req):
 
 
 def syncs_create_page_handler(req):
-    # Sync create form page, promote/approve default on
+    # Sync create form page. Promote (without verification) defaults on when
+    # the user holds app:promote somewhere; approve is opt-in and the form
+    # renders the options disabled without the matching permission. Git auth
+    # preselects the server's default entry
     values = sync_form_values(req)
-    values["promote"] = "on"
-    values["approve"] = "on"
+    perms = utils.get_perms()
+    if perms.get("app:promote"):
+        values["promote_mode"] = "noverify"
+    if not values["git_auth"]:
+        values["git_auth"] = git_auth_options()["default"]
     return sync_form_data(req, values, "")
 
 
 def sync_form_values(req):
-    # The form fields for the sync create subpage
+    # The form fields for the sync create subpage. promote_mode is the
+    # promotion choice: none, verify (promote with verification) or noverify
     return {
         "path": utils.query_param(req, "path"),
         "git_branch": utils.query_param(req, "git_branch"),
         "git_auth": utils.query_param(req, "git_auth"),
         "minutes": utils.query_param(req, "minutes"),
-        "promote": utils.query_param(req, "promote"),
+        "promote_mode": utils.query_param(req, "promote_mode") or "none",
         "approve": utils.query_param(req, "approve"),
     }
 
@@ -2996,7 +3034,7 @@ def sync_form_data(req, values, error):
         "Mode": "create",
         "Error": error,
         "Values": values,
-        "GitAuthOptions": git_auth_options(),
+        "GitAuthOptions": git_auth_options()["entries"],
         "Perms": utils.get_perms(),
     }
 
@@ -3016,9 +3054,11 @@ def syncs_create_submit_handler(req):
         minutes = int(values["minutes"])
 
     dry_run = action == "validate"
+    mode = values["promote_mode"]
     ret = openrun_admin.create_sync(values["path"], git_branch=values["git_branch"],
                                   git_auth=values["git_auth"], minutes=minutes,
-                                  promote=bool(values["promote"]),
+                                  promote=mode == "verify" or mode == "noverify",
+                                  verify=mode == "verify",
                                   approve=bool(values["approve"]), dry_run=dry_run)
     if ret.error:
         return sync_form_data(req, values, ret.error)
