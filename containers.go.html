@@ -41,7 +41,7 @@
                   hx-trigger="input changed delay:300ms, search"
                   hx-push-url="true"
                   hx-target="#container-rows"
-                  hx-swap="innerHTML transition:true"
+                  hx-swap="innerHTML"
                   hx-indicator="#page-progress" />
               </label>
             </div>
@@ -160,7 +160,7 @@
             class="space-y-4"
             hx-get="{{ .AppPath }}/containers"
             hx-trigger="every 30s"
-            hx-swap="innerHTML transition:true"
+            hx-swap="innerHTML"
             hx-include="#page-search, #app-filter-value"
             hx-indicator="#page-progress">
             {{ block "container_rows" . }}
@@ -181,7 +181,7 @@
                 hx-vals='{"filter": "running"}'
                 hx-include="#page-search"
                 hx-target="#container-rows"
-                hx-swap="innerHTML transition:true"
+                hx-swap="innerHTML"
                 hx-push-url="true"
                 hx-indicator="#page-progress">
                 Running
@@ -195,7 +195,7 @@
                 hx-vals='{"filter": "exited"}'
                 hx-include="#page-search"
                 hx-target="#container-rows"
-                hx-swap="innerHTML transition:true"
+                hx-swap="innerHTML"
                 hx-push-url="true"
                 hx-indicator="#page-progress">
                 Stopped
@@ -209,7 +209,7 @@
                 hx-vals='{"filter": "all"}'
                 hx-include="#page-search"
                 hx-target="#container-rows"
-                hx-swap="innerHTML transition:true"
+                hx-swap="innerHTML"
                 hx-push-url="true"
                 hx-indicator="#page-progress">
                 All
@@ -224,7 +224,7 @@
                 hx-vals='{"filter": "agent"}'
                 hx-include="#page-search"
                 hx-target="#container-rows"
-                hx-swap="innerHTML transition:true"
+                hx-swap="innerHTML"
                 hx-push-url="true"
                 hx-indicator="#page-progress">
                   Agents
@@ -240,7 +240,7 @@
                 hx-vals='{"filter": "kaniko"}'
                 hx-include="#page-search"
                 hx-target="#container-rows"
-                hx-swap="innerHTML transition:true"
+                hx-swap="innerHTML"
                 hx-push-url="true"
                 hx-indicator="#page-progress">
                   Kaniko Builds
@@ -259,7 +259,7 @@
                 hx-vals='{"filter": "litestream"}'
                 hx-include="#page-search"
                 hx-target="#container-rows"
-                hx-swap="innerHTML transition:true"
+                hx-swap="innerHTML"
                 hx-push-url="true"
                 hx-indicator="#page-progress">
                   Litestream
@@ -418,7 +418,7 @@
                         hx-get="{{ $.AppPath }}/containers"
                         hx-vals='{"query": "", "filter": ""}'
                         hx-target="#container-rows"
-                        hx-swap="innerHTML transition:true"
+                        hx-swap="innerHTML"
                         hx-push-url="true"
                         hx-indicator="#page-progress">
                         Clear search

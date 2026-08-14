@@ -44,27 +44,33 @@
 			// the iframe would swallow pointermove events mid-drag
 			'.builder-split.bs-dragging iframe{pointer-events:none}' +
 			// layout: shared scroll container, gutter sticky left
-			'.bf-body{display:flex;overflow:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;' +
+			'.bf-body{display:flex;overflow:auto;font-family:var(--font-mono,ui-monospace,SFMono-Regular,Menlo,monospace);' +
 			'font-size:12px;line-height:1.6}' +
+			// 62% base-content mix: the 35% it launched with failed WCAG AA
+			// contrast on the gutter background (caught by the axe suite when
+			// the explorer joined the audited detail Files tab)
 			'.bf-gutter{position:sticky;left:0;flex:none;padding:8px 10px 8px 14px;text-align:right;user-select:none;' +
-			'color:color-mix(in oklab,var(--color-base-content) 35%,transparent);' +
+			'color:color-mix(in oklab,var(--color-base-content) 62%,transparent);' +
 			'background:color-mix(in oklab,var(--color-base-200) 80%,var(--color-base-100));' +
 			'border-right:1px solid var(--color-base-300);white-space:pre}' +
 			'.bf-code{flex:1;margin:0;padding:8px 14px;white-space:pre;tab-size:4}' +
 			'.bf-code code{background:transparent;padding:0}' +
 			// highlight theme on the daisyui variables: readable in both themes
-			'.bf-code .hljs-comment,.bf-code .hljs-quote{color:color-mix(in oklab,var(--color-base-content) 45%,transparent);font-style:italic}' +
-			'.bf-code .hljs-keyword,.bf-code .hljs-selector-tag,.bf-code .hljs-meta{color:var(--color-secondary);font-weight:600}' +
+			'.bf-code .hljs-comment,.bf-code .hljs-quote{color:color-mix(in oklab,var(--color-base-content) 62%,transparent);font-style:italic}' +
+			// keywords route through the console's contrast-safe accent text
+			// token (brand green as text fails AA; --or-accent-text is the
+			// per-theme readable variant from accessibility.css)
+			'.bf-code .hljs-keyword,.bf-code .hljs-selector-tag,.bf-code .hljs-meta{color:var(--or-accent-text,var(--color-secondary));font-weight:500}' +
 			'.bf-code .hljs-string,.bf-code .hljs-regexp,.bf-code .hljs-addition{color:var(--color-success)}' +
 			'.bf-code .hljs-number,.bf-code .hljs-literal,.bf-code .hljs-symbol{color:var(--color-accent)}' +
-			'.bf-code .hljs-title,.bf-code .hljs-name,.bf-code .hljs-section{color:var(--color-primary)}' +
+			'.bf-code .hljs-title,.bf-code .hljs-name,.bf-code .hljs-section{color:var(--or-accent-text,var(--color-primary))}' +
 			'.bf-code .hljs-attr,.bf-code .hljs-attribute,.bf-code .hljs-variable,.bf-code .hljs-template-variable{color:var(--color-info)}' +
 			'.bf-code .hljs-built_in,.bf-code .hljs-type,.bf-code .hljs-class{color:var(--color-warning)}' +
 			'.bf-code .hljs-deletion{color:var(--color-error)}' +
 			'.bf-code .hljs-emphasis{font-style:italic}.bf-code .hljs-strong{font-weight:700}' +
 			// active file row
 			'[data-bf-file].bf-active{background:color-mix(in oklab,var(--color-primary) 12%,transparent);' +
-			'color:var(--color-primary)}';
+			'color:var(--or-accent-text,var(--color-primary))}';
 		const style = document.createElement('style');
 		style.id = 'builder-files-style';
 		style.textContent = css;

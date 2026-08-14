@@ -248,11 +248,11 @@
 	function injectStyles() {
 		if (document.getElementById('log-tail-style')) return;
 		let css = 'log-tail{display:block}' +
-			'log-tail .lt-scroll{background:#101418;color:#d6dce4;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;' +
+			'log-tail .lt-scroll{background:#101418;color:#d6dce4;font-family:var(--font-mono,ui-monospace,SFMono-Regular,Menlo,monospace);' +
 			'font-size:0.75rem;line-height:1.45;overflow-y:auto;overflow-x:hidden;padding:0.75rem 1rem;' +
 			'border-radius:var(--radius-box,0.5rem);overscroll-behavior:contain}' +
 			'log-tail .lt-line{white-space:pre-wrap;word-break:break-all;min-height:1.45em}' +
-			'log-tail .lt-status{font-size:0.7rem;opacity:0.6;padding:0.2rem 0.25rem;font-family:ui-monospace,monospace}' +
+			'log-tail .lt-status{font-size:0.7rem;opacity:0.6;padding:0.2rem 0.25rem;font-family:var(--font-mono,ui-monospace,monospace)}' +
 			'log-tail .lt-live{color:var(--color-success,#3c3)}' +
 			'log-tail .lt-bold{font-weight:700}log-tail .lt-dim{opacity:0.6}' +
 			'log-tail .lt-italic{font-style:italic}log-tail .lt-underline{text-decoration:underline}';

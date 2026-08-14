@@ -894,3 +894,53 @@ document.addEventListener('DOMContentLoaded', () => {
 		}
 	});
 });
+
+// Copy the export text of the nearest config/diff pane (Config and Compare
+// tabs). Spacer rows (the blank alignment lines of the other side) are
+// skipped so the copied text is the real config
+function copyDiffPane(button) {
+	const scope = button.closest('.card') || button.closest('#config-pane');
+	if (!scope) {
+		return;
+	}
+	const code = scope.querySelector('.diff-code');
+	if (!code) {
+		return;
+	}
+	const lines = [];
+	code.querySelectorAll('.diff-row').forEach((row) => {
+		const text = row.querySelector('.diff-tx');
+		if (text && text.getAttribute('data-spacer') !== 'true') {
+			lines.push(text.textContent);
+		}
+	});
+	navigator.clipboard.writeText(lines.join('\n') + '\n').then(() => {
+		const original = button.innerText;
+		button.innerText = 'Copied';
+		setTimeout(() => {
+			button.innerText = original;
+		}, 1200);
+	});
+}
+
+// Python/starlark syntax highlighting for the config and diff panes on the
+// app detail Config/Compare tabs. The server renders plain text lines;
+// highlight.js (loaded by the detail page for the files explorer) colors
+// them line by line - export output never spans lines. Runs on page load
+// and again after HTMX swaps (tab switches, compare select changes).
+function highlightConfigPanes(root) {
+	if (!window.hljs) {
+		return;
+	}
+	const scope = root && root.querySelectorAll ? root : document;
+	scope.querySelectorAll('.diff-code .diff-tx:not([data-hl])').forEach((el) => {
+		el.setAttribute('data-hl', 'true');
+		const text = el.textContent;
+		if (text.trim() === '') {
+			return;
+		}
+		el.innerHTML = window.hljs.highlight(text, { language: 'python', ignoreIllegals: true }).value;
+	});
+}
+document.addEventListener('DOMContentLoaded', () => highlightConfigPanes());
+document.addEventListener('htmx:afterSwap', (event) => highlightConfigPanes(event.target));

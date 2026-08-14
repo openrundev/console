@@ -89,7 +89,7 @@
                     >Event type</label
                   >
                   <select
-                    class="select select-sm w-full"
+                    class="select select-sm w-full font-mono"
                     id="event_type"
                     name="event_type">
                     <option value="">all</option>
@@ -187,7 +187,7 @@
                         >Status</label
                       >
                       <select
-                        class="select select-sm w-full"
+                        class="select select-sm w-full font-mono"
                         id="status"
                         name="status">
                         <option value="">all</option>
@@ -339,7 +339,7 @@
                         </td>
                         <td
                           class="text-xs text-base-content/70 whitespace-nowrap">
-                          {{ template "time_ago" $e.create_time }}
+                          {{ template "time_ago" (dict "Time" $e.create_time "Res" 2) }}
                         </td>
                         <td>
                           {{ if eq $e.event_type "http" }}

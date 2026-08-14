@@ -150,10 +150,10 @@
                   {{ else }}
                     unknown
                   {{ end }}"
-                  >{{ .update_age }}</span
+                  >{{ relTime .update_time }}</span
                 >
               {{ else }}
-                {{ .update_age }}
+                -
               {{ end }}
             </td>
             {{ if $actions }}
@@ -893,4 +893,311 @@
     </div>
     <form method="dialog" class="modal-backdrop"><button>close</button></form>
   </dialog>
+{{ end }}
+
+{{/* export_pane renders one export output as a numbered read-only code
+  pane. Context: dict with Lines (display lines) */}}
+{{ define "export_pane" }}
+  <div class="card bg-base-100 border border-base-300 overflow-hidden">
+    <div class="overflow-x-auto">
+      <div class="diff-code" role="figure" aria-label="App config">
+        {{ range $i, $line := .Lines }}
+          <div class="diff-row">
+            <span class="diff-ln">{{ add $i 1 }}</span><span class="diff-tx">{{ $line }}</span>
+          </div>
+        {{ end }}
+      </div>
+    </div>
+  </div>
+{{ end }}
+
+{{/* diff_panes renders two aligned export outputs side by side. The rows
+  come from export_app_diff (normalized by diff_rows): every row renders on
+  BOTH sides so the panes stay line-aligned - a line missing on one side is
+  a blank spacer row there. Removed lines tint the left pane, added lines
+  the right. Context: dict with Rows, LeftLabel, RightLabel */}}
+{{ define "diff_panes" }}
+  <div class="grid grid-cols-1 xl:grid-cols-2 gap-3">
+    <div class="card bg-base-100 border border-base-300 overflow-hidden">
+      <div
+        class="px-3 py-1.5 border-b border-base-300 flex items-center gap-2 text-xs text-base-content/70">
+        <span class="font-mono">{{ .LeftLabel }}</span>
+        <button
+          type="button"
+          class="btn btn-ghost btn-xs ml-auto"
+          onclick="copyDiffPane(this)"
+          aria-label="Copy the {{ .LeftLabel }} config">
+          Copy
+        </button>
+      </div>
+      <div class="overflow-x-auto">
+        <div class="diff-code">
+          {{ range .Rows }}
+            <div
+              class="diff-row {{ if eq .kind "del" }}diff-del{{ end }}"
+              {{ if eq .kind "del" }}aria-label="removed line"{{ end }}>
+              <span class="diff-ln">{{ .left_line }}</span><span class="diff-tx" {{ if eq .kind "add" }}data-spacer="true"{{ end }}>{{ .left_text }}</span>
+            </div>
+          {{ end }}
+        </div>
+      </div>
+    </div>
+    <div class="card bg-base-100 border border-base-300 overflow-hidden">
+      <div
+        class="px-3 py-1.5 border-b border-base-300 flex items-center gap-2 text-xs text-base-content/70">
+        <span class="font-mono">{{ .RightLabel }}</span>
+        <button
+          type="button"
+          class="btn btn-ghost btn-xs ml-auto"
+          onclick="copyDiffPane(this)"
+          aria-label="Copy the {{ .RightLabel }} config">
+          Copy
+        </button>
+      </div>
+      <div class="overflow-x-auto">
+        <div class="diff-code">
+          {{ range .Rows }}
+            <div
+              class="diff-row {{ if eq .kind "add" }}diff-add{{ end }}"
+              {{ if eq .kind "add" }}aria-label="added line"{{ end }}>
+              <span class="diff-ln">{{ .right_line }}</span><span class="diff-tx" {{ if eq .kind "del" }}data-spacer="true"{{ end }}>{{ .right_text }}</span>
+            </div>
+          {{ end }}
+        </div>
+      </div>
+    </div>
+  </div>
+{{ end }}
+
+{{/* app_config_pane is the detail Config tab: the prod export output, or
+  the automatic prod<->staging diff when the staging version differs (the
+  same signal as the pending badge). Rendered inline on the detail page;
+  receives the whole request context */}}
+{{ define "app_config_pane" }}
+  <div id="config-pane" class="space-y-3">
+    {{ $cfg := .Data.Config }}
+    {{ if $cfg.Error }}
+      <div role="alert" class="alert alert-error alert-soft py-2 text-sm">
+        <span class="break-all">{{ $cfg.Error }}</span>
+      </div>
+    {{ else }}
+      <div class="flex items-center gap-2 flex-wrap text-sm">
+        <span class="font-medium">{{ $cfg.Label }}</span>
+        {{ if $cfg.Badge }}
+          <span class="badge badge-warning badge-sm badge-soft">{{ $cfg.Badge }}</span>
+        {{ end }}
+        <span class="ml-auto flex items-center gap-2">
+          {{ if $cfg.Single }}
+            <button
+              type="button"
+              class="btn btn-ghost btn-sm"
+              onclick="copyDiffPane(this)"
+              aria-label="Copy the app config">
+              Copy
+            </button>
+          {{ end }}
+          <a
+            class="btn btn-outline btn-sm tooltip tooltip-left"
+            data-tip="Download the prod config as an apply-ready .star file"
+            href="{{ .AppPath }}/apps/detail/config_download?path={{ .Data.Path }}">
+            Download config
+          </a>
+        </span>
+      </div>
+      {{ if $cfg.Single }}
+        {{ template "export_pane" (dict "Lines" $cfg.Lines) }}
+      {{ else }}
+        {{ template "diff_panes" (dict "Rows" $cfg.Rows "LeftLabel" $cfg.LeftLabel "RightLabel" $cfg.RightLabel) }}
+        <p class="text-xs text-base-content/70">
+          comparing other versions?
+          <a
+            class="link"
+            href="{{ .AppPath }}/apps/detail?path={{ .Data.Path }}&tab=compare"
+            >open Compare</a
+          >
+        </p>
+      {{ end }}
+    {{ end }}
+  </div>
+{{ end }}
+
+{{/* app_compare_pane is the detail Compare tab: two env-qualified version
+  selects driving an export diff. The selects re-render just this pane over
+  HTMX with the picked specs, keeping the comparison shareable via the
+  pushed url. Receives the whole request context (also as a fragment) */}}
+{{ define "app_compare_pane" }}
+  <div id="compare-pane" class="space-y-3">
+    {{ $cmp := .Data.Compare }}
+    {{ if $cmp.Error }}
+      <div role="alert" class="alert alert-error alert-soft py-2 text-sm">
+        <span class="break-all">{{ $cmp.Error }}</span>
+      </div>
+    {{ else }}
+      <div class="flex items-center gap-2 flex-wrap text-sm">
+        <label class="sr-only" for="cmp-from">Compare from version</label>
+        <select
+          id="cmp-from"
+          name="from"
+          class="select select-sm w-auto min-w-0 font-mono text-xs"
+          hx-get="{{ .AppPath }}/apps/detail/compare?path={{ .Data.Path }}&tab=compare"
+          hx-include="#cmp-from, #cmp-to"
+          hx-target="#compare-pane"
+          hx-swap="outerHTML"
+          hx-push-url="true"
+          hx-indicator="#page-progress">
+          {{ $from := $cmp.From }}
+          {{ range $cmp.Options }}
+            <option value="{{ .value }}" {{ if eq .value $from }}selected{{ end }}>
+              {{ .label }}
+            </option>
+          {{ end }}
+        </select>
+        <span class="text-base-content/70">compared to</span>
+        <label class="sr-only" for="cmp-to">Compare to version</label>
+        <select
+          id="cmp-to"
+          name="to"
+          class="select select-sm w-auto min-w-0 font-mono text-xs"
+          hx-get="{{ .AppPath }}/apps/detail/compare?path={{ .Data.Path }}&tab=compare"
+          hx-include="#cmp-from, #cmp-to"
+          hx-target="#compare-pane"
+          hx-swap="outerHTML"
+          hx-push-url="true"
+          hx-indicator="#page-progress">
+          {{ $to := $cmp.To }}
+          {{ range $cmp.Options }}
+            <option value="{{ .value }}" {{ if eq .value $to }}selected{{ end }}>
+              {{ .label }}
+            </option>
+          {{ end }}
+        </select>
+        <span
+          class="ml-auto badge badge-sm tabular-nums {{ if $cmp.Same }}
+            badge-ghost
+          {{ else }}
+            badge-primary badge-soft
+          {{ end }}">
+          {{ $cmp.Changed }} lines changed
+        </span>
+      </div>
+      {{ if $cmp.Same }}
+        <div class="card bg-base-100 border border-base-300 py-10">
+          <p class="text-sm text-base-content/70 text-center">
+            No config differences between {{ $cmp.LeftLabel }} and
+            {{ $cmp.RightLabel }}
+          </p>
+        </div>
+      {{ else }}
+        {{ template "diff_panes" (dict "Rows" $cmp.Rows "LeftLabel" $cmp.LeftLabel "RightLabel" $cmp.RightLabel) }}
+      {{ end }}
+    {{ end }}
+  </div>
+{{ end }}
+
+{{/* app_files_pane is the detail Files tab: one version's file tree in the
+  builder-files explorer (tree + highlighted read-only viewer) with the
+  streaming zip download. Receives the whole request context (also as a
+  fragment for the version select) */}}
+{{ define "app_files_pane" }}
+  <div id="files-pane" class="space-y-3">
+    {{ $ft := .Data.FilesTab }}
+    {{ if $ft.Error }}
+      <div role="alert" class="alert alert-error alert-soft py-2 text-sm">
+        <span class="break-all">{{ $ft.Error }}</span>
+      </div>
+    {{ else }}
+      <div class="flex items-center gap-2 flex-wrap text-sm">
+        <label class="sr-only" for="files-version">Version</label>
+        <select
+          id="files-version"
+          name="v"
+          class="select select-sm w-auto min-w-0 font-mono text-xs"
+          hx-get="{{ .AppPath }}/apps/detail/files?path={{ .Data.Path }}&tab=files"
+          hx-target="#files-pane"
+          hx-swap="outerHTML"
+          hx-push-url="true"
+          hx-indicator="#page-progress">
+          {{ $sel := $ft.Selected }}
+          {{ range $ft.Options }}
+            <option value="{{ .value }}" {{ if eq .value $sel }}selected{{ end }}>
+              {{ .label }}
+            </option>
+          {{ end }}
+        </select>
+        <span class="text-xs text-base-content/70 tabular-nums"
+          >{{ $ft.Count }} files · {{ $ft.TotalSize }}</span
+        >
+        <a
+          class="btn btn-outline btn-sm ml-auto tooltip tooltip-left"
+          data-tip="Download this version's files as a zip"
+          href="{{ $ft.DownloadUrl }}">
+          Download zip
+        </a>
+      </div>
+      {{/* the card classes stay on a wrapper: .card is flex-column, which
+        would stack the explorer's tree above its viewer */}}
+      <div class="card bg-base-100 border border-base-300 overflow-hidden">
+      <builder-files class="h-[30rem]" endpoint="{{ $ft.Endpoint }}">
+        <nav
+          class="bf-tree shrink-0 overflow-y-auto bg-base-200/30 py-2 text-xs"
+          aria-label="Version files">
+          {{ if $ft.Tree }}
+            {{ range $ft.Tree }}
+              {{ if .is_dir }}
+                <div
+                  class="flex items-center gap-1.5 px-3 py-1 text-base-content/70 font-medium"
+                  style="padding-left: calc(0.75rem + {{ .depth }} * 0.75rem)">
+                  <svg
+                    aria-hidden="true"
+                    class="w-3.5 h-3.5 shrink-0"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <path
+                      d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+                  </svg>
+                  <span class="truncate">{{ .name }}</span>
+                </div>
+              {{ else }}
+                <button
+                  type="button"
+                  data-bf-file="{{ .path }}"
+                  class="flex items-center gap-1.5 w-full text-left px-3 py-1 font-mono hover:bg-base-200 rounded-none"
+                  style="padding-left: calc(0.75rem + {{ .depth }} * 0.75rem)">
+                  <svg
+                    aria-hidden="true"
+                    class="w-3.5 h-3.5 shrink-0 text-base-content/50"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <path
+                      d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+                    <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+                  </svg>
+                  <span class="truncate">{{ .name }}</span>
+                </button>
+              {{ end }}
+            {{ end }}
+          {{ else }}
+            <p class="px-3 py-2 text-base-content/60">No files in this version</p>
+          {{ end }}
+        </nav>
+        <div class="bf-viewer flex-1 min-w-0 flex flex-col">
+          <div
+            class="bf-name px-4 py-1.5 border-b border-base-300 font-mono text-xs text-base-content/70 truncate"></div>
+          <div class="bf-body flex-1 min-h-0">
+            <div class="bf-gutter" aria-hidden="true"></div>
+            <pre class="bf-code"><code></code></pre>
+          </div>
+        </div>
+      </builder-files>
+      </div>
+    {{ end }}
+  </div>
 {{ end }}

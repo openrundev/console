@@ -43,7 +43,7 @@
                   hx-trigger="input changed delay:300ms, search"
                   hx-push-url="true"
                   hx-target="#app-groups"
-                  hx-swap="innerHTML transition:true"
+                  hx-swap="innerHTML"
                   hx-include="#app-filter-value, #app-tab-value"
                   hx-indicator="#page-progress" />
               </label>
@@ -89,7 +89,7 @@
                     hx-vals='{"filter": ""}'
                     hx-include="#page-search, #app-tab-value"
                     hx-target="#app-groups"
-                    hx-swap="innerHTML transition:true"
+                    hx-swap="innerHTML"
                     hx-push-url="true"
                     hx-indicator="#page-progress"
                     aria-pressed="{{ if eq .Data.Filter "" -}}
@@ -115,7 +115,7 @@
                     hx-vals='{"filter": "declarative"}'
                     hx-include="#page-search, #app-tab-value"
                     hx-target="#app-groups"
-                    hx-swap="innerHTML transition:true"
+                    hx-swap="innerHTML"
                     hx-push-url="true"
                     hx-indicator="#page-progress"
                     aria-pressed="{{ if eq .Data.Filter "declarative" -}}
@@ -141,7 +141,7 @@
                     hx-vals='{"filter": "imperative"}'
                     hx-include="#page-search, #app-tab-value"
                     hx-target="#app-groups"
-                    hx-swap="innerHTML transition:true"
+                    hx-swap="innerHTML"
                     hx-push-url="true"
                     hx-indicator="#page-progress"
                     aria-pressed="{{ if eq .Data.Filter "imperative" -}}
@@ -188,7 +188,7 @@
                   hx-get="{{ .AppPath }}/apps"
                   hx-vals='{"tab": ""}'
                   hx-target="#app-groups"
-                  hx-swap="innerHTML transition:true"
+                  hx-swap="innerHTML"
                   hx-include="#page-search, #app-filter-value"
                   hx-push-url="true"
                   hx-indicator="#page-progress">
@@ -208,7 +208,7 @@
                   hx-get="{{ .AppPath }}/apps"
                   hx-vals='{"tab": "promote"}'
                   hx-target="#app-groups"
-                  hx-swap="innerHTML transition:true"
+                  hx-swap="innerHTML"
                   hx-include="#page-search, #app-filter-value"
                   hx-push-url="true"
                   hx-indicator="#page-progress">
@@ -236,7 +236,7 @@
                   hx-get="{{ .AppPath }}/apps"
                   hx-vals='{"tab": "approval"}'
                   hx-target="#app-groups"
-                  hx-swap="innerHTML transition:true"
+                  hx-swap="innerHTML"
                   hx-include="#page-search, #app-filter-value"
                   hx-push-url="true"
                   hx-indicator="#page-progress">
@@ -403,7 +403,7 @@
                           hx-vals='{"query": "", "filter": ""}'
                           hx-include="#app-tab-value"
                           hx-target="#app-groups"
-                          hx-swap="innerHTML transition:true"
+                          hx-swap="innerHTML"
                           hx-push-url="true"
                           hx-indicator="#page-progress">
                           Clear filters

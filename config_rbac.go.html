@@ -107,7 +107,7 @@
                           hx-get="{{ .AppPath }}/config/rbac"
                           hx-push-url="true"
                           hx-target="#rbac-content"
-                          hx-swap="innerHTML transition:true"
+                          hx-swap="innerHTML"
                           hx-indicator="#page-progress">
                           View staged draft
                         </button>
@@ -118,7 +118,7 @@
                           hx-get="{{ .AppPath }}/config/rbac?view=live"
                           hx-push-url="true"
                           hx-target="#rbac-content"
-                          hx-swap="innerHTML transition:true"
+                          hx-swap="innerHTML"
                           hx-indicator="#page-progress">
                           View live config
                         </button>

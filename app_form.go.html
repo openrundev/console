@@ -31,6 +31,9 @@
                   Approve the permissions the app requests
                 {{ else if eq .Data.Mode "create" }}
                   Deploy an app from a git repo or a local directory
+                {{ else if and .Data.App .Data.App.staged_changes }}
+                  Editing the staged configuration - changes stay in staging
+                  until promoted
                 {{ else }}
                   Changes apply to staging and are promoted to prod
                 {{ end }}

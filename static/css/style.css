@@ -86,6 +86,15 @@ h3:not(.font-mono),
   font-family: "Space Grotesk", var(--font-sans);
 }
 
+/* Metric values carry the display face with tabular digits, the same
+   numeral treatment as the overview tiles (.ov-num* in accessibility.css) -
+   stat strips used to be mono, splitting the console's numerals in two.
+   Unlayered like the heading rule, so it wins over layered utilities */
+.stat-value {
+  font-family: "Space Grotesk", var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---- Branded loading indicator ----------------------------------------
    A thin primary-colored progress line instead of a generic spinner. The
    element carries .htmx-indicator, so htmx fades it in during requests;
@@ -155,7 +164,11 @@ button[hx-disabled-elt][disabled]::before {
 .menu li > a:hover:not(.menu-active) {
   translate: 2px 0;
 }
-.menu li > a::before {
+/* Scoped to the sidebar nav: dropdown menus (app detail Actions) also use
+   .menu, and their anchor items are daisyui tooltips - an unscoped ::before
+   here merges with the tooltip bubble into a stray green tag next to the
+   <a> rows (buttons were unaffected, which is why only some rows showed it) */
+#main-nav .menu li > a::before {
   content: "";
   position: absolute;
   left: -0.4rem;
@@ -167,7 +180,7 @@ button[hx-disabled-elt][disabled]::before {
   transform: translateY(-50%);
   transition: height 250ms var(--ease-out-soft);
 }
-.menu li > a.menu-active::before {
+#main-nav .menu li > a.menu-active::before {
   height: 55%;
 }
 

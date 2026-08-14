@@ -538,7 +538,6 @@ def build_app_rows(all_apps):
             "git_message": entry["git_message"],
             "staging": staging,
             "created_by": entry.get("created_by") or "",
-            "update_age": utils.short_age(entry["update_age"]),
             "update_time": entry.get("update_time") or "",
             "update_user": entry.get("update_user") or "",
         })
@@ -666,6 +665,244 @@ def resolve_env_path(path, env):
     return path
 
 
+def version_options(path, app):
+    # The env-qualified version choices for the Compare/Files selects:
+    # staging versions first, newest first. Values are "env:version" specs;
+    # also returns the active version per env
+    options = []
+    stage_versions, stage_err = load_versions(app["stage_path"])
+    prod_versions, prod_err = load_versions(path)
+    active = {"stage": 0, "prod": 0}
+    for v in stage_versions:
+        version = int(v["version"])
+        if v["active"]:
+            active["stage"] = version
+        options.append({
+            "value": "stage:%d" % version,
+            "label": "v%d · staging%s" % (version, " (active)" if v["active"] else ""),
+        })
+    for v in prod_versions:
+        version = int(v["version"])
+        if v["active"]:
+            active["prod"] = version
+        options.append({
+            "value": "prod:%d" % version,
+            "label": "v%d · prod%s" % (version, " (active)" if v["active"] else ""),
+        })
+    return options, active, (stage_err or prod_err)
+
+
+def version_spec_label(spec):
+    # Display label for an "env:version" spec
+    env, _, version = spec.partition(":")
+    env_label = "staging" if env == "stage" else "prod"
+    return ("v%s · %s" % (version, env_label)) if version else env_label
+
+
+def diff_rows(diff):
+    # Normalize export_app_diff rows for the template: numbers arrive as
+    # floats, line number 0 means no line on that side (spacer row)
+    rows = []
+    for row in diff["rows"] or []:
+        left_line = int(row["left_line"])
+        right_line = int(row["right_line"])
+        rows.append({
+            "kind": row["kind"],
+            "left_line": ("%d" % left_line) if left_line else "",
+            "left_text": row["left_text"],
+            "right_line": ("%d" % right_line) if right_line else "",
+            "right_text": row["right_text"],
+        })
+    return rows
+
+
+def export_lines(text):
+    # Split an export output into display lines for the numbered pane
+    return text.rstrip("\n").split("\n")
+
+
+def detail_config_data(data, req):
+    # Config tab: the prod export output. When staging runs a different
+    # version, the view automatically becomes the prod <-> staging diff -
+    # the one-look answer to what is pending promotion
+    app = data["App"]
+    path = data["Path"]
+    cfg = {"Error": "", "Single": True, "Label": "", "Badge": "", "Lines": [],
+           "Rows": [], "Changed": 0, "LeftLabel": "", "RightLabel": ""}
+    data["Config"] = cfg
+
+    if app["is_dev"]:
+        ret = openrun.export_app(path)
+        error = ret.error
+        if error:
+            cfg["Error"] = error
+            return
+        cfg["Label"] = "Dev app declaration"
+        cfg["Lines"] = export_lines(ret.value)
+        return
+
+    prod_version = int(app["version"])
+    if not app["staged_changes"]:
+        ret = openrun.export_app(path)
+        error = ret.error
+        if error:
+            cfg["Error"] = error
+            return
+        cfg["Label"] = "Prod · v%d · staging in sync" % prod_version
+        cfg["Lines"] = export_lines(ret.value)
+        return
+
+    _, active, _ = version_options(path, app)
+    ret = openrun.export_app_diff(path, "prod:", "stage:")
+    error = ret.error
+    if error:
+        cfg["Error"] = error
+        return
+    stage_label = ("v%d" % active["stage"]) if active["stage"] else "version"
+    if not int(ret.value["changed"]):
+        # Staging is ahead but the declarative config is identical: the
+        # pending change is source-only. Two identical panes would read as
+        # a bug, so show the single config with an explaining badge
+        prod_ret = openrun.export_app(path)
+        prod_error = prod_ret.error
+        if prod_error:
+            cfg["Error"] = prod_error
+            return
+        cfg["Label"] = "Prod · v%d" % prod_version
+        cfg["Badge"] = "staging %s is ahead - source changed, config identical" % stage_label
+        cfg["Lines"] = export_lines(prod_ret.value)
+        return
+    cfg["Single"] = False
+    cfg["Label"] = "Prod · v%d" % prod_version
+    cfg["Badge"] = "staging %s differs - showing changes" % stage_label
+    cfg["LeftLabel"] = "prod · v%d" % prod_version
+    cfg["RightLabel"] = ("staging · v%d" % active["stage"]) if active["stage"] else "staging"
+    cfg["Rows"] = diff_rows(ret.value)
+    cfg["Changed"] = int(ret.value["changed"])
+
+
+def detail_compare_data(data, req):
+    # Compare tab: any two versions side by side as export outputs. Defaults
+    # to prod active vs staging active when they differ, else the previous
+    # prod version vs the active one
+    app = data["App"]
+    path = data["Path"]
+    cmp = {"Error": "", "Options": [], "From": "", "To": "", "Rows": [],
+           "Changed": 0, "Same": False, "LeftLabel": "", "RightLabel": ""}
+    data["Compare"] = cmp
+
+    options, active, err = version_options(path, app)
+    if err and not options:
+        cmp["Error"] = err
+        return
+    cmp["Options"] = options
+
+    from_spec = utils.query_param(req, "from")
+    to_spec = utils.query_param(req, "to")
+    if not from_spec or not to_spec:
+        if app["staged_changes"] and active["stage"]:
+            from_spec = "prod:%d" % active["prod"]
+            to_spec = "stage:%d" % active["stage"]
+        else:
+            prod_opts = [o["value"] for o in options if o["value"].startswith("prod:")]
+            to_spec = prod_opts[0] if prod_opts else ""
+            from_spec = prod_opts[1] if len(prod_opts) > 1 else to_spec
+    cmp["From"] = from_spec
+    cmp["To"] = to_spec
+    if not from_spec or not to_spec:
+        cmp["Error"] = "No versions to compare yet"
+        return
+
+    ret = openrun.export_app_diff(path, from_spec, to_spec)
+    error = ret.error
+    if error:
+        cmp["Error"] = error
+        return
+    cmp["Rows"] = diff_rows(ret.value)
+    cmp["Changed"] = int(ret.value["changed"])
+    cmp["Same"] = cmp["Changed"] == 0
+    cmp["LeftLabel"] = version_spec_label(from_spec)
+    cmp["RightLabel"] = version_spec_label(to_spec)
+
+
+def detail_files_data(data, req):
+    # Files tab: one version's file tree with the builder-files explorer.
+    # Defaults to the staging active version when it differs from prod
+    app = data["App"]
+    path = data["Path"]
+    ft = {"Error": "", "Options": [], "Selected": "", "Label": "", "Tree": [],
+          "Count": 0, "TotalSize": "", "DownloadUrl": "", "Endpoint": ""}
+    data["FilesTab"] = ft
+
+    options, active, err = version_options(path, app)
+    if err and not options:
+        ft["Error"] = err
+        return
+    ft["Options"] = options
+
+    sel = utils.query_param(req, "v")
+    if not sel:
+        if app["staged_changes"] and active["stage"]:
+            sel = "stage:%d" % active["stage"]
+        elif active["prod"]:
+            sel = "prod:%d" % active["prod"]
+    ft["Selected"] = sel
+    env, _, version = sel.partition(":")
+    if env not in ("prod", "stage") or not version:
+        ft["Error"] = "No version selected"
+        return
+    ft["Label"] = version_spec_label(sel)
+
+    resolved = resolve_env_path(path, env)
+    ret = openrun.list_version_files(resolved, version=version)
+    error = ret.error
+    if error:
+        ft["Error"] = error
+        return
+    names = []
+    total = 0
+    for entry in ret.value["files"] or []:
+        names.append(entry["Name"])
+        total += int(entry["Size"])
+    ft["Tree"] = build_file_tree(sorted(names))
+    ft["Count"] = len(names)
+    ft["TotalSize"] = utils.human_size(total)
+    ft["DownloadUrl"] = "%s/apps/files/download?path=%s&version=%s&env=%s" % (
+        req.AppPath, path, version, env)
+    ft["Endpoint"] = "%s/apps/version_file?app=%s&env=%s&version=%s" % (
+        req.AppPath, path, env, version)
+
+
+def apps_detail_config_download_handler(req):
+    # GET: the prod export output as an apply-ready .ace download
+    path = utils.query_param(req, "path")
+    ret = openrun.export_app(path)
+    if ret.error:
+        data = apps_detail_data(req)
+        data["FlashError"] = "Export failed: %s" % ret.error
+        return data
+    header = ("# Declarative config for %s, generated by the OpenRun console\n" +
+              "# Apply on an openrun instance with: openrun apply --approve <file>\n\n") % path
+    name = path.strip("/").replace("/", "_").replace(":", "_") or "app"
+    return ace.response(header + ret.value, download=name + ".star",
+                        content_type="text/plain")
+
+
+def apps_version_file_handler(req):
+    # TEXT route: raw content of one version file, rendered by the Files
+    # tab's <builder-files> viewer (client side syntax highlighting). The
+    # component appends &path=<file> to the endpoint url
+    app_path = utils.query_param(req, "app").strip()
+    env = utils.query_param(req, "env").strip() or "prod"
+    version = utils.query_param(req, "version").strip()
+    name = utils.query_param(req, "path").strip()
+    ret = openrun.get_version_file(resolve_env_path(app_path, env),
+                                   version=version, name=name)
+    if ret.error:
+        return "error: %s" % ret.error
+    return ret.value
+
+
 ENV_ORDER = {"prod": "0", "stage": "1", "preview": "2", "dev": "3"}
 
 
@@ -676,12 +913,19 @@ def app_container_sort_key(entry):
 
 
 def apps_detail_data(req):
-    # App detail page: overview, params, permissions, containers, versions
+    # App detail page, a tabbed inspector: Overview (cards, params,
+    # containers, versions), Config (export output, auto prod<->staging
+    # diff), Compare (any two versions as export diffs) and Files (version
+    # file explorer). Only the active tab's data is built
     path = utils.query_param(req, "path")
+    tab = utils.query_param(req, "tab")
+    if tab not in ("config", "compare", "files"):
+        tab = "overview"
     data = {
         "Title": "App detail",
         "Nav": "apps",
         "Path": path,
+        "Tab": tab,
         "Error": "",
         "App": None,
         "Containers": [],
@@ -699,6 +943,20 @@ def apps_detail_data(req):
 
     app = ret.value
     data["App"] = app
+
+    if app["is_dev"] and tab in ("compare", "files"):
+        # Dev apps have no versions; those tabs render disabled
+        tab = "overview"
+        data["Tab"] = tab
+    if tab == "config":
+        detail_config_data(data, req)
+        return data
+    if tab == "compare":
+        detail_compare_data(data, req)
+        return data
+    if tab == "files":
+        detail_files_data(data, req)
+        return data
 
     # Resolve the sync entry which manages this app, if any
     if app["applied_sync_id"]:
@@ -926,39 +1184,16 @@ def apps_detail_delete_handler(req):
 
 
 def apps_files_handler(req):
-    # Version files page: the file listing of one app version
+    # The old version-files table page is retired: redirect to the detail
+    # page's Files tab, translating the env/version params. The download
+    # fragment on this route stays as the zip endpoint
     path = utils.query_param(req, "path")
     version = utils.query_param(req, "version")
     env = utils.query_param(req, "env") or "prod"
-
-    data = {
-        "Title": "Version files",
-        "Nav": "apps",
-        "Path": path,
-        "Version": version,
-        "Env": env,
-        "Error": "",
-        "Files": [],
-        "TotalSize": "",
-    }
-
-    ret = openrun.list_version_files(resolve_env_path(path, env), version=version)
-    if ret.error:
-        data["Error"] = ret.error
-        return data
-
-    files = []
-    total = 0
-    for entry in ret.value["files"] or []:
-        total += entry["Size"]
-        files.append({
-            "name": entry["Name"],
-            "size": utils.human_size(entry["Size"]),
-            "etag": entry["Etag"][:12] if entry["Etag"] else "",
-        })
-    data["Files"] = sorted(files, key=lambda f: f["name"])
-    data["TotalSize"] = utils.human_size(total)
-    return data
+    target = "%s/apps/detail?path=%s&tab=files" % (req.AppPath, path)
+    if version:
+        target += "&v=%s:%s" % (env, version)
+    return ace.redirect(target)
 
 
 def apps_files_download_handler(req):
@@ -1242,19 +1477,36 @@ def update_form_data(req, app, values, error):
     }
 
 
+def update_form_source(app):
+    # Edits are staged, so the update form prefills from and compares
+    # against the STAGING app when one exists: prod values would silently
+    # drop already-staged changes on the next submit (and make a staged
+    # change impossible to revert from the form). Auth stays on the main
+    # app - it is a setting, not staged
+    if app["is_dev"] or not app.get("stage_path"):
+        return app
+    # Staging apps are internal; get_app skips them without the flag
+    ret = openrun.get_app(app["stage_path"], include_internal=True)
+    error = ret.error
+    if error:
+        return app
+    return ret.value
+
+
 def apps_update_page_handler(req):
-    # App update form page, prefilled from the current app
+    # App update form page, prefilled from the staged configuration
     path = utils.query_param(req, "path")
     ret = openrun.get_app(path)
     if ret.error:
         return update_form_data(req, None, {}, ret.error)
 
     app = ret.value
+    source = update_form_source(app)
     values = {
         "path": app["path"],
         "auth": app["auth"] or "default",
-        "params_rows": utils.kv_rows(app["params"]),
-        "bindings": app_binding_refs(app),
+        "params_rows": utils.kv_rows(source["params"]),
+        "bindings": app_binding_refs(source),
     }
     return update_form_data(req, app, values, "")
 
@@ -1273,12 +1525,15 @@ def apps_update_submit_handler(req):
     if ret.error:
         return update_form_data(req, None, values, ret.error)
     app = ret.value
+    # Changed-detection runs against the staging app, the same source the
+    # form prefilled from - updates land on staging
+    source = update_form_source(app)
 
     params, err = utils.parse_kv_rows(req, "params")
     if err:
         return update_form_data(req, app, values, err)
 
-    params_changed = params != app["params"]
+    params_changed = params != source["params"]
     if params_changed:
         # Params apply to staging; promotion is asked on the detail page
         result = openrun_admin.update_params(path, params, promote=False)
@@ -1287,7 +1542,7 @@ def apps_update_submit_handler(req):
 
     # Compare in dropdown-value space (auto binding paths mapped back to
     # their service source), same as the form prefill
-    bindings_changed = values["bindings"] != app_binding_refs(app)
+    bindings_changed = values["bindings"] != app_binding_refs(source)
     if bindings_changed:
         # Bindings apply to staging like params; a single "-" clears them all
         result = openrun_admin.update_bindings(path, values["bindings"] or ["-"],

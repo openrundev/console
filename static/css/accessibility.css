@@ -726,7 +726,8 @@ builder-chat .bc-tool-title {
 .ov-mini-num {
   font-family: "Space Grotesk", var(--font-sans);
   font-size: 1.4rem;
-  font-weight: 600;
+  /* Grotesk ships 500/700; 600 resolved to 700 anyway - say what renders */
+  font-weight: 700;
   line-height: 1.2;
   font-variant-numeric: tabular-nums;
 }
@@ -834,4 +835,67 @@ builder-chat .bc-tool-title {
    padding. Declared after .ov-tile so it wins the padding tie */
 .ov-tile.ov-flush {
   padding: 0;
+}
+
+/* App detail Config/Compare tabs: numbered export panes and the aligned
+   side-by-side diff. Every diff row renders on both panes (spacer rows keep
+   the line alignment); removed lines tint the left pane, added lines the
+   right, with an inset edge so color is not the only marker */
+.diff-code {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  line-height: 1.6;
+  padding: 0.4rem 0;
+  min-width: max-content;
+}
+.diff-row {
+  display: flex;
+  white-space: pre;
+}
+.diff-ln {
+  flex: none;
+  width: 2.6rem;
+  text-align: right;
+  padding-right: 0.75rem;
+  color: color-mix(in oklab, var(--color-base-content) 45%, transparent);
+  user-select: none;
+  font-variant-numeric: tabular-nums;
+}
+.diff-tx {
+  padding-right: 1.25rem;
+}
+.diff-add {
+  background: color-mix(in oklab, var(--color-success) 14%, transparent);
+  box-shadow: inset 3px 0 0 var(--color-success);
+}
+.diff-del {
+  background: color-mix(in oklab, var(--color-error) 12%, transparent);
+  box-shadow: inset 3px 0 0 var(--color-error);
+}
+
+/* Python highlighting for the config/diff panes (Config and Compare tabs):
+   the same token mapping as the builder-files viewer theme in
+   builderfiles.js, on the console's contrast-safe tokens */
+.diff-code .hljs-comment,
+.diff-code .hljs-quote {
+  color: color-mix(in oklab, var(--color-base-content) 62%, transparent);
+  font-style: italic;
+}
+.diff-code .hljs-keyword,
+.diff-code .hljs-meta,
+.diff-code .hljs-title,
+.diff-code .hljs-name {
+  color: var(--or-accent-text);
+  /* mono ships 400/500 only; 600 would silently resolve to 500 anyway */
+  font-weight: 500;
+}
+.diff-code .hljs-string {
+  color: var(--color-success);
+}
+.diff-code .hljs-number,
+.diff-code .hljs-literal {
+  color: var(--color-accent);
+}
+.diff-code .hljs-built_in {
+  color: var(--color-warning);
 }

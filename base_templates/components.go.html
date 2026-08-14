@@ -62,18 +62,26 @@
   </div>
 {{ end }}
 
-{{/* time_ago renders an RFC3339 timestamp as a compact "4m ago" style age,
-  with the exact UTC time as a tooltip
+{{/* time_ago renders an RFC3339 timestamp as a relative age via the
+  relTime template function (THE single code path for relative times,
+  single-unit "1 day ago" style - see internal/system/sprig.go), with the
+  exact UTC time as a tooltip. Context: the timestamp string, or a dict
+  with Time and Res for a wider resolution (audit rows and version tables
+  pass Res 2: "1 hour 5 minutes ago"). Callers with their own tooltip
+  (the app table's "· by user") call relTime directly
 */}}
 {{ define "time_ago" }}
-  {{- $t := toDate "2006-01-02T15:04:05Z07:00" . -}}
-  {{- $d := ago $t -}}
-  {{- $d = regexReplaceAll "([hm])[0-9]+(\\.[0-9]+)?s$" $d "${1}" -}}
-  {{- $d = regexReplaceAll "(h)[0-9]+m$" $d "${1}" -}}
+  {{- $time := . -}}
+  {{- $res := 1 -}}
+  {{- if kindIs "map" . -}}
+    {{- $time = .Time -}}
+    {{- $res = .Res -}}
+  {{- end -}}
+  {{- $t := toDate "2006-01-02T15:04:05Z07:00" $time -}}
   <span
     class="tooltip"
     data-tip="{{ dateInZone "2006-01-02 15:04:05" $t "UTC" }} UTC"
-    >{{ $d }} ago</span
+    >{{ relTime $time $res }}</span
   >
 {{- end }}
 

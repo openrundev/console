@@ -164,6 +164,12 @@ def build_routes():
                  fragments=[
                      # Lazy replication status chips (read-only, always on)
                      ace.fragment("replication", partial="app_repl_status", handler=handler.apps_detail_replication_handler),
+                     # Compare/Files tab pane refreshes (version select
+                     # changes) and the Config tab's .ace download - all
+                     # reads, always registered
+                     ace.fragment("compare", partial="app_compare_pane", handler=handler.apps_detail_data),
+                     ace.fragment("files", partial="app_files_pane", handler=handler.apps_detail_data),
+                     ace.fragment("config_download", handler=handler.apps_detail_config_download_handler),
                  ] + ([
                      ace.fragment("switch", method="POST", handler=handler.apps_switch_handler),
                      ace.fragment("promote", method="POST", handler=handler.apps_promote_handler),
@@ -171,12 +177,16 @@ def build_routes():
                      ace.fragment("reload", method="POST", handler=handler.apps_detail_reload_handler),
                      ace.fragment("delete", method="POST", handler=handler.apps_detail_delete_handler),
                  ] if ENABLE_UPDATES else [])),
-        ace.html("/apps/files", full="app_files.go.html", handler=handler.apps_files_handler,
+        # The old version-files page redirects to the detail Files tab; the
+        # download fragment stays as the version zip endpoint (the full
+        # template is never rendered, the handler always redirects)
+        ace.html("/apps/files", full="app_detail.go.html", handler=handler.apps_files_handler,
                  fragments=[
-                     # Zip download of the version files (redirects to a
-                     # single-access temp file url)
+                     # Zip download of the version files (streamed)
                      ace.fragment("download", handler=handler.apps_files_download_handler),
                  ]),
+        # Raw version file content for the Files tab viewer
+        ace.api("/apps/version_file", handler=handler.apps_version_file_handler, type="TEXT"),
         ace.html("/syncs", full="syncs.go.html", partial="sync_rows", handler=handler.syncs_data,
                  fragments=[
                      ace.fragment("run", method="POST", handler=handler.syncs_run_handler),
@@ -392,6 +402,9 @@ def build_permissions():
         perm("openrun.in", "list_versions"),
         perm("openrun.in", "list_version_files"),
         perm("openrun.in", "get_version_zip"),
+        perm("openrun.in", "get_version_file"),
+        perm("openrun.in", "export_app"),
+        perm("openrun.in", "export_app_diff"),
         perm("openrun.in", "audit_app"),
         perm("openrun.in", "list_services"),
         perm("openrun.in", "server_info"),

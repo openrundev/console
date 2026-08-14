@@ -53,7 +53,7 @@
               <td
                 class="text-xs text-base-content/70 whitespace-nowrap hidden md:table-cell">
                 {{ if .create_time }}
-                  {{ template "time_ago" .create_time }}
+                  {{ template "time_ago" (dict "Time" .create_time "Res" 2) }}
                 {{ end }}
               </td>
               <td class="text-right whitespace-nowrap">
@@ -79,7 +79,7 @@
                     </button>
                   {{ end }}
                   <a
-                    href="{{ $ctx.AppPath }}/apps/files?path={{ $ctx.Path }}&version={{ .version }}&env={{ $ctx.Env }}"
+                    href="{{ $ctx.AppPath }}/apps/detail?path={{ $ctx.Path }}&tab=files&v={{ $ctx.Env }}:{{ .version }}"
                     class="btn btn-xs btn-ghost tooltip tooltip-left"
                     data-tip="View the files in this version"
                     aria-label="Files of {{ $ctx.Env }} v{{ .version }}">
@@ -99,6 +99,8 @@
   {{ template "head" . }}
 
   <body class="min-h-screen bg-base-200">
+    <script src="{{ static "vendor/highlight.min.js" }}"></script>
+    <script src="{{ static "builderfiles.js" }}"></script>
     <div class="drawer lg:drawer-open">
       {{ template "drawer_toggle" }}
 
@@ -112,7 +114,7 @@
             <div>
               {{ template "page_title" "OpenRun Apps" }}
               <div class="flex items-center gap-2"><nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0"><ul class="flex-wrap whitespace-normal"><li><a href="{{ .AppPath }}/apps">Apps</a></li><li class="font-mono break-all">{{ .Data.Path }}</li></ul></nav>{{ template "help_link" .Data.HelpUrl }}</div>
-              <h2 class="text-xl font-semibold font-mono break-all">{{ .Data.Path }}</h2>
+              <h2 class="text-xl font-medium font-mono break-all">{{ .Data.Path }}</h2>
               <p class="page-desc text-sm text-base-content/70">
                 {{ if .Data.App }}
                   {{ .Data.App.name }}
@@ -268,6 +270,83 @@
           {{ end }}
 
           {{ if .Data.App }}
+            <!-- Inspector tabs: Overview holds today's cards; Config,
+                 Compare and Files are lazily built views. The row lives
+                 inside the swapped partial so the active state refreshes;
+                 ?tab= keeps every view shareable -->
+            {{ $tab := .Data.Tab }}
+            <div role="group" aria-label="App detail views" class="tabs tabs-box w-fit mb-1">
+              <button
+                class="tab font-medium transition-colors duration-150 {{ if eq $tab "overview" }}tab-active bg-primary text-primary-content font-semibold{{ end }}"
+                data-tab="overview"
+                aria-pressed="{{ if eq $tab "overview" }}true{{ else }}false{{ end }}"
+                hx-get="{{ .AppPath }}/apps/detail?path={{ .Data.Path }}&tab=overview"
+                hx-target="#detail-content"
+                hx-swap="innerHTML"
+                hx-push-url="true"
+                hx-indicator="#page-progress">
+                Overview
+              </button>
+              <button
+                class="tab font-medium transition-colors duration-150 {{ if eq $tab "config" }}tab-active bg-primary text-primary-content font-semibold{{ end }}"
+                data-tab="config"
+                aria-pressed="{{ if eq $tab "config" }}true{{ else }}false{{ end }}"
+                title="The app's declarative config; shows the staging changes when staging differs"
+                hx-get="{{ .AppPath }}/apps/detail?path={{ .Data.Path }}&tab=config"
+                hx-target="#detail-content"
+                hx-swap="innerHTML"
+                hx-push-url="true"
+                hx-indicator="#page-progress">
+                Config
+              </button>
+              {{ if .Data.App.is_dev }}
+                <button
+                  class="tab font-medium tab-disabled"
+                  disabled
+                  title="dev apps serve from source - versions are not tracked">
+                  Compare
+                </button>
+                <button
+                  class="tab font-medium tab-disabled"
+                  disabled
+                  title="dev apps serve from source - versions are not tracked">
+                  Files
+                </button>
+              {{ else }}
+                <button
+                  class="tab font-medium transition-colors duration-150 {{ if eq $tab "compare" }}tab-active bg-primary text-primary-content font-semibold{{ end }}"
+                  data-tab="compare"
+                  aria-pressed="{{ if eq $tab "compare" }}true{{ else }}false{{ end }}"
+                  title="Compare any two versions as config diffs"
+                  hx-get="{{ .AppPath }}/apps/detail?path={{ .Data.Path }}&tab=compare"
+                  hx-target="#detail-content"
+                  hx-swap="innerHTML"
+                  hx-push-url="true"
+                  hx-indicator="#page-progress">
+                  Compare
+                </button>
+                <button
+                  class="tab font-medium transition-colors duration-150 {{ if eq $tab "files" }}tab-active bg-primary text-primary-content font-semibold{{ end }}"
+                  data-tab="files"
+                  aria-pressed="{{ if eq $tab "files" }}true{{ else }}false{{ end }}"
+                  title="Browse the files of any version"
+                  hx-get="{{ .AppPath }}/apps/detail?path={{ .Data.Path }}&tab=files"
+                  hx-target="#detail-content"
+                  hx-swap="innerHTML"
+                  hx-push-url="true"
+                  hx-indicator="#page-progress">
+                  Files
+                </button>
+              {{ end }}
+            </div>
+
+            {{ if eq $tab "config" }}
+              {{ template "app_config_pane" . }}
+            {{ else if eq $tab "compare" }}
+              {{ template "app_compare_pane" . }}
+            {{ else if eq $tab "files" }}
+              {{ template "app_files_pane" . }}
+            {{ else }}
             <!-- Overview -->
             <div class="card bg-base-100 border border-base-300">
               <div class="card-body p-5 gap-1">
@@ -534,7 +613,7 @@
                      top covers this right after a staged action -->
                 {{ template "promote_prompt" (dict
                     "Warning" true
-                    "Message" "Staging has changes which are not promoted yet - prod keeps serving the previous version until they are promoted"
+                    "Message" "Showing prod app configuration - Staging has changes which are not promoted yet"
                     "Path" .Data.Path
                     "PostUrl" (print .AppPath "/apps/detail/promote")
                     "Confirm" (print "Promote staging to prod for " .Data.Path "?")
@@ -578,6 +657,8 @@
                 </div>
               </div>
             {{ end }}
+            {{ end }}
+            <!-- End of tab branches -->
           {{ end }}
           {{ end }}
           <!-- End of "detail_content" block -->

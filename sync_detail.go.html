@@ -26,7 +26,7 @@
                     <li><a href="{{ .AppPath }}/syncs">Syncs</a></li>
                     <li class="font-mono">{{ .Data.Id }}</li>
                   </ul></nav>{{ template "help_link" .Data.HelpUrl }}</div>
-                <h2 class="text-xl font-semibold font-mono break-all">
+                <h2 class="text-xl font-medium font-mono break-all">
                   {{ if .Data.Sync }}{{ .Data.Sync.repo }}{{ else }}{{ .Data.Id }}{{ end }}
                 </h2>
                 <p class="page-desc text-sm text-base-content/70">

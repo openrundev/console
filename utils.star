@@ -185,14 +185,6 @@ def short_sha(sha):
     return sha[:7] if sha else ""
 
 
-def short_age(age):
-    # Keep the most significant unit: "105 days 3 hours ago" -> "105 days ago"
-    parts = age.split(" ")
-    if len(parts) > 3:
-        return " ".join(parts[:2]) + " ago"
-    return age
-
-
 def human_size(size):
     # Format a byte count as B / KB / MB
     if size < 1024:
