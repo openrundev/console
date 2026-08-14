@@ -554,9 +554,20 @@ def apps_data(req):
 
     # include_internal picks up staging/preview apps; staging entries are
     # folded into their main app's row instead of being listed separately.
-    # check_approval adds the needs_approval flag (cached server-side)
-    all_apps = openrun.list_apps(query=query, include_internal=True,
-                                 check_approval=True).value
+    # check_approval adds the needs_approval flag (cached server-side).
+    # A search containing ":", starting with "/", or equal to "all"
+    # switches to app path GLOB matching (domain:path form, e.g.
+    # "example.com:/**", "/utils/**", "all" - the same globs the CLI
+    # takes); anything else is a substring search over
+    # name/path/source/user
+    stripped = query.strip()
+    glob = ""
+    if ":" in stripped or stripped.startswith("/") or stripped.lower() == "all":
+        glob = stripped
+    list_ret = openrun.list_apps(query="" if glob else query, path=glob,
+                                 include_internal=True, check_approval=True)
+    list_error = list_ret.error
+    all_apps = list_ret.value if not list_error else []
 
     # Sync entries the user can read. Apps whose sync entry is not visible
     # (no sync:read) are shown in the unmanaged section instead
@@ -615,7 +626,7 @@ def apps_data(req):
             "repo": syncs[sync_id]["repo"],
         })
 
-    return {
+    data = {
         "Title": "Apps",
         "Nav": "apps",
         "Query": query,
@@ -631,6 +642,11 @@ def apps_data(req):
         "ApprovalCount": approval_count,
         "Perms": utils.get_perms(),
     }
+    if list_error:
+        # A malformed glob search (":" queries) renders the empty list with
+        # the parse error instead of crashing to the error page
+        data["FlashError"] = "Invalid app path glob: %s" % list_error
+    return data
 
 
 def load_versions(path):

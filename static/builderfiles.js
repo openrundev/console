@@ -105,10 +105,28 @@
 			}
 		}
 
+		disconnectedCallback() {
+			if (this.fitAbort) {
+				this.fitAbort.abort();
+			}
+		}
+
 		init() {
 			if (!this.isConnected || this.initialized) return;
 			this.initialized = true;
 			injectStyle();
+
+			// fill: stretch to the bottom of the viewport (the detail Files
+			// tab). Re-measured on resize; the listener dies with the element
+			if (this.hasAttribute('fill')) {
+				this.fitAbort = new AbortController();
+				const fit = () => {
+					const top = this.getBoundingClientRect().top;
+					this.style.height = Math.max(window.innerHeight - Math.max(top, 0) - 24, 280) + 'px';
+				};
+				fit();
+				window.addEventListener('resize', fit, { signal: this.fitAbort.signal });
+			}
 			this.nameEl = this.querySelector('.bf-name');
 			this.gutter = this.querySelector('.bf-gutter');
 			this.code = this.querySelector('.bf-code code');

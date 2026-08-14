@@ -3576,9 +3576,6 @@
   .h-12 {
     height: calc(var(--spacing) * 12);
   }
-  .h-\[30rem\] {
-    height: 30rem;
-  }
   .h-full {
     height: 100%;
   }

@@ -37,6 +37,7 @@
                   type="search"
                   name="query"
                   aria-label="Filter apps"
+                  title="Substring search; a leading /, a :, or &quot;all&quot; switches to app path globs like /utils/** or example.com:/**"
                   value="{{ .Data.Query }}"
                   placeholder="Filter apps…"
                   hx-get="{{ .AppPath }}/apps"
