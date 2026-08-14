@@ -999,6 +999,7 @@
           <a
             class="btn btn-outline btn-sm tooltip tooltip-left"
             data-tip="Download the prod config as an apply-ready .star file"
+            download
             href="{{ .AppPath }}/apps/detail/config_download?path={{ .Data.Path }}">
             Download config
           </a>
@@ -1130,6 +1131,7 @@
         <a
           class="btn btn-outline btn-sm ml-auto tooltip tooltip-left"
           data-tip="Download this version's files as a zip"
+          download
           href="{{ $ft.DownloadUrl }}">
           Download zip
         </a>

@@ -760,6 +760,9 @@ document.addEventListener('DOMContentLoaded', () => {
 			link.origin !== location.origin ||
 			link.getAttribute('href').startsWith('#') ||
 			link.hasAttribute('hx-get') ||
+			// Download links never navigate, so pageshow would never fire to
+			// clear the progress bar
+			link.hasAttribute('download') ||
 			link.classList.contains('btn-disabled') ||
 			event.metaKey ||
 			event.ctrlKey ||

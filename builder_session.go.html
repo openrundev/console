@@ -523,6 +523,7 @@
                         {{ if .Data.Files }}
                           <a
                             href="{{ $.AppPath }}/builder/download?id={{ .Data.Id }}"
+                            download
                             class="btn btn-ghost btn-xs btn-circle tooltip tooltip-left"
                             data-tip="Download the source files as a zip"
                             aria-label="Download the source files as a zip">
