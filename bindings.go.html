@@ -94,8 +94,10 @@
       {{ if index .Perms "binding:delete" }}
         data-tip="Delete binding" hx-post="{{ .AppPath }}/bindings/delete"
         hx-disabled-elt="this" hx-vals='{"path": "{{ .Path }}"}'
-        hx-confirm="Delete binding {{ .Path }}? Apps referencing it will fail to
-        load." hx-target="#binding-groups" hx-swap="innerHTML transition:true"
+        hx-confirm="Delete binding {{ .Path }}? Its database accounts are
+        dropped (for a base binding including the schema/database and its
+        data), and apps referencing it will fail to load."
+        hx-target="#binding-groups" hx-swap="innerHTML transition:true"
         hx-include="#page-search" hx-indicator="#page-progress"
       {{ else }}
         disabled data-tip="requires binding:delete"

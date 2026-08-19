@@ -227,7 +227,7 @@
                           data-tip="Delete app"
                           hx-post="{{ .AppPath }}/apps/detail/delete"
                           hx-vals='{"path": "{{ .Data.Path }}"}'
-                          hx-confirm="Delete {{ .Data.Path }}? This deletes the prod, staging and preview apps."
+                          hx-confirm="Delete {{ .Data.Path }}? This deletes the prod, staging and preview apps, plus any auto bindings with their database objects and data."
                           hx-target="#detail-content"
                           hx-swap="innerHTML transition:true"
                           hx-indicator="#page-progress"
