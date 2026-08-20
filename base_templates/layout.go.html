@@ -63,7 +63,7 @@
     */}}
     <link
       rel="preload"
-      href="{{ .AppPath }}/static/fonts/inter-400.woff2"
+      href="{{ .AppPath }}/static/fonts/schibsted-grotesk-400.woff2"
       as="font"
       type="font/woff2"
       crossorigin />
@@ -207,7 +207,9 @@
 {{/* theme_toggle is the sun/moon switch, persisted via localStorage. The
   checkbox stays focusable (daisyui swap hides it visually,
   accessibility.css stretches it over the label) so the toggle works from
-  the keyboard
+  the keyboard. ICON CONVENTION: the icon shows the theme the click
+  switches TO (moon while light, sun while dark) - it is an action button,
+  not a state indicator. checked = light, so swap-on carries the moon.
 */}}
 {{ define "theme_toggle" }}
   <label
@@ -218,8 +220,8 @@
       type="checkbox"
       role="switch"
       aria-label="Light theme" />
-    <span class="swap-on" aria-hidden="true">☀️</span>
-    <span class="swap-off" aria-hidden="true">🌙</span>
+    <span class="swap-on" aria-hidden="true">🌙</span>
+    <span class="swap-off" aria-hidden="true">☀️</span>
   </label>
   <script>
     // Set the toggle to the active theme before first paint; doing this
