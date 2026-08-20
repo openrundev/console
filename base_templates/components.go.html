@@ -77,11 +77,16 @@
     {{- $time = .Time -}}
     {{- $res = .Res -}}
   {{- end -}}
-  {{- $t := toDate "2006-01-02T15:04:05Z07:00" $time -}}
+  {{- /* timestamps are time.Time values; RFC3339 strings (legacy paths)
+    are parsed. dateInZone and relTime take the time value directly */ -}}
+  {{- $t := $time -}}
+  {{- if kindIs "string" $time -}}
+    {{- $t = toDate "2006-01-02T15:04:05Z07:00" $time -}}
+  {{- end -}}
   <span
     class="tooltip"
     data-tip="{{ dateInZone "2006-01-02 15:04:05" $t "UTC" }} UTC"
-    >{{ relTime $time $res }}</span
+    >{{ relTime $t $res }}</span
   >
 {{- end }}
 

@@ -145,7 +145,7 @@
               {{ if .update_time }}
                 <span
                   class="tooltip tooltip-left"
-                  data-tip="{{ dateInZone "2006-01-02 15:04:05" (toDate "2006-01-02T15:04:05Z07:00" .update_time) "UTC" }} UTC · by {{ if .update_user }}
+                  data-tip="{{ dateInZone "2006-01-02 15:04:05" .update_time "UTC" }} UTC · by {{ if .update_user }}
                     {{ .update_user }}
                   {{ else }}
                     unknown

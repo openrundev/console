@@ -172,12 +172,15 @@ def flash_result(data, error, ok, fail_prefix=""):
 
 
 def sort_recent(items, time_key, tie_key):
-    # Most recently updated entries first. The time values are date-first
-    # formatted strings, so lexicographic order is chronological; entries
-    # without a time sort last. The stable two-pass sort gives an ascending
-    # tie break on tie_key
+    # Most recently updated entries first. Time values are time.time values
+    # (or "" when unset, sorting last); the stable two-pass sort gives an
+    # ascending tie break on tie_key
+    def epoch(item):
+        t = item.get(time_key)
+        return t.unix_nano if type(t) == "time.time" else 0
+
     items = sorted(items, key=lambda item: item[tie_key])
-    return sorted(items, key=lambda item: item.get(time_key) or "", reverse=True)
+    return sorted(items, key=epoch, reverse=True)
 
 
 def short_sha(sha):
@@ -205,7 +208,13 @@ def pct_num(text):
 
 
 def nonzero_time(t):
-    # The APIs emit the go zero time ("0001-01-01...") for unset timestamps
+    # Timestamps arrive from the plugin APIs as time.time values, passed
+    # through to the templates unconverted (relTime / time_ago / dateInZone
+    # take time values directly). The go zero time means unset and maps to
+    # "" so template {{ if }} guards and `or` defaults stay falsy. Legacy
+    # string timestamps pass through unchanged
+    if type(t) == "time.time":
+        return "" if t.year == 1 else t
     t = t or ""
     return "" if t.startswith("0001-") else t
 

@@ -41,20 +41,9 @@ def ov_uptime(secs):
 
 
 def ov_trim_time(t):
-    # RFC3339 with fractional seconds -> second precision for the time_ago
-    # template (its toDate layout takes none). The zone suffix is kept:
-    # in-process timestamps (server_info, litestream) carry a local UTC
-    # offset, not the audit log's "Z"
-    t = utils.nonzero_time(t or "")
-    if "." not in t:
-        return t
-    base, rest = t.split(".", 1)
-    zone = "Z"
-    for i in range(len(rest)):
-        if not rest[i].isdigit():
-            zone = rest[i:]
-            break
-    return base + zone
+    # Timestamps are time.time values, passed through to the templates; the
+    # go zero time (unset) maps to ""
+    return utils.nonzero_time(t)
 
 
 def ov_apps_tile(perms):
@@ -716,8 +705,8 @@ def version_spec_label(spec):
 
 
 def diff_rows(diff):
-    # Normalize export_app_diff rows for the template: numbers arrive as
-    # floats, line number 0 means no line on that side (spacer row)
+    # Normalize export_app_diff rows for the template: line number 0 means
+    # no line on that side (spacer row)
     rows = []
     for row in diff["rows"] or []:
         left_line = int(row["left_line"])
@@ -2144,11 +2133,6 @@ def audit_data(req):
     events = []
     for entry in ret.value:
         e = dict(entry.items())
-        # Normalize the timestamp: the API emits fractional seconds
-        # ("...05.123Z") which the template date parsing does not accept
-        t = e.get("create_time") or ""
-        if "." in t:
-            e["create_time"] = t.split(".")[0] + "Z"
         status = e.get("status") or ""
         if status == "Success" or status.startswith("2") or status.startswith("3"):
             e["status_style"] = "ok"
