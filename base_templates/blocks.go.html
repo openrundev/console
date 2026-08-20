@@ -1208,3 +1208,49 @@
     {{ end }}
   </div>
 {{ end }}
+
+{{/* binding_health_status renders a bindings-page card health indicator.
+  The skeleton in the card header hx-gets /bindings/health?group=... on load
+  and swaps to this: all entries healthy renders a success chip; failures
+  render a <details> error chip whose panel expands IN FLOW inside the card
+  header (never a popup - a dropdown from one card would paint under the
+  next card, THE STACKING INVARIANT). The failing entries and their error
+  messages are already in this response, so opening the panel needs no
+  further request. Route fragment template: receives the request context.
+*/}}
+{{ define "binding_health_status" }}
+  {{ if .Data.Error }}
+    <span
+      class="bh-status text-xs text-base-content/70"
+      title="{{ .Data.Error }}"
+      >health unavailable</span
+    >
+  {{ else if .Data.Empty }}
+    <span class="bh-status hidden" aria-hidden="true"></span>
+  {{ else if .Data.HasFailures }}
+    <details class="bh-status bh-details">
+      <summary
+        class="badge badge-error badge-soft badge-sm cursor-pointer select-none"
+        title="show failing entries">
+        {{ .Data.UnhealthyText }}
+      </summary>
+      <div class="mt-2 w-full space-y-1 text-xs">
+        {{ range .Data.Failures }}
+          <div class="flex items-baseline gap-2 flex-wrap">
+            <span class="font-mono break-all">{{ .id }}</span>
+            {{ if .env }}
+              <span class="badge badge-ghost badge-xs">{{ .env }}</span>
+            {{ end }}
+            <span class="text-base-content/80 break-all">{{ .error }}</span>
+          </div>
+        {{ end }}
+      </div>
+    </details>
+  {{ else }}
+    <span
+      class="bh-status badge badge-success badge-soft badge-sm tooltip tooltip-top"
+      data-tip="{{ .Data.HealthyTip }}"
+      >healthy</span
+    >
+  {{ end }}
+{{ end }}

@@ -206,6 +206,11 @@ def build_routes():
                      ace.fragment("delete", method="POST", handler=handler.bindings_delete_handler),
                      ace.fragment("services/delete", method="POST", handler=handler.services_delete_handler),
                  ] if ENABLE_UPDATES else []),
+        # Bindings-page card health indicators: skeleton first, one aggregate
+        # health check call per group loaded async (the checks dial the
+        # backends; results are cached server-side). Fragment-only endpoint:
+        # the response template is a base-templates define referenced by name
+        ace.html("/bindings/health", full="binding_health_status", handler=handler.bindings_health_data),
     ]
 
     if ENABLE_UPDATES:
@@ -393,6 +398,8 @@ def build_permissions():
         perm("openrun.in", "list_audit_events"),
         perm("openrun.in", "list_sync"),
         perm("openrun.in", "list_bindings"),
+        perm("openrun.in", "service_health"),
+        perm("openrun.in", "binding_health"),
         perm("openrun.in", "list_specs"),
         perm("openrun.in", "get_app"),
         perm("openrun.in", "get_permissions"),

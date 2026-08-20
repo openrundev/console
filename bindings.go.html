@@ -3,6 +3,22 @@
 {{/* Bindings page (/bindings): services table plus base/derived/auto
   binding tables. HTMX partial: block binding_groups
 */}}
+{{/* binding_health_loader renders the async health indicator slot for a card
+  header: a skeleton that hx-gets the group's aggregate health check on load
+  and swaps to the binding_health_status fragment. Context: dict with
+  AppPath and Group (services/base/derived/auto). Fires again on every
+  binding_groups swap (search, row actions) - the server caches check
+  results, so refires do not re-dial the backends.
+*/}}
+{{ define "binding_health_loader" }}
+  <span
+    hx-get="{{ .AppPath }}/bindings/health?group={{ .Group }}"
+    hx-trigger="load"
+    hx-swap="outerHTML">
+    <span class="skeleton inline-block h-5 w-16 align-middle"></span>
+  </span>
+{{ end }}
+
 {{/* binding_service renders the service name and type for a binding row */}}
 {{ define "binding_service" }}
   {{ if .service_name }}
@@ -207,6 +223,9 @@
                     >{{ len .Data.Services }} services - bindings connect apps
                     to these</span
                   >
+                  {{ if .Data.Services }}
+                    {{ template "binding_health_loader" (dict "AppPath" .AppPath "Group" "services") }}
+                  {{ end }}
                 </div>
                 {{ if .Data.ServicesError }}
                   <p class="text-sm text-base-content/70 px-4 py-4 break-all">
@@ -329,6 +348,7 @@
                     <span class="text-xs text-base-content/70"
                       >bind directly to a service</span
                     >
+                    {{ template "binding_health_loader" (dict "AppPath" .AppPath "Group" "base") }}
                   </div>
                   <div class="overflow-x-auto">
                     <table class="table table-sm">
@@ -392,6 +412,7 @@
                       >extend a base binding with grants and config
                       overrides</span
                     >
+                    {{ template "binding_health_loader" (dict "AppPath" .AppPath "Group" "derived") }}
                   </div>
                   <div class="overflow-x-auto">
                     <table class="table table-sm">
@@ -482,6 +503,7 @@
                       >created automatically when an app references a service
                       directly</span
                     >
+                    {{ template "binding_health_loader" (dict "AppPath" .AppPath "Group" "auto") }}
                   </div>
                   <div class="overflow-x-auto">
                     <table class="table table-sm">

@@ -899,3 +899,19 @@ builder-chat .bc-tool-title {
 .diff-code .hljs-built_in {
   color: var(--color-warning);
 }
+
+/* Bindings-page card health indicator: the unhealthy chip is a <details>
+   whose failure panel expands IN FLOW inside the card header, pushing the
+   table down - never a popup (a dropdown opened from one card paints under
+   the next positioned sibling card: THE STACKING INVARIANT). Open, the
+   details takes a full-width line of the flex-wrap header so the panel gets
+   the card's whole width. */
+.bh-details > summary {
+  list-style: none;
+}
+.bh-details > summary::-webkit-details-marker {
+  display: none;
+}
+.bh-details[open] {
+  flex-basis: 100%;
+}

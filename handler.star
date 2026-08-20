@@ -1683,6 +1683,55 @@ def bindings_data(req):
     }
 
 
+def bindings_health_data(req):
+    # Card health indicator fragments for the bindings page: one aggregate
+    # call checks every entry in the group (services / base / derived / auto
+    # bindings). The checks dial the real backends, so the page renders a
+    # skeleton and loads these async; the server caches results per target,
+    # keeping the load-triggered refires on partial swaps cheap. Bindings are
+    # checked on BOTH the prod and the staging account.
+    group = utils.query_param(req, "group")
+    if group == "services":
+        ret = openrun.service_health()
+    elif group == "base":
+        ret = openrun.binding_health(kind="base")
+    elif group == "derived":
+        ret = openrun.binding_health(kind="derived")
+    elif group == "auto":
+        ret = openrun.binding_health(kind="auto")
+    else:
+        return {"Group": group, "Error": "unknown health group %s" % group}
+
+    error = ret.error
+    if error:
+        return {"Group": group, "Error": error}
+
+    value = ret.value
+    total = int(value["total"])
+    unhealthy = int(value["unhealthy"])
+    failures = []
+    for entry in value["results"]:
+        if group == "services":
+            if not entry["healthy"]:
+                failures.append({"id": entry["id"], "env": "", "error": entry["error"]})
+        else:
+            # A binding row can fail on either env; list each failing env
+            if not entry["healthy"]:
+                failures.append({"id": entry["path"], "env": "prod", "error": entry["error"]})
+            if not entry["staging_healthy"]:
+                failures.append({"id": entry["path"], "env": "staging", "error": entry["staging_error"]})
+
+    return {
+        "Group": group,
+        "Error": "",
+        "Empty": total == 0,
+        "HasFailures": len(failures) > 0,
+        "UnhealthyText": "%d unhealthy" % unhealthy,
+        "HealthyTip": "%d checked, all healthy" % total,
+        "Failures": failures,
+    }
+
+
 def binding_form_values(req):
     # The form fields for the binding create/update subpages
     return {
