@@ -24,7 +24,7 @@
                 class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
                 {{ template "hamburger" . }}
                 <div>
-                  {{ template "page_title" "OpenRun Configuration" }}
+                  {{ template "page_title" "Configuration" }}
                   <nav
                     aria-label="Breadcrumb"
                     class="breadcrumbs text-xs text-base-content/70 p-0">
@@ -59,10 +59,16 @@
                 {{ end }}
 
                 {{ if .Data.HasStaged }}
-                  <!-- Staged changes banner -->
+                  <!-- Staged changes banner. The alert is a GRID (flex-wrap
+                    does nothing): without alert-vertical the message column
+                    gets crushed to a sliver on mobile and the buttons
+                    overflow the right edge. alert-vertical stacks
+                    icon/text/buttons below sm; the justify-items-start +
+                    text-start utilities undo its centering (long sentences
+                    read left-aligned) -->
                   <div
                     role="alert"
-                    class="alert alert-info alert-soft py-2 text-sm flex-wrap">
+                    class="alert alert-vertical sm:alert-horizontal alert-info alert-soft py-2 text-sm justify-items-start text-start">
                     <span aria-hidden="true">⧗</span>
                     <span>
                       Staged changes by
@@ -99,7 +105,7 @@
                       {{ end }}
                       enforcement still uses the live config
                     </span>
-                    <div class="ml-auto flex items-center gap-2">
+                    <div class="ml-auto flex flex-wrap items-center justify-end gap-2">
                       {{ if $viewLive }}
                         <button
                           class="btn btn-xs btn-ghost tooltip tooltip-top"
@@ -173,10 +179,12 @@
                 {{ end }}
 
 
-                <!-- RBAC card -->
+                <!-- RBAC status card; the groups/roles/grants tables render
+                  as their own cards below (the bindings-page per-group card
+                  pattern) so the sections read as distinct tables -->
                 <div class="card bg-base-100 border border-base-300">
                   <div
-                    class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
+                    class="px-4 py-2.5 flex items-center gap-2 flex-wrap">
                     <h2 class="text-sm font-medium">RBAC</h2>
                     {{ if .Data.Live.enabled }}
                       <span class="badge badge-success badge-sm badge-soft"
@@ -243,12 +251,13 @@
                       </button>
                     {{ end }}
                   </div>
+                </div>
 
-                  <div class="card-body p-4 gap-5">
-                    <!-- Groups -->
-                    <div>
-                      <div class="flex items-center gap-2 mb-2">
-                        <h3 class="text-sm font-medium">Groups</h3>
+                <!-- Groups card -->
+                <div class="card bg-base-100 border border-base-300">
+                  <div
+                    class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
+                    <h3 class="text-sm font-medium">Groups</h3>
                         <span class="text-xs text-base-content/70"
                           >{{ len $view.groups }} groups - user id lists, usable
                           in grants</span
@@ -333,16 +342,17 @@
                           </table>
                         </div>
                       {{ else }}
-                        <p class="text-xs text-base-content/70">
+                        <p class="px-4 py-3 text-xs text-base-content/70">
                           No groups defined
                         </p>
                       {{ end }}
                     </div>
 
-                    <!-- Roles -->
-                    <div>
-                      <div class="flex items-center gap-2 mb-2">
-                        <h3 class="text-sm font-medium">Roles</h3>
+                <!-- Roles card -->
+                <div class="card bg-base-100 border border-base-300">
+                  <div
+                    class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
+                    <h3 class="text-sm font-medium">Roles</h3>
                         <span class="text-xs text-base-content/70"
                           >{{ len $view.roles }} roles - permission sets; the
                           built-in <span class="font-mono">admin</span> role
@@ -430,16 +440,17 @@
                           </table>
                         </div>
                       {{ else }}
-                        <p class="text-xs text-base-content/70">
+                        <p class="px-4 py-3 text-xs text-base-content/70">
                           No roles defined
                         </p>
                       {{ end }}
                     </div>
 
-                    <!-- Grants -->
-                    <div>
-                      <div class="flex items-center gap-2 mb-2">
-                        <h3 class="text-sm font-medium">Grants</h3>
+                <!-- Grants card -->
+                <div class="card bg-base-100 border border-base-300">
+                  <div
+                    class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
+                    <h3 class="text-sm font-medium">Grants</h3>
                         <span class="text-xs text-base-content/70"
                           >{{ len $view.grants }} grants - who gets which roles
                           on which apps, services and bindings</span
@@ -549,14 +560,12 @@
                           </table>
                         </div>
                       {{ else }}
-                        <p class="text-xs text-base-content/70">
+                        <p class="px-4 py-3 text-xs text-base-content/70">
                           No grants defined - with RBAC enabled, only admins can
                           use the management APIs
                         </p>
                       {{ end }}
                     </div>
-                  </div>
-                </div>
               {{ end }}
             {{ end }}
             <!-- End of "rbac_content" block -->

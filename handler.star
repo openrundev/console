@@ -1698,17 +1698,35 @@ def bindings_health_data(req):
     value = ret.value
     total = int(value["total"])
     unhealthy = int(value["unhealthy"])
+
+    # Auto bindings belong to an app (path is /auto/<app_id>/<service_type>);
+    # resolve the owning app so failing entries can name and link it. Best
+    # effort: without app read access the entries just render pathless.
+    app_paths = {}
+    if group == "auto" and unhealthy > 0:
+        apps_ret = openrun.list_apps(include_internal=True)
+        apps_error = apps_ret.error
+        if not apps_error:
+            for entry in apps_ret.value:
+                app_paths[entry["id"]] = entry["path"]
+
+    auto_app_path = lambda path: app_paths.get(
+        path.split("/")[2] if len(path.split("/")) > 3 else "", "")
+
     failures = []
     for entry in value["results"]:
         if group == "services":
             if not entry["healthy"]:
-                failures.append({"id": entry["id"], "env": "", "error": entry["error"]})
+                failures.append({"id": entry["id"], "env": "", "error": entry["error"], "app_path": ""})
         else:
             # A binding row can fail on either env; list each failing env
+            app_path = auto_app_path(entry["path"]) if group == "auto" else ""
             if not entry["healthy"]:
-                failures.append({"id": entry["path"], "env": "prod", "error": entry["error"]})
+                failures.append({"id": entry["path"], "env": "prod", "error": entry["error"],
+                                 "app_path": app_path})
             if not entry["staging_healthy"]:
-                failures.append({"id": entry["path"], "env": "staging", "error": entry["staging_error"]})
+                failures.append({"id": entry["path"], "env": "staging", "error": entry["staging_error"],
+                                 "app_path": app_path})
 
     return {
         "Group": group,

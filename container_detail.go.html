@@ -21,7 +21,7 @@
             <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
               {{ template "hamburger" . }}
               <div>
-                {{ template "page_title" "OpenRun Containers" }}
+                {{ template "page_title" "Containers" }}
                 <div class="flex items-center gap-2"><nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0"><ul><li><a href="{{ .AppPath }}/containers">Containers</a></li><li class="font-mono">{{ if .Data.Container }}{{ trunc 24 .Data.Container.name }}…{{ else }}detail{{ end }}</li></ul></nav>{{ template "help_link" .Data.HelpUrl }}</div>
                 <h2 class="text-xl font-medium font-mono break-all">
                   {{ if .Data.Container }}

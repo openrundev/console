@@ -118,6 +118,23 @@ tr:focus-within [class*="group-hover:opacity-100"] {
   color: inherit;
 }
 
+/* Dark mode: daisyui's active pill is the neutral surface (#22312a), which
+   is nearly invisible against the base-100 sidebar (#17221a). Route the
+   pill through a primary-tinted lifted surface instead; light mode keeps
+   the daisyui neutral (a dark pill on white, already high contrast). The
+   guarded pair covers both an explicit data-theme choice and the
+   system-preference default (no data-theme attribute). */
+html[data-theme="openrun-dark"] #main-nav .menu {
+  --menu-active-bg: color-mix(in oklab, var(--color-primary) 24%, var(--color-base-100));
+  --menu-active-fg: var(--color-base-content);
+}
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="openrun-light"]) #main-nav .menu {
+    --menu-active-bg: color-mix(in oklab, var(--color-primary) 24%, var(--color-base-100));
+    --menu-active-fg: var(--color-base-content);
+  }
+}
+
 /* ---- <secret-input> component -----------------------------------------
    The custom element renders its light DOM from console.js, which loads in
    <head> before the body parses, so elements upgrade during parsing and

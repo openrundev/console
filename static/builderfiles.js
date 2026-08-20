@@ -26,6 +26,27 @@
 			// file tree: native CSS resize, browser-rendered corner grip
 			'builder-files .bf-tree{width:13rem;min-width:7rem;max-width:22rem;' +
 			'resize:horizontal;overflow:auto;border-inline-end:1px solid var(--color-base-300)}' +
+			// mobile (<48rem): the tree collapses into an expandable overlay
+			// sidebar, closed by default; a narrow rail with a chevron stays
+			// visible on the left to toggle it (rail injected in init). The
+			// overlay is absolute INSIDE the component, so it never escapes
+			// the card or fights sibling stacking contexts.
+			'builder-files .bf-tree-toggle{display:none}' +
+			'@media (max-width:47.9375rem){' +
+			'builder-files{position:relative}' +
+			'builder-files .bf-tree-toggle{display:flex;flex:none;width:1.75rem;align-items:center;' +
+			'justify-content:center;padding:0;border:0;cursor:pointer;' +
+			'border-inline-end:1px solid var(--color-base-300);' +
+			'background:color-mix(in oklab,var(--color-base-200) 60%,var(--color-base-100));' +
+			'color:color-mix(in oklab,var(--color-base-content) 70%,transparent)}' +
+			'builder-files .bf-tree-toggle svg{width:1rem;height:1rem;transition:transform .15s}' +
+			'builder-files.bf-tree-open .bf-tree-toggle svg{transform:rotate(180deg)}' +
+			'builder-files .bf-tree{display:none;position:absolute;left:1.75rem;top:0;bottom:0;z-index:10;' +
+			'width:min(15rem,calc(100% - 1.75rem));min-width:0;max-width:none;resize:none;' +
+			'background:var(--color-base-100);' +
+			'box-shadow:6px 0 16px -6px color-mix(in oklab,var(--color-base-content) 35%,transparent)}' +
+			'builder-files.bf-tree-open .bf-tree{display:block}' +
+			'}' +
 			// tab panels: the hidden attribute must win over utility display classes
 			'[data-bf-panel][hidden]{display:none!important}' +
 			// resizable agent/preview split (xl+): the chat pane width comes
@@ -131,11 +152,37 @@
 			this.gutter = this.querySelector('.bf-gutter');
 			this.code = this.querySelector('.bf-code code');
 
+			// Mobile toggle rail for the collapsed tree (hidden >=48rem, see
+			// the injected media query)
+			if (!this.querySelector('.bf-tree-toggle')) {
+				const toggle = document.createElement('button');
+				toggle.type = 'button';
+				toggle.className = 'bf-tree-toggle';
+				toggle.setAttribute('aria-label', 'Toggle file list');
+				toggle.setAttribute('aria-expanded', 'false');
+				toggle.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" ' +
+					'stroke="currentColor" stroke-width="2" stroke-linecap="round" ' +
+					'stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>';
+				this.insertBefore(toggle, this.firstChild);
+			}
+
 			this.addEventListener('click', (e) => {
+				if (e.target.closest('.bf-tree-toggle')) {
+					this.setTreeOpen(!this.classList.contains('bf-tree-open'));
+					return;
+				}
 				const row = e.target.closest('[data-bf-file]');
 				if (row) {
 					e.preventDefault();
 					this.open(row);
+					// picking a file closes the mobile overlay (no-op on desktop,
+					// where the class has no styling)
+					this.setTreeOpen(false);
+					return;
+				}
+				// a tap outside the open overlay closes it
+				if (this.classList.contains('bf-tree-open') && !e.target.closest('.bf-tree')) {
+					this.setTreeOpen(false);
 				}
 			});
 
@@ -148,6 +195,12 @@
 				if (row.getAttribute('data-bf-file') === 'app.star') first = row;
 			});
 			if (first) this.open(first);
+		}
+
+		setTreeOpen(open) {
+			this.classList.toggle('bf-tree-open', open);
+			const toggle = this.querySelector('.bf-tree-toggle');
+			if (toggle) toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
 		}
 
 		async open(row) {

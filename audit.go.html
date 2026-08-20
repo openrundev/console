@@ -21,7 +21,7 @@
             class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" . }}
             <div>
-              {{ template "page_title" "OpenRun Audit Logs" }}
+              {{ template "page_title" "Audit Logs" }}
               <p class="page-desc text-sm text-base-content/70">
                 HTTP, system and custom audit events
               </p>
@@ -248,7 +248,7 @@
                   {{ if .Data.Filters.rid }}
                     <div
                       role="alert"
-                      class="alert alert-info alert-soft py-2 text-sm">
+                      class="alert alert-vertical sm:alert-horizontal alert-info alert-soft py-2 text-sm justify-items-start text-start">
                       <span aria-hidden="true">🔍</span>
                       {{/* min-w-0 + break-all: the rid is one unbreakable
                         token, without them it pushes Clear trace off screen

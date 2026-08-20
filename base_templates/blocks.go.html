@@ -314,14 +314,14 @@
 {{ define "promote_prompt" }}
   <div
     role="alert"
-    class="alert {{ if .Warning }}
+    class="alert alert-vertical sm:alert-horizontal {{ if .Warning }}
       alert-warning
     {{ else }}
       alert-info
-    {{ end }} alert-soft py-2 text-sm flex-wrap">
+    {{ end }} alert-soft py-2 text-sm justify-items-start text-start">
     <span aria-hidden="true">{{ if .Warning }}⚠{{ else }}✓{{ end }}</span>
     <span>{{ .Message }}</span>
-    <div class="ml-auto flex items-center gap-2">
+    <div class="ml-auto flex flex-wrap items-center justify-end gap-2">
       {{ if .StageUrl }}
         <a
           href="{{ .StageUrl }}"
@@ -1230,27 +1230,41 @@
   {{ else if .Data.HasFailures }}
     <details class="bh-status bh-details">
       <summary
-        class="badge badge-error badge-soft badge-sm cursor-pointer select-none"
+        class="badge badge-error badge-soft badge-sm gap-1.5 cursor-pointer select-none"
         title="show failing entries">
+        <span class="status status-error" aria-hidden="true"></span>
         {{ .Data.UnhealthyText }}
       </summary>
-      <div class="mt-2 w-full space-y-1 text-xs">
+      <ul class="mt-2 w-full space-y-1.5 text-xs list-none">
         {{ range .Data.Failures }}
-          <div class="flex items-baseline gap-2 flex-wrap">
-            <span class="font-mono break-all">{{ .id }}</span>
-            {{ if .env }}
-              <span class="badge badge-ghost badge-xs">{{ .env }}</span>
-            {{ end }}
-            <span class="text-base-content/80 break-all">{{ .error }}</span>
-          </div>
+          <li class="rounded-md border border-error/20 bg-error/5 px-2.5 py-1.5">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="status status-error shrink-0" aria-hidden="true"></span>
+              <span class="font-mono font-medium break-all">{{ .id }}</span>
+              {{ if .env }}
+                <span class="badge badge-ghost badge-xs">{{ .env }}</span>
+              {{ end }}
+              {{ if .app_path }}
+                <a
+                  class="link link-hover text-primary whitespace-nowrap"
+                  href="{{ $.AppPath }}/apps/detail?path={{ .app_path }}"
+                  >{{ .app_path }} <span aria-hidden="true">↗</span></a
+                >
+              {{ end }}
+            </div>
+            <div class="mt-0.5 pl-4 text-base-content/80 break-all">
+              {{ .error }}
+            </div>
+          </li>
         {{ end }}
-      </div>
+      </ul>
     </details>
   {{ else }}
     <span
-      class="bh-status badge badge-success badge-soft badge-sm tooltip tooltip-top"
-      data-tip="{{ .Data.HealthyTip }}"
-      >healthy</span
+      class="bh-status badge badge-success badge-soft badge-sm gap-1.5 tooltip tooltip-top"
+      data-tip="{{ .Data.HealthyTip }}">
+      <span class="status status-success" aria-hidden="true"></span>
+      healthy</span
     >
   {{ end }}
 {{ end }}

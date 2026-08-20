@@ -233,13 +233,16 @@ label.input:focus-within {
 
 /* ---- Page titles ------------------------------------------------------
    Main list-page headings carry a brand accent bar, giving each screen a
-   strong anchor without contrast concerns. The width matches the "OpenRun"
-   prefix of the titles (em-based, so it tracks the heading size); the bar
-   fades in from nothing up to the brand light green. */
+   strong anchor without contrast concerns. The heading shrinks to its text
+   (fit-content) so the bar underneath spans exactly the title's width; the
+   bar fades in from nothing up to the brand light green. */
+.page-title {
+  width: fit-content;
+}
 .page-title::after {
   content: "";
   display: block;
-  width: 4.3em;
+  width: 100%;
   height: 3px;
   margin-top: 0.3rem;
   margin-bottom: 0.6rem;

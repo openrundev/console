@@ -16,7 +16,7 @@
           <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" . }}
             <div>
-              {{ template "page_title" "OpenRun Bindings" }}
+              {{ template "page_title" "Bindings" }}
               <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0"><ul><li><a href="{{ .AppPath }}/bindings">Bindings</a></li><li>{{ if eq .Data.Mode "create" }}new{{ else }}edit{{ end }}</li></ul></nav>
               <h2 class="text-xl font-semibold">
                 {{ if eq .Data.Mode "create" }}

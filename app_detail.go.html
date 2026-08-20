@@ -112,7 +112,7 @@
           <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" . }}
             <div>
-              {{ template "page_title" "OpenRun Apps" }}
+              {{ template "page_title" "Apps" }}
               <div class="flex items-center gap-2"><nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0"><ul class="flex-wrap whitespace-normal"><li><a href="{{ .AppPath }}/apps">Apps</a></li><li class="font-mono break-all">{{ .Data.Path }}</li></ul></nav>{{ template "help_link" .Data.HelpUrl }}</div>
               <h2 class="text-xl font-medium font-mono break-all">{{ .Data.Path }}</h2>
               <p class="page-desc text-sm text-base-content/70">
@@ -574,7 +574,7 @@
               {{ if .Data.NeedsApproval }}
                 <div
                   role="alert"
-                  class="alert alert-warning alert-soft py-2 text-sm flex-wrap">
+                  class="alert alert-vertical sm:alert-horizontal alert-warning alert-soft py-2 text-sm justify-items-start text-start">
                   <span aria-hidden="true">⚠</span>
                   <span
                     >The app requests permissions which are not approved yet -
