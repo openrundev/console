@@ -7,64 +7,18 @@
 /* ---- Typography ---------------------------------------------------------
    Self-hosted brand type (SIL OFL, woff2 in static/fonts/, downloaded from
    fontsource): Space Grotesk for headings, Schibsted Grotesk for body,
-   JetBrains Mono for code and identifiers. The generated tailwind layer
-   routes every font through --font-sans/--font-mono, so redefining the
-   variables here covers the preflight body default and the
+   JetBrains Mono for code and identifiers. The @font-face declarations
+   live in the head define of base_templates/layout.go.html so the font
+   urls go through the static helper and get content-hashed names; this
+   file references the fonts by their plain family names. The generated
+   tailwind layer routes every font through --font-sans/--font-mono, so
+   redefining the variables here covers the preflight body default and the
    font-sans/font-mono utilities alike.
    Weights follow usage: Schibsted Grotesk 400/500/600 (body, font-medium,
    font-semibold), Space Grotesk 500/700 (card h2s, titles - the extrabold
    italic page title maps to 700 with a synthesized slant, Space Grotesk
    has no 800 and no italic), JetBrains Mono 400/500. The three faces used
    above the fold are preloaded in the head define. */
-@font-face {
-  font-family: "Schibsted Grotesk";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("../fonts/schibsted-grotesk-400.woff2") format("woff2");
-}
-@font-face {
-  font-family: "Schibsted Grotesk";
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url("../fonts/schibsted-grotesk-500.woff2") format("woff2");
-}
-@font-face {
-  font-family: "Schibsted Grotesk";
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url("../fonts/schibsted-grotesk-600.woff2") format("woff2");
-}
-@font-face {
-  font-family: "Space Grotesk";
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url("../fonts/space-grotesk-500.woff2") format("woff2");
-}
-@font-face {
-  font-family: "Space Grotesk";
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url("../fonts/space-grotesk-700.woff2") format("woff2");
-}
-@font-face {
-  font-family: "JetBrains Mono";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("../fonts/jetbrains-mono-400.woff2") format("woff2");
-}
-@font-face {
-  font-family: "JetBrains Mono";
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url("../fonts/jetbrains-mono-500.woff2") format("woff2");
-}
 
 :root {
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);

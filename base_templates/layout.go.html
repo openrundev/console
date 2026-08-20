@@ -55,30 +55,80 @@
     </style>
     <script src="{{ static "console.js" }}"></script>
 
-    {{/* Brand fonts (see the Typography section of static/css/style.css);
-      the faces used above the fold are preloaded so text does not swap
-      after first paint. Plain (unhashed) paths on purpose: the css url()
-      references resolve to these exact urls, a hashed static-helper href
-      would preload a different url and download the font twice
-    */}}
+    {{/* Brand fonts (see the Typography section of static/css/style.css).
+      The @font-face declarations live here rather than in the css so the
+      font urls go through the static helper and get content-hashed names;
+      the above-the-fold faces are preloaded with the SAME hashed urls, so
+      each font downloads once and text does not swap after first paint */}}
     <link
       rel="preload"
-      href="{{ .AppPath }}/static/fonts/schibsted-grotesk-400.woff2"
+      href="{{ static "fonts/schibsted-grotesk-400.woff2" }}"
       as="font"
       type="font/woff2"
       crossorigin />
     <link
       rel="preload"
-      href="{{ .AppPath }}/static/fonts/jetbrains-mono-400.woff2"
+      href="{{ static "fonts/jetbrains-mono-400.woff2" }}"
       as="font"
       type="font/woff2"
       crossorigin />
     <link
       rel="preload"
-      href="{{ .AppPath }}/static/fonts/space-grotesk-700.woff2"
+      href="{{ static "fonts/space-grotesk-700.woff2" }}"
       as="font"
       type="font/woff2"
       crossorigin />
+    <style>
+      @font-face {
+        font-family: "Schibsted Grotesk";
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+        src: url("{{ static "fonts/schibsted-grotesk-400.woff2" }}") format("woff2");
+      }
+      @font-face {
+        font-family: "Schibsted Grotesk";
+        font-style: normal;
+        font-weight: 500;
+        font-display: swap;
+        src: url("{{ static "fonts/schibsted-grotesk-500.woff2" }}") format("woff2");
+      }
+      @font-face {
+        font-family: "Schibsted Grotesk";
+        font-style: normal;
+        font-weight: 600;
+        font-display: swap;
+        src: url("{{ static "fonts/schibsted-grotesk-600.woff2" }}") format("woff2");
+      }
+      @font-face {
+        font-family: "Space Grotesk";
+        font-style: normal;
+        font-weight: 500;
+        font-display: swap;
+        src: url("{{ static "fonts/space-grotesk-500.woff2" }}") format("woff2");
+      }
+      @font-face {
+        font-family: "Space Grotesk";
+        font-style: normal;
+        font-weight: 700;
+        font-display: swap;
+        src: url("{{ static "fonts/space-grotesk-700.woff2" }}") format("woff2");
+      }
+      @font-face {
+        font-family: "JetBrains Mono";
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+        src: url("{{ static "fonts/jetbrains-mono-400.woff2" }}") format("woff2");
+      }
+      @font-face {
+        font-family: "JetBrains Mono";
+        font-style: normal;
+        font-weight: 500;
+        font-display: swap;
+        src: url("{{ static "fonts/jetbrains-mono-500.woff2" }}") format("woff2");
+      }
+    </style>
 
     {{/* Cross-document view transitions (see accessibility.css) snapshot
       the outgoing and incoming pages; block rendering until the sidebar
@@ -108,7 +158,7 @@
   <div class="mobile-brand lg:hidden flex flex-col items-center self-start">
     <a href="{{ .AppPath }}/" class="mobile-logo">
       <img
-        src="{{ static "openrun.png" }}"
+        src="{{ static "openrun.svg" }}"
         alt="OpenRun"
         width="600"
         height="325"
@@ -288,7 +338,7 @@
         class="px-3 py-1.5 flex items-center justify-center border-b border-base-300">
         <a href="{{ .AppPath }}/" class="logo-mark inline-block">
           <img
-            src="{{ static "openrun.png" }}"
+            src="{{ static "openrun.svg" }}"
             alt="OpenRun"
             width="600"
             height="325"
