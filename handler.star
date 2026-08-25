@@ -297,6 +297,8 @@ def overview_containers_handler(req):
     apps_running = 0
     ls_total = 0
     ls_running = 0
+    sc_total = 0
+    sc_running = 0
     runtime = ""
     for entry in ret.value:
         runtime = entry["runtime"]
@@ -304,6 +306,11 @@ def overview_containers_handler(req):
         if entry["name"].endswith("-ls"):
             ls_total += 1
             ls_running += 1 if is_running else 0
+        elif entry.get("role") == "sidecar":
+            # App sidecars are separate labeled containers on docker/podman
+            # (in-pod on kubernetes, counted with their pod)
+            sc_total += 1
+            sc_running += 1 if is_running else 0
         else:
             apps_total += 1
             apps_running += 1 if is_running else 0
@@ -317,6 +324,9 @@ def overview_containers_handler(req):
         rows.append(ov_container_kind_row("builder agents", "agent"))
         if runtime == "kubernetes":
             rows.append(ov_container_kind_row("kaniko builds", "kaniko"))
+    if runtime != "kubernetes":
+        rows.append({"label": "app sidecars", "running": sc_running,
+                     "total": sc_total})
     rows.append({"label": "litestream sidecars", "running": ls_running,
                  "total": ls_total})
     data["Rows"] = rows
@@ -911,6 +921,90 @@ def apps_version_file_handler(req):
 ENV_ORDER = {"prod": "0", "stage": "1", "preview": "2", "dev": "3"}
 
 
+def container_time_tip(c):
+    # Tooltip for a container row: when it started (running) or when it
+    # started and stopped (exited). Times come from list_containers
+    # times=True; empty when the runtime does not report them
+    started = short_ts(c.get("started_at"))
+    tip = c["name"]
+    if started:
+        tip += " · started " + started
+    if c["state"] != "running":
+        stopped = short_ts(c.get("finished_at"))
+        if stopped:
+            tip += " · stopped " + stopped
+    return tip
+
+
+def short_ts(t):
+    # RFC3339 runtime timestamps (UTC, nanosecond precision) trimmed to
+    # seconds for tooltips: "2026-08-23 09:12:33 UTC"
+    t = t or ""
+    if len(t) < 19 or t.startswith("0001-"):
+        return ""
+    return t[:10] + " " + t[11:19] + " UTC"
+
+
+def env_container_rows(app_conts, env):
+    # Rows of one environment's containers table on the app detail page:
+    # per type (the app container, each sidecar by name) the most recently
+    # started running container and the most recently stopped one, if any.
+    # On docker/podman sidecars are separate containers (role label); on
+    # kubernetes they run inside the app pods - one pod status call per
+    # running pod resolves their states, linking to the pod detail
+    groups = {}
+    order = []
+
+    def add(key, c):
+        if key not in groups:
+            groups[key] = []
+            order.append(key)
+        groups[key].append(c)
+
+    for c in app_conts:
+        if c["env"] != env or c["name"].endswith("-ls"):
+            continue
+        if c.get("role") == "sidecar":
+            add("sidecar:" + c["sidecar"], c)
+            continue
+        add("app", c)
+        if c.get("sidecars") and c["state"] == "running":
+            status = openrun.container_kubernetes_status(c["id"])
+            error = status.error
+            states = {}
+            if not error:
+                for pc in status.value.get("containers") or []:
+                    if pc.get("sidecar"):
+                        states[pc["name"]] = "running" if pc["state"] == "running" and pc.get("ready", True) else pc["state"]
+            for name in c["sidecars"]:
+                e = dict(c.items())
+                e["role"] = "sidecar"
+                e["sidecar"] = name
+                e["state"] = states.get(name) or "unknown"
+                add("sidecar:" + name, e)
+
+    rows = []
+    for key in sorted(order, key=lambda k: "" if k == "app" else k):
+        entries = groups[key]
+        running = sorted([c for c in entries if c["state"] == "running"],
+                         key=lambda c: c.get("started_at") or c.get("created_at") or "", reverse=True)
+        stopped = sorted([c for c in entries if c["state"] != "running"],
+                         key=lambda c: (c.get("finished_at") or "") + (c.get("created_at") or ""), reverse=True)
+        for c in running[:1] + stopped[:1]:
+            rows.append({
+                "id": c["id"],
+                "name": c["name"],
+                "kind": "sidecar" if c.get("role") == "sidecar" else "app",
+                "sidecar": c.get("sidecar") or "",
+                "state": c["state"],
+                # Last update: the start for running containers, the stop
+                # for stopped ones (RFC3339, rendered relative)
+                "last": (c.get("started_at") if c["state"] == "running" else c.get("finished_at")) or c.get("created_at") or "",
+                "tip": container_time_tip(c),
+            })
+    return rows
+
+
 def app_container_sort_key(entry):
     # Sort containers: running first, then prod/stage/preview/dev, then name
     running = "0" if entry["state"] == "running" else "1"
@@ -918,10 +1012,12 @@ def app_container_sort_key(entry):
 
 
 def apps_detail_data(req):
-    # App detail page, a tabbed inspector: Overview (cards, params,
-    # containers, versions), Config (export output, auto prod<->staging
-    # diff), Compare (any two versions as export diffs) and Files (version
-    # file explorer). Only the active tab's data is built
+    # App detail page, a tabbed inspector: Overview (summary card), Config
+    # (export output, auto prod<->staging diff), Compare (any two versions
+    # as export diffs) and Files (version file explorer). Only the active
+    # tab's data is built; the Overview tab's per-environment panel
+    # (params, permissions, containers, versions) loads lazily via the
+    # envpanel fragment, with the env selection url-persisted (?env=)
     path = utils.query_param(req, "path")
     tab = utils.query_param(req, "tab")
     if tab not in ("config", "compare", "files"):
@@ -933,7 +1029,6 @@ def apps_detail_data(req):
         "Tab": tab,
         "Error": "",
         "App": None,
-        "Containers": [],
         # Set after a staging-only reload/update, prompts for promotion
         "AskPromote": utils.query_param(req, "staged"),
         # App permissions evaluated against this app, including the owner rule
@@ -948,6 +1043,16 @@ def apps_detail_data(req):
 
     app = ret.value
     data["App"] = app
+
+    # The environment shown by the Overview tab's lazy panel: prod by
+    # default, url-persisted (the env tabs push ?env=, the version switch
+    # posts carry it); dev apps have a single dev view
+    env = utils.query_param(req, "env")
+    if app["is_dev"]:
+        env = "dev"
+    elif env not in ("prod", "stage"):
+        env = "prod"
+    data["PanelEnv"] = env
 
     if app["is_dev"] and tab in ("compare", "files"):
         # Dev apps have no versions; those tabs render disabled
@@ -973,37 +1078,84 @@ def apps_detail_data(req):
                     "branch": entry["metadata"]["git_branch"],
                 }
 
-    data["ParamsText"] = utils.params_to_text(app["params"])
+    return data
 
-    # Containers running (or recently run) for this app, current env first.
-    # The litestream sidecars (-ls suffix) are excluded: they would render
-    # as duplicate env chips, and the Replication row links to them instead
-    cont_ret = openrun.list_containers()
-    if not cont_ret.error:
-        containers = [c for c in cont_ret.value
-                      if c["app_path"] == path and not c["name"].endswith("-ls")]
-        data["Containers"] = sorted(containers, key=app_container_sort_key)
 
-    # Audit the app's code for the plugin permissions it requests and whether
-    # they are pending approval (audited against staging for prod apps)
-    audit_ret = openrun.audit_app(path)
+def apps_detail_envpanel_handler(req):
+    # Lazy per-environment panel on the detail page's Overview tab: the
+    # parameters, requested permissions, containers and versions of one
+    # environment. env=prod (default) or stage; dev apps render a single
+    # dev view. Loaded via hx-trigger=load so the page's first paint stays
+    # cheap; the panel's env tabs push ?env= on the page url
+    path = utils.query_param(req, "path")
+    env = utils.query_param(req, "env")
+    if env not in ("prod", "stage"):
+        env = "prod"
+    data = {
+        "Path": path,
+        "Env": env,
+        "Error": "",
+        "Perms": utils.get_perms(path),
+    }
+
+    ret = openrun.get_app(path)
+    if ret.error:
+        data["Error"] = ret.error
+        return data
+    app = ret.value
+    data["App"] = app
+    if app["is_dev"]:
+        env = "dev"
+        data["Env"] = env
+
+    # Parameters of this environment's app: staging params can differ from
+    # prod until the staged changes are promoted. EnvVersion is the env's
+    # active version, named by the panel's indicator line
+    params = app["params"]
+    data["EnvVersion"] = app["version"]
+    if env == "stage":
+        stage_ret = openrun.get_app(app["stage_path"], include_internal=True)
+        if not stage_ret.error:
+            params = stage_ret.value["params"]
+            data["EnvVersion"] = stage_ret.value["version"]
+    data["ParamsText"] = utils.params_to_text(params)
+
+    # Needs-approval alert: approvals apply to staging first, so the alert
+    # uses the staging audit (cached server-side via check_approval) and
+    # shows on both environment tabs
+    la_ret = openrun.list_apps(path=path, check_approval=True)
+    if not la_ret.error:
+        for row in la_ret.value:
+            if row["path"] == path:
+                data["NeedsApproval"] = row.get("needs_approval") or False
+
+    # The plugin permissions requested by this environment's app code and
+    # whether they are approved for it (dev apps are audited directly)
+    if env == "dev":
+        audit_ret = openrun.audit_app(path)
+    else:
+        audit_ret = openrun.audit_app(path, env=env)
     if audit_ret.error:
         data["AuditError"] = audit_ret.error
     else:
         audit = audit_ret.value
         data["Audit"] = utils.review_from_dryrun({"approve_results": [audit]})
-        data["NeedsApproval"] = audit.get("needs_approval") or False
+        data["EnvNeedsApproval"] = audit.get("needs_approval") or False
 
-    if app["is_dev"]:
+    # Containers of this environment: per type (app container, each
+    # sidecar name) the running container and the last stopped one. The
+    # litestream sidecars (-ls suffix) are excluded: the Overview tab's
+    # Replication row links to them
+    cont_ret = openrun.list_containers(times=True)
+    if not cont_ret.error:
+        app_conts = [c for c in cont_ret.value if c["app_path"] == path]
+        data["Containers"] = env_container_rows(app_conts, env)
+
+    if env != "dev":
         # Dev apps serve directly from disk, no versions are tracked
-        return data
-
-    prod_versions, prod_err = load_versions(path)
-    stage_versions, stage_err = load_versions(app["stage_path"])
-    data["ProdVersions"] = prod_versions
-    data["ProdVersionsError"] = prod_err
-    data["StageVersions"] = stage_versions
-    data["StageVersionsError"] = stage_err
+        versions, err = load_versions(path if env == "prod" else app["stage_path"])
+        data["Versions"] = versions
+        data["VersionsError"] = err
     return data
 
 
@@ -1919,19 +2071,43 @@ def services_delete_handler(req):
 # ---------- Containers ----------
 
 
+CONTAINER_TABS = ("apps", "sidecar", "litestream", "all", "agent", "kaniko")
+
+
+def container_kind(entry):
+    # Classify a managed container: the litestream replication sidecars by
+    # their -ls name suffix (same heuristic as the replication status API),
+    # app sidecars by the role label (separate containers on docker/podman;
+    # on kubernetes they run inside the app pod, which keeps kind app)
+    if entry["name"].endswith("-ls"):
+        return "litestream"
+    if entry.get("role") == "sidecar":
+        return "sidecar"
+    return "app"
+
+
 def containers_data(req):
-    # Containers page: managed containers with state/search filters, plus
-    # the app builder's agent containers, (on Kubernetes) kaniko image
-    # build pods and the litestream replication sidecars as their own views
+    # Containers page: tabs by container type - Apps (default), Sidecars,
+    # Litestream, All (everything OpenRun spawned, whatever the type) plus
+    # the app builder's agent containers and (on kubernetes) the kaniko
+    # image build pods as their own tabs. Every tab lists running
+    # containers only unless "show stopped" is on; the search query and the
+    # show-stopped state carry across tab switches
     query = utils.query_param(req, "query").lower()
-    # running / exited / all / agent / kaniko / litestream
-    filter = utils.query_param(req, "filter") or "running"
+    filter = utils.query_param(req, "filter") or "apps"
+    if filter in ("running", "exited"):
+        # Old state chips / bookmarks: map onto the Apps tab
+        filter = "apps"
+    if filter not in CONTAINER_TABS:
+        filter = "apps"
+    show_stopped = utils.query_param(req, "stopped") in ("1", "true", "on")
 
     data = {
         "Title": "Containers",
         "Nav": "containers",
         "Query": query,
         "Filter": filter,
+        "ShowStopped": show_stopped,
         "Total": 0,
         "Running": 0,
         "Runtime": "",
@@ -1939,67 +2115,91 @@ def containers_data(req):
         "Perms": utils.get_perms(),
     }
 
-    ret = openrun.list_containers()
+    # times=True: every tab is sorted by container start time (one batched
+    # inspect per listing)
+    ret = openrun.list_containers(times=True)
     if ret.error:
         data["FlashError"] = ret.error
         return data
-    app_containers = ret.value
 
-    if filter in ("agent", "kaniko"):
-        # Runtime and counts still come from the managed list (drives the
-        # header and the kaniko tab visibility); litestream sidecars are
-        # excluded from the header counts like on the app-container views
-        for entry in app_containers:
-            if entry["name"].endswith("-ls"):
-                continue
+    # Header counts and the runtime come from the app containers, whatever
+    # the tab (the builder agents and kaniko pods are separate listings)
+    managed = []
+    for entry in ret.value:
+        e = dict(entry.items())
+        e["kind"] = container_kind(e)
+        managed.append(e)
+        if e["kind"] == "app":
             data["Total"] += 1
-            data["Runtime"] = entry["runtime"]
-            if entry["state"] == "running":
+            data["Runtime"] = e["runtime"]
+            if e["state"] == "running":
                 data["Running"] += 1
-        special = openrun.list_containers(type=filter)
-        error = special.error
+
+    def matches(e):
+        if not show_stopped and e["state"] != "running":
+            return False
+        if query and query not in e["name"].lower() and query not in e["app_path"].lower() and \
+           query not in e.get("image", "").lower() and query not in e["id"].lower():
+            return False
+        return True
+
+    def special(ctype):
+        # Best effort on the All tab (a missing builder feature or a
+        # non-kubernetes runtime just has no such containers), surfaced as
+        # an error on the dedicated tabs
+        ret = openrun.list_containers(type=ctype, times=True)
+        error = ret.error
+        if error:
+            return None, error
+        entries = []
+        for entry in ret.value:
+            e = dict(entry.items())
+            e["kind"] = ctype
+            entries.append(e)
+        return entries, ""
+
+    containers = []
+    if filter in ("agent", "kaniko"):
+        entries, error = special(filter)
         if error:
             data["FlashError"] = error
             return data
-        containers = []
-        for entry in special.value:
-            if query and query not in entry["name"].lower() and \
-               query not in entry["app_path"].lower() and query not in entry["id"].lower():
-                continue
-            containers.append(entry)
-        data["Containers"] = sorted(containers, key=lambda c: c["name"])
+        containers = [e for e in entries if matches(e)]
+        data["Containers"] = sort_by_start(containers)
         return data
 
-    containers = []
-    for entry in app_containers:
-        # Replication sidecars are part of the managed list (they carry the
-        # app.id label), identified by their -ls name suffix (same heuristic
-        # as the replication status API). They have their own tab and are
-        # excluded from the app-container views AND the header counts
-        is_sidecar = entry["name"].endswith("-ls")
-        running = entry["state"] == "running"
-        if not is_sidecar:
-            data["Total"] += 1
-            data["Runtime"] = entry["runtime"]
-            if running:
-                data["Running"] += 1
-        if filter == "litestream":
-            if not is_sidecar:
+    for e in managed:
+        if filter == "sidecar":
+            # On kubernetes the tab lists the pods that have sidecars
+            if e["kind"] != "sidecar" and not e.get("sidecars"):
                 continue
-        elif is_sidecar or (filter == "running" and not running) or (filter == "exited" and running):
-            continue
-        if query and query not in entry["name"].lower() and \
-           query not in entry["app_path"].lower() and query not in entry["image"].lower() and \
-           query not in entry["id"].lower():
-            continue
-        containers.append(entry)
+        elif filter == "litestream":
+            if e["kind"] != "litestream":
+                continue
+        elif filter == "apps":
+            if e["kind"] != "app":
+                continue
+        if matches(e):
+            containers.append(e)
+    if filter == "all":
+        if data["Perms"].get("feature:builder"):
+            entries, _ = special("agent")
+            containers.extend([e for e in (entries or []) if matches(e)])
+        if data["Runtime"] == "kubernetes":
+            entries, _ = special("kaniko")
+            containers.extend([e for e in (entries or []) if matches(e)])
 
-    # Most recently created containers first (containers are recreated on
-    # app updates, so creation time is the update time). Stable two-pass
-    # sort: app path/name ascending as the tie break
-    containers = sorted(containers, key=lambda c: c["app_path"] + " " + c["name"])
-    data["Containers"] = sorted(containers, key=lambda c: c.get("created_at") or "", reverse=True)
+    data["Containers"] = sort_by_start(containers)
     return data
+
+
+def sort_by_start(containers):
+    # Most recently started containers first (a stopped container keeps its
+    # last start time; creation time is the fallback when the runtime does
+    # not report a start). Stable two-pass sort: app path/name ascending
+    # as the tie break
+    containers = sorted(containers, key=lambda c: c["app_path"] + " " + c["name"])
+    return sorted(containers, key=lambda c: c.get("started_at") or c.get("created_at") or "", reverse=True)
 
 
 def container_lifecycle_action(req, data_fn):
@@ -2046,6 +2246,25 @@ def containers_detail_data(req):
 
     c = dict(ret.value.items())
     c["started_at"] = utils.nonzero_time(c.get("started_at"))
+    # Type: app / sidecar / litestream / agent (builder sandbox); kaniko
+    # build pods are not managed containers (no app id) and cannot be opened
+    c["kind"] = "agent" if c.get("builder_session") else container_kind(c)
+    # Sidecar links: a sidecar container links to its app container's detail
+    # (docker/podman, the sidecar_of label holds the app container name,
+    # which get_container resolves like an id); an app container lists its
+    # sidecars. Kubernetes pods carry the sidecar names themselves (their
+    # state is in the pod status fragment)
+    if c.get("role") == "sidecar":
+        c["app_container_id"] = c.get("sidecar_of") or ""
+    elif c.get("runtime") != "kubernetes" and c.get("app_id"):
+        cont_ret = openrun.list_containers()
+        cont_error = cont_ret.error
+        sidecars = []
+        if not cont_error:
+            for entry in cont_ret.value:
+                if entry.get("role") == "sidecar" and entry.get("sidecar_of") == c["name"]:
+                    sidecars.append(entry)
+        c["sidecar_containers"] = sorted(sidecars, key=lambda e: e["sidecar"])
     data["Container"] = c
     return data
 

@@ -164,6 +164,10 @@ def build_routes():
                  fragments=[
                      # Lazy replication status chips (read-only, always on)
                      ace.fragment("replication", partial="app_repl_status", handler=handler.apps_detail_replication_handler),
+                     # Lazy per-environment panel below the inspector tabs
+                     # (params, permissions, containers, versions; read-only -
+                     # its version switch buttons post to the switch fragment)
+                     ace.fragment("envpanel", partial="app_env_panel", handler=handler.apps_detail_envpanel_handler),
                      # Compare/Files tab pane refreshes (version select
                      # changes) and the Config tab's .ace download - all
                      # reads, always registered

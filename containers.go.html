@@ -18,7 +18,7 @@
             <div>
               {{ template "page_title" "Containers" }}
               <p class="page-desc text-sm text-base-content/70">
-                {{ .Data.Total }} containers · {{ .Data.Running }} running
+                Containers managed by OpenRun
                 {{ if .Data.Runtime }}
                   <span class="badge badge-ghost badge-xs align-middle"
                     >{{ .Data.Runtime }}</span
@@ -27,6 +27,29 @@
               </p>
             </div>
             <div class="page-actions ml-auto flex items-center gap-2">
+              {{/* Show stopped: every tab lists running containers only by
+                default; the checkbox adds the stopped ones. It sits outside
+                the swapped rows partial, so its state carries across tab
+                switches and searches (hx-include="#show-stopped"; an
+                unchecked box sends nothing = running only) */}}
+              <label class="label cursor-pointer gap-2 text-xs whitespace-nowrap">
+                <input
+                  type="checkbox"
+                  id="show-stopped"
+                  class="checkbox checkbox-sm"
+                  name="stopped"
+                  value="1"
+                  {{ if .Data.ShowStopped }}checked{{ end }}
+                  aria-label="Show stopped containers"
+                  hx-get="{{ .AppPath }}/containers"
+                  hx-trigger="change"
+                  hx-include="#page-search, #app-filter-value"
+                  hx-target="#container-rows"
+                  hx-swap="innerHTML"
+                  hx-push-url="true"
+                  hx-indicator="#page-progress" />
+                Show stopped
+              </label>
               <label
                 class="input input-sm flex-1 min-w-0 sm:flex-none sm:w-48 sm:focus-within:w-60 transition-[width] duration-300 flex">
                 <kbd class="kbd kbd-xs hidden sm:inline-flex" aria-hidden="true">⌘K</kbd>
@@ -39,6 +62,7 @@
                   placeholder="Filter containers…"
                   hx-get="{{ .AppPath }}/containers"
                   hx-trigger="input changed delay:300ms, search"
+                  hx-include="#app-filter-value, #show-stopped"
                   hx-push-url="true"
                   hx-target="#container-rows"
                   hx-swap="innerHTML"
@@ -161,110 +185,112 @@
             hx-get="{{ .AppPath }}/containers"
             hx-trigger="every 30s"
             hx-swap="innerHTML"
-            hx-include="#page-search, #app-filter-value"
+            hx-include="#page-search, #app-filter-value, #show-stopped"
             hx-indicator="#page-progress">
             {{ block "container_rows" . }}
-          <!-- State filter chips -->
+          <!-- Type tabs. The hidden input carries the current tab into every
+               request (search, show-stopped change, auto-refresh, lifecycle
+               actions); the show-stopped checkbox lives in the page header -->
           <div class="flex items-center gap-2 flex-wrap">
             <input
               type="hidden"
               id="app-filter-value"
               name="filter"
               value="{{ .Data.Filter }}" />
-            <div class="join" role="group" aria-label="Filter containers by state">
+            <div class="join" role="group" aria-label="Filter containers by type">
               <button
-                class="btn btn-sm join-item transition-transform duration-150 active:scale-95 tooltip tooltip-bottom tooltip-anchor-start {{ if eq .Data.Filter "running" }}btn-primary{{ end }}"
-                aria-pressed="{{ if eq .Data.Filter "running" }}true{{ else }}false{{ end }}"
-                data-tip="Running app containers"
-                data-filter="running"
+                class="btn btn-sm join-item transition-transform duration-150 active:scale-95 tooltip tooltip-bottom tooltip-anchor-start {{ if eq .Data.Filter "apps" }}btn-primary{{ end }}"
+                aria-pressed="{{ if eq .Data.Filter "apps" }}true{{ else }}false{{ end }}"
+                data-tip="App containers"
+                data-filter="apps"
                 hx-get="{{ $.AppPath }}/containers"
-                hx-vals='{"filter": "running"}'
-                hx-include="#page-search"
+                hx-vals='{"filter": "apps"}'
+                hx-include="#page-search, #show-stopped"
                 hx-target="#container-rows"
                 hx-swap="innerHTML"
                 hx-push-url="true"
                 hx-indicator="#page-progress">
-                Running
+                Apps
               </button>
               <button
-                class="btn btn-sm join-item transition-transform duration-150 active:scale-95 tooltip tooltip-bottom {{ if eq .Data.Filter "exited" }}btn-primary{{ end }}"
-                aria-pressed="{{ if eq .Data.Filter "exited" }}true{{ else }}false{{ end }}"
-                data-tip="Stopped app containers"
-                data-filter="exited"
+                class="btn btn-sm join-item transition-transform duration-150 active:scale-95 tooltip tooltip-bottom {{ if eq .Data.Filter "sidecar" }}btn-primary{{ end }}"
+                aria-pressed="{{ if eq .Data.Filter "sidecar" }}true{{ else }}false{{ end }}"
+                data-tip="App sidecar containers (workers, companion services)"
+                data-filter="sidecar"
                 hx-get="{{ $.AppPath }}/containers"
-                hx-vals='{"filter": "exited"}'
-                hx-include="#page-search"
+                hx-vals='{"filter": "sidecar"}'
+                hx-include="#page-search, #show-stopped"
                 hx-target="#container-rows"
                 hx-swap="innerHTML"
                 hx-push-url="true"
                 hx-indicator="#page-progress">
-                Stopped
+                Sidecars
               </button>
+              {{/* Litestream replication sidecars run as separate labeled
+                containers on docker/podman only (kubernetes runs them as
+                in-pod sidecars, not their own rows) */}}
+              {{ if ne .Data.Runtime "kubernetes" }}
+              <button
+                class="btn btn-sm join-item transition-transform duration-150 active:scale-95 tooltip tooltip-bottom {{ if eq .Data.Filter "litestream" }}btn-primary{{ end }}"
+                aria-pressed="{{ if eq .Data.Filter "litestream" }}true{{ else }}false{{ end }}"
+                data-tip="Litestream replication sidecar containers"
+                data-filter="litestream"
+                hx-get="{{ $.AppPath }}/containers"
+                hx-vals='{"filter": "litestream"}'
+                hx-include="#page-search, #show-stopped"
+                hx-target="#container-rows"
+                hx-swap="innerHTML"
+                hx-push-url="true"
+                hx-indicator="#page-progress">
+                Litestream
+              </button>
+              {{ end }}
+              {{ if and .Data.Perms (index .Data.Perms "feature:builder") }}
+              <button
+                class="btn btn-sm join-item transition-transform duration-150 active:scale-95 tooltip tooltip-bottom {{ if eq .Data.Filter "agent" }}btn-primary{{ end }}"
+                aria-pressed="{{ if eq .Data.Filter "agent" }}true{{ else }}false{{ end }}"
+                data-tip="App builder AI agent containers"
+                data-filter="agent"
+                hx-get="{{ $.AppPath }}/containers"
+                hx-vals='{"filter": "agent"}'
+                hx-include="#page-search, #show-stopped"
+                hx-target="#container-rows"
+                hx-swap="innerHTML"
+                hx-push-url="true"
+                hx-indicator="#page-progress">
+                Agents
+              </button>
+              {{ end }}
+              {{ if eq .Data.Runtime "kubernetes" }}
+              <button
+                class="btn btn-sm join-item transition-transform duration-150 active:scale-95 tooltip tooltip-bottom {{ if eq .Data.Filter "kaniko" }}btn-primary{{ end }}"
+                aria-pressed="{{ if eq .Data.Filter "kaniko" }}true{{ else }}false{{ end }}"
+                data-tip="Kaniko image build pods"
+                data-filter="kaniko"
+                hx-get="{{ $.AppPath }}/containers"
+                hx-vals='{"filter": "kaniko"}'
+                hx-include="#page-search, #show-stopped"
+                hx-target="#container-rows"
+                hx-swap="innerHTML"
+                hx-push-url="true"
+                hx-indicator="#page-progress">
+                Kaniko Builds
+              </button>
+              {{ end }}
               <button
                 class="btn btn-sm join-item transition-transform duration-150 active:scale-95 tooltip tooltip-bottom {{ if eq .Data.Filter "all" }}btn-primary{{ end }}"
                 aria-pressed="{{ if eq .Data.Filter "all" }}true{{ else }}false{{ end }}"
-                data-tip="All app containers, running and stopped"
+                data-tip="Every container spawned by OpenRun, whatever its type"
                 data-filter="all"
                 hx-get="{{ $.AppPath }}/containers"
                 hx-vals='{"filter": "all"}'
-                hx-include="#page-search"
+                hx-include="#page-search, #show-stopped"
                 hx-target="#container-rows"
                 hx-swap="innerHTML"
                 hx-push-url="true"
                 hx-indicator="#page-progress">
                 All
               </button>
-              {{ if and .Data.Perms (index .Data.Perms "feature:builder") }}
-                <button
-                  class="btn btn-sm join-item transition-transform duration-150 active:scale-95 tooltip tooltip-bottom {{ if eq .Data.Filter "agent" }}btn-primary{{ end }}"
-                  aria-pressed="{{ if eq .Data.Filter "agent" }}true{{ else }}false{{ end }}"
-                  data-tip="App builder AI agent containers"
-                  data-filter="agent"
-                hx-get="{{ $.AppPath }}/containers"
-                hx-vals='{"filter": "agent"}'
-                hx-include="#page-search"
-                hx-target="#container-rows"
-                hx-swap="innerHTML"
-                hx-push-url="true"
-                hx-indicator="#page-progress">
-                  Agents
-                </button>
-              {{ end }}
-              {{ if eq .Data.Runtime "kubernetes" }}
-                <button
-                  class="btn btn-sm join-item transition-transform duration-150 active:scale-95 tooltip tooltip-bottom {{ if eq .Data.Filter "kaniko" }}btn-primary{{ end }}"
-                  aria-pressed="{{ if eq .Data.Filter "kaniko" }}true{{ else }}false{{ end }}"
-                  data-tip="Kaniko image build pods"
-                  data-filter="kaniko"
-                hx-get="{{ $.AppPath }}/containers"
-                hx-vals='{"filter": "kaniko"}'
-                hx-include="#page-search"
-                hx-target="#container-rows"
-                hx-swap="innerHTML"
-                hx-push-url="true"
-                hx-indicator="#page-progress">
-                  Kaniko Builds
-                </button>
-              {{ end }}
-              {{/* Litestream replication sidecars run as separate labeled
-                containers on docker/podman only (kubernetes runs them as
-                in-pod sidecars, not their own rows) */}}
-              {{ if ne .Data.Runtime "kubernetes" }}
-                <button
-                  class="btn btn-sm join-item transition-transform duration-150 active:scale-95 tooltip tooltip-bottom {{ if eq .Data.Filter "litestream" }}btn-primary{{ end }}"
-                  aria-pressed="{{ if eq .Data.Filter "litestream" }}true{{ else }}false{{ end }}"
-                  data-tip="Litestream replication sidecar containers"
-                  data-filter="litestream"
-                hx-get="{{ $.AppPath }}/containers"
-                hx-vals='{"filter": "litestream"}'
-                hx-include="#page-search"
-                hx-target="#container-rows"
-                hx-swap="innerHTML"
-                hx-push-url="true"
-                hx-indicator="#page-progress">
-                  Litestream
-                </button>
-              {{ end }}
             </div>
             <span class="text-xs text-base-content/70 ml-auto hidden md:inline"
               >auto-refresh 30s</span
@@ -281,6 +307,9 @@
                         <tr>
                           <th scope="col" class="w-8"><span class="sr-only">Details</span></th>
                           <th scope="col">State</th>
+                          {{ if eq .Data.Filter "all" }}
+                            <th scope="col">Type</th>
+                          {{ end }}
                           <th scope="col">Id</th>
                           <th scope="col" class="w-36">Container</th>
                           <th scope="col" class="w-1/2">App</th>
@@ -304,6 +333,13 @@
                             <td class="whitespace-nowrap">
                               {{ template "container_state" . }}
                             </td>
+                            {{ if eq $.Data.Filter "all" }}
+                              <td class="whitespace-nowrap">
+                                <span class="badge badge-ghost badge-xs font-mono" data-kind
+                                  >{{ .kind }}</span
+                                >
+                              </td>
+                            {{ end }}
                             <td class="whitespace-nowrap">
                               <span class="font-mono text-xs font-medium"
                                 >{{ trunc 12 .id }}</span
@@ -315,6 +351,19 @@
                                 data-tip="{{ .name }}"
                                 >{{ .name }}</span
                               >
+                              {{ if eq .role "sidecar" }}
+                                <span class="badge badge-ghost badge-xs font-mono"
+                                  >sidecar {{ .sidecar }}</span
+                                >
+                              {{ else if and .kind (ne .kind "app") (ne $.Data.Filter "all") }}
+                                <span class="badge badge-ghost badge-xs font-mono"
+                                  >{{ .kind }}</span
+                                >
+                              {{ else if .sidecars }}
+                                <span class="badge badge-ghost badge-xs font-mono"
+                                  >sidecars {{ range $i, $s := .sidecars }}{{ if $i }}, {{ end }}{{ $s }}{{ end }}</span
+                                >
+                              {{ end }}
                             </td>
                             <td>
                               {{ if .app_path }}
@@ -365,7 +414,7 @@
                                         hx-confirm="Stop container {{ .name }}? The app will be unavailable until it is started again."
                                         hx-target="#container-rows"
                                         hx-swap="innerHTML transition:true"
-                                        hx-include="#page-search, #app-filter-value"
+                                        hx-include="#page-search, #app-filter-value, #show-stopped"
                                         hx-disabled-elt="this"
                                         hx-indicator="#page-progress"
                                       {{ else if not (index $.Data.Perms "feature:updates") }}
@@ -385,7 +434,7 @@
                                         hx-vals='{"id": "{{ .id }}", "action": "start"}'
                                         hx-target="#container-rows"
                                         hx-swap="innerHTML transition:true"
-                                        hx-include="#page-search, #app-filter-value"
+                                        hx-include="#page-search, #app-filter-value, #show-stopped"
                                         hx-disabled-elt="this"
                                         hx-indicator="#page-progress"
                                       {{ else if not (index $.Data.Perms "feature:updates") }}

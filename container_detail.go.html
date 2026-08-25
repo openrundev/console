@@ -289,6 +289,9 @@
                                   <tr>
                                     <td class="font-mono text-xs break-all">
                                       {{ .name }}
+                                      {{ if .sidecar }}
+                                        <span class="badge badge-ghost badge-xs">sidecar</span>
+                                      {{ end }}
                                     </td>
                                     <td class="whitespace-nowrap">
                                       <span
@@ -385,7 +388,7 @@
                     >
 
                     <span class="text-xs text-base-content/70 pt-0.5">App</span>
-                    <span class="pt-1">
+                    <span class="pt-0.5 flex items-center gap-1.5 flex-wrap">
                       {{ if $c.app_path }}
                         <a
                           href="{{ .AppPath }}/apps/detail?path={{ $c.app_path }}"
@@ -406,6 +409,54 @@
                         <span class="text-base-content/70">-</span>
                       {{ end }}
                     </span>
+
+                    {{ if eq $c.role "sidecar" }}
+                      {{/* A sidecar container: its name and the app container it
+                        belongs to (get_container resolves the name like an id) */}}
+                      <span class="text-xs text-base-content/70 pt-0.5"
+                        >Sidecar</span
+                      >
+                      <span class="pt-1 inline-flex items-center gap-2 flex-wrap" data-sidecar-of>
+                        <span class="font-mono text-xs">{{ $c.sidecar }}</span>
+                        {{ if $c.app_container_id }}
+                          <span class="text-xs text-base-content/70">of</span>
+                          <a
+                            href="{{ .AppPath }}/containers/detail?id={{ $c.app_container_id }}"
+                            class="link link-hover font-mono text-xs break-all"
+                            >{{ $c.app_container_id }}</a
+                          >
+                        {{ end }}
+                      </span>
+                    {{ end }}
+                    {{ if $c.sidecar_containers }}
+                      <span class="text-xs text-base-content/70 pt-0.5"
+                        >Sidecars</span
+                      >
+                      <span class="pt-1 flex items-center gap-3 flex-wrap" data-sidecars>
+                        {{ range $c.sidecar_containers }}
+                          <a
+                            href="{{ $.AppPath }}/containers/detail?id={{ .id }}"
+                            class="link link-hover inline-flex items-center gap-1.5 text-xs tooltip tooltip-right"
+                            data-tip="{{ .name }} - stats and logs">
+                            {{ if eq .state "running" }}
+                              <span class="status status-success"></span>
+                            {{ else }}
+                              <span class="status status-error"></span>
+                            {{ end }}
+                            <span class="font-mono">{{ .sidecar }} · {{ .state }}</span>
+                            <span class="text-base-content/70">→</span>
+                          </a>
+                        {{ end }}
+                      </span>
+                    {{ else if $c.sidecars }}
+                      <span class="text-xs text-base-content/70 pt-0.5"
+                        >Sidecars</span
+                      >
+                      <span class="pt-1 font-mono text-xs" data-sidecars
+                        >{{ range $i, $s := $c.sidecars }}{{ if $i }}, {{ end }}{{ $s }}{{ end }}
+                        <span class="text-base-content/70 font-sans">(in pod, states below)</span></span
+                      >
+                    {{ end }}
 
                     {{ if $c.builder_session }}
                       <span class="text-xs text-base-content/70 pt-0.5"
@@ -494,9 +545,18 @@
                     >
 
                     <span class="text-xs text-base-content/70 pt-0.5"
+                      >Type</span
+                    >
+                    <span class="pt-0.5 flex items-center"
+                      ><span class="badge badge-ghost badge-xs font-mono" data-kind
+                        >{{ $c.kind }}</span
+                      ></span
+                    >
+
+                    <span class="text-xs text-base-content/70 pt-0.5"
                       >Runtime</span
                     >
-                    <span class="pt-1"
+                    <span class="pt-0.5 flex items-center"
                       ><span class="badge badge-ghost badge-xs"
                         >{{ $c.runtime }}</span
                       ></span

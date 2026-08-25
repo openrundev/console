@@ -44,6 +44,12 @@
   color: color-mix(in oklab, var(--color-base-content) 75%, transparent) !important;
 }
 
+/* daisyui .label mixes currentcolor at 60%, also below AA on light (the
+   containers page filter/show-stopped labels) */
+.label {
+  color: color-mix(in oklab, var(--color-base-content) 75%, transparent);
+}
+
 /* Row actions and hover-revealed links are dimmed/hidden until the row is
    hovered; keep them fully visible for keyboard focus too */
 [class*="group-hover:opacity-100"]:focus-within,

@@ -3,6 +3,64 @@
 {{/* App detail page (/apps/detail?path=): overview, promote/reload/delete
      actions, requested permissions, containers, params and stage/prod
      version tables. HTMX partial: block detail_content */}}
+{{/* container_table renders one environment's containers: per type (app
+     container, each sidecar) the running container and the last stopped
+     one. Context: dict with Rows, Env (prod/stage/dev), AppPath */}}
+{{ define "container_table" }}
+  {{ if not .Rows }}
+    <p class="text-sm text-base-content/70 px-4 py-4">No containers</p>
+  {{ else }}
+    {{ $ctx := . }}
+    <div class="overflow-x-auto">
+      <table class="table table-sm" data-containers="{{ .Env }}">
+        <thead>
+          <tr>
+            <th scope="col" class="w-8"><span class="sr-only">Details</span></th>
+            <th scope="col">Type</th>
+            <th scope="col">Status</th>
+            <th scope="col">Last update</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{ range .Rows }}
+            <tr class="group hover:bg-base-200/60">
+              <td class="w-8">
+                <a
+                  href="{{ $ctx.AppPath }}/containers/detail?id={{ .id }}"
+                  class="btn btn-xs btn-ghost btn-square tooltip tooltip-right"
+                  data-tip="Expand: container details, stats and logs"
+                  aria-label="View details for container {{ .name }}">
+                  {{ template "drilldown_icon" }}
+                </a>
+              </td>
+              <td class="whitespace-nowrap">
+                <span class="badge badge-ghost badge-xs font-mono" data-kind
+                  >{{ if eq .kind "sidecar" }}sidecar {{ .sidecar }}{{ else }}app{{ end }}</span
+                >
+              </td>
+              <td class="whitespace-nowrap">
+                {{ template "container_state" . }}
+              </td>
+              {{/* Styled start/stop tooltip; left placement so the bubble
+                stays inside the table's overflow-x-auto box (the
+                convention for right-half columns) */}}
+              <td class="text-xs text-base-content/70 whitespace-nowrap">
+                {{ if .last }}
+                  <span class="tooltip tooltip-left" data-tip="{{ .tip }}">
+                    {{ relTime (toDate "2006-01-02T15:04:05Z07:00" .last) 1 }}
+                  </span>
+                {{ else }}
+                  <span class="tooltip tooltip-left" data-tip="{{ .tip }}">-</span>
+                {{ end }}
+              </td>
+            </tr>
+          {{ end }}
+        </tbody>
+      </table>
+    </div>
+  {{ end }}
+{{ end }}
+
 {{/* version_table renders one environment's version list.
      Context: dict with Versions, Error, Env (prod/stage), Path, AppPath */}}
 {{ define "version_table" }}
@@ -92,6 +150,176 @@
         </tbody>
       </table>
     </div>
+  {{ end }}
+{{ end }}
+
+{{/* app_env_panel renders the per-environment panel on the Overview tab:
+     an env tab row (Production default, Staging; dev apps get a single Dev
+     view) plus that environment's parameters, requested permissions,
+     containers and versions. Rendered stand-alone by the
+     /apps/detail/envpanel fragment into #env-panel (lazy load and env tab
+     switches); the env buttons push the detail page url with the env
+     param, so the selection is shareable and survives a reload. Receives
+     the full request context */}}
+{{ define "app_env_panel" }}
+  {{ if .Data.Error }}
+    <p class="text-sm text-error break-all">{{ .Data.Error }}</p>
+  {{ else if .Data.App }}
+    {{ $env := .Data.Env }}
+    <div class="flex items-center gap-3 flex-wrap">
+      <div role="group" aria-label="Environment" class="tabs tabs-box w-fit">
+        {{ if eq $env "dev" }}
+          <span
+            class="tab tab-active bg-primary text-primary-content font-semibold cursor-default"
+            title="Dev apps serve directly from source">
+            Dev
+          </span>
+        {{ else }}
+          <button
+            class="tab font-medium transition-colors duration-150 {{ if eq $env "prod" }}tab-active bg-primary text-primary-content font-semibold{{ end }}"
+            data-env="prod"
+            aria-pressed="{{ if eq $env "prod" }}true{{ else }}false{{ end }}"
+            title="Parameters, permissions, containers and versions of the production app"
+            hx-get="{{ .AppPath }}/apps/detail/envpanel?path={{ .Data.Path }}&env=prod"
+            hx-target="#env-panel"
+            hx-swap="innerHTML"
+            hx-push-url="{{ .AppPath }}/apps/detail?path={{ .Data.Path }}&env=prod"
+            hx-indicator="#page-progress">
+            Production
+          </button>
+          <button
+            class="tab font-medium transition-colors duration-150 {{ if eq $env "stage" }}tab-active bg-primary text-primary-content font-semibold{{ end }}"
+            data-env="stage"
+            aria-pressed="{{ if eq $env "stage" }}true{{ else }}false{{ end }}"
+            title="Parameters, permissions, containers and versions of the staging app{{ if .Data.App.staged_changes }} - staging has changes not promoted to prod{{ end }}"
+            hx-get="{{ .AppPath }}/apps/detail/envpanel?path={{ .Data.Path }}&env=stage"
+            hx-target="#env-panel"
+            hx-swap="innerHTML"
+            hx-push-url="{{ .AppPath }}/apps/detail?path={{ .Data.Path }}&env=stage"
+            hx-indicator="#page-progress">
+            Staging
+            {{ if .Data.App.staged_changes }}
+              <span class="status status-warning ml-1" aria-hidden="true"></span>
+            {{ end }}
+          </button>
+        {{ end }}
+      </div>
+      <!-- Which environment the cards below describe -->
+      <p class="text-xs text-base-content/70" data-env-indicator="{{ $env }}">
+        {{ if eq $env "dev" }}
+          Parameters, permissions and containers of the
+          <span class="font-medium text-base-content">dev</span> app
+        {{ else }}
+          Parameters, permissions, containers and versions of the
+          <span class="font-medium text-base-content"
+            >{{ if eq $env "stage" }}staging{{ else }}production{{ end }}</span
+          >
+          app (v{{ .Data.EnvVersion }} active)
+        {{ end }}
+      </p>
+      {{ if eq $env "stage" }}
+        {{ if .Data.App.stage_url }}
+          {{ template "open_app_link" (dict "Href" .Data.App.stage_url "Label" "Open staging" "What" "staging app") }}
+        {{ end }}
+      {{ else }}
+        {{ template "open_app_link" (dict "Href" .Data.App.url "Label" "Open app" "What" "app") }}
+      {{ end }}
+    </div>
+
+    {{ if .Data.NeedsApproval }}
+      <!-- Approvals apply to staging first, so this alert is driven by the
+           staging audit and shows on both environment tabs -->
+      <div
+        role="alert"
+        class="alert alert-vertical sm:alert-horizontal alert-warning alert-soft py-2 text-sm justify-items-start text-start">
+        <span aria-hidden="true">⚠</span>
+        <span
+          >The app requests permissions which are not approved yet -
+          it cannot serve requests until they are approved</span
+        >
+        <button
+          class="btn btn-xs btn-warning ml-auto transition-transform duration-150 active:scale-95"
+          {{ if or (index .Data.Perms "app:approve") (index .Data.Perms "admin") }}
+            hx-post="{{ .AppPath }}/apps/detail/approve"
+            hx-vals='{"path": "{{ .Data.Path }}"}'
+            hx-confirm="Approve the requested plugin permissions for {{ .Data.Path }}?"
+            hx-target="#detail-content"
+            hx-swap="innerHTML transition:true"
+            hx-disabled-elt="this"
+            hx-indicator="#page-progress"
+          {{ else }}
+            disabled data-tip="requires the app:approve permission"
+          {{ end }}>
+          Approve permissions
+        </button>
+      </div>
+    {{ end }}
+
+    <!-- Parameters of this environment's app -->
+    {{ if .Data.ParamsText }}
+      <div class="card bg-base-100 border border-base-300">
+        <div class="card-body p-5 gap-2">
+          <h2 class="text-sm font-medium text-base-content/70">
+            Parameters
+          </h2>
+          <pre
+            class="font-mono text-xs bg-base-200 rounded px-3 py-2 whitespace-pre-wrap">{{ .Data.ParamsText }}</pre>
+        </div>
+      </div>
+    {{ end }}
+
+    <!-- Plugin permissions requested by this environment's app code -->
+    {{ if .Data.AuditError }}
+      <div class="card bg-base-100 border border-base-300">
+        <div class="card-body p-5 gap-2">
+          <h2 class="text-sm font-medium text-base-content/70">
+            Requested permissions
+          </h2>
+          <p class="text-sm text-base-content/70 break-all">
+            Audit failed: {{ .Data.AuditError }}
+          </p>
+        </div>
+      </div>
+    {{ else if .Data.Audit }}
+      {{ template "perms_card" (dict "Review" .Data.Audit "Note" (ternary "Approval pending - approving grants the usage listed above" "All requested permissions are approved" .Data.EnvNeedsApproval)) }}
+    {{ end }}
+
+    <!-- Containers: the running and last stopped container of each type
+         (app container, each sidecar) in this environment -->
+    <div class="card bg-base-100 border border-base-300">
+      <div class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2">
+        <h2 class="text-sm font-medium">Containers</h2>
+      </div>
+      {{ template "container_table" (dict "Rows" .Data.Containers "Env" $env "AppPath" .AppPath) }}
+    </div>
+
+    <!-- Versions -->
+    {{ if eq $env "dev" }}
+      <div class="card bg-base-100 border border-base-300 py-6">
+        <p class="text-sm text-base-content/70 text-center">
+          Dev apps serve directly from disk - versions are not tracked
+        </p>
+      </div>
+    {{ else }}
+      <div class="card bg-base-100 border border-base-300">
+        <div
+          class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2">
+          <h2
+            class="text-sm font-medium {{ if and (eq $env "stage") .Data.App.staged_changes }}
+              text-warning
+            {{ end }}"
+            {{ if and (eq $env "stage") .Data.App.staged_changes }}
+              data-tip="staging is not promoted to prod yet"
+            {{ end }}>
+            Versions
+          </h2>
+          <span class="text-xs text-base-content/70"
+            >{{ len .Data.Versions }} versions</span
+          >
+        </div>
+        {{ template "version_table" (dict "Versions" .Data.Versions "Error" .Data.VersionsError "Env" $env "Path" .Data.Path "AppPath" .AppPath "Perms" .Data.Perms) }}
+      </div>
+    {{ end }}
   {{ end }}
 {{ end }}
 <!DOCTYPE html>
@@ -395,7 +623,7 @@
                   <span class="text-xs text-base-content/70 pt-0.5"
                     >Managed by</span
                   >
-                  <span class="pt-1">
+                  <span class="pt-0.5 flex items-center gap-1.5 flex-wrap">
                     {{ if .Data.Sync }}
                       <span class="font-mono text-xs break-all">{{ .Data.Sync.repo }}</span>
                       {{ if .Data.Sync.branch }}
@@ -418,7 +646,7 @@
                   >
 
                   <span class="text-xs text-base-content/70 pt-0.5">Auth</span>
-                  <span class="pt-1"
+                  <span class="pt-0.5 flex items-center"
                     ><span class="badge badge-ghost badge-xs"
                       >{{ if .Data.App.auth }}
                         {{ .Data.App.auth }}
@@ -442,30 +670,6 @@
                     <span class="text-xs pt-1"
                       >{{ template "time_ago" .Data.App.update_time }}</span
                     >
-                  {{ end }}
-
-                  {{ if .Data.Containers }}
-                    <span class="text-xs text-base-content/70 pt-0.5"
-                      >Containers</span
-                    >
-                    <span class="pt-1 flex items-center gap-3 flex-wrap">
-                      {{ range .Data.Containers }}
-                        <a
-                          href="{{ $.AppPath }}/containers/detail?id={{ .id }}"
-                          class="link link-hover inline-flex items-center gap-1.5 text-xs tooltip tooltip-right"
-                          data-tip="{{ .name }} - stats and logs">
-                          {{ if eq .state "running" }}
-                            <span class="status status-success"></span>
-                          {{ else }}
-                            <span class="status status-error"></span>
-                          {{ end }}
-                          <span class="font-mono"
-                            >{{ .env }} · {{ .state }}</span
-                          >
-                          <span class="text-base-content/70">→</span>
-                        </a>
-                      {{ end }}
-                    </span>
                   {{ end }}
 
                   <!-- Replication status loads lazily (replica store sweep
@@ -545,118 +749,36 @@
               </div>
             </div>
 
-            <!-- Parameters -->
-            {{ if .Data.ParamsText }}
-              <div class="card bg-base-100 border border-base-300">
-                <div class="card-body p-5 gap-2">
-                  <h2 class="text-sm font-medium text-base-content/70">
-                    Parameters
-                  </h2>
-                  <pre
-                    class="font-mono text-xs bg-base-200 rounded px-3 py-2 whitespace-pre-wrap">{{ .Data.ParamsText }}</pre>
-                </div>
-              </div>
+            {{ if and (not .Data.App.is_dev) .Data.App.staged_changes (not .Data.AskPromote) }}
+              <!-- Pending promotion notice; the AskPromote banner at the
+                   top covers this right after a staged action -->
+              {{ template "promote_prompt" (dict
+                  "Warning" true
+                  "Message" "Showing prod app configuration - Staging has changes which are not promoted yet"
+                  "Path" .Data.Path
+                  "PostUrl" (print .AppPath "/apps/detail/promote")
+                  "Confirm" (print "Promote staging to prod for " .Data.Path "?")
+                  "Target" "#detail-content"
+                  "StageUrl" .Data.App.stage_url
+                  "Perms" .Data.Perms)
+              }}
             {{ end }}
 
-            <!-- Plugin permissions requested by the app -->
-            {{ if .Data.AuditError }}
-              <div class="card bg-base-100 border border-base-300">
-                <div class="card-body p-5 gap-2">
-                  <h2 class="text-sm font-medium text-base-content/70">
-                    Requested permissions
-                  </h2>
-                  <p class="text-sm text-base-content/70 break-all">
-                    Audit failed: {{ .Data.AuditError }}
-                  </p>
-                </div>
-              </div>
-            {{ else if .Data.Audit }}
-              {{ if .Data.NeedsApproval }}
-                <div
-                  role="alert"
-                  class="alert alert-vertical sm:alert-horizontal alert-warning alert-soft py-2 text-sm justify-items-start text-start">
-                  <span aria-hidden="true">⚠</span>
-                  <span
-                    >The app requests permissions which are not approved yet -
-                    it cannot serve requests until they are approved</span
-                  >
-                  <button
-                    class="btn btn-xs btn-warning ml-auto transition-transform duration-150 active:scale-95"
-                    {{ if or (index .Data.Perms "app:approve") (index .Data.Perms "admin") }}
-                      hx-post="{{ .AppPath }}/apps/detail/approve"
-                      hx-vals='{"path": "{{ .Data.Path }}"}'
-                      hx-confirm="Approve the requested plugin permissions for {{ .Data.Path }}?"
-                      hx-target="#detail-content"
-                      hx-swap="innerHTML transition:true"
-                      hx-disabled-elt="this"
-                      hx-indicator="#page-progress"
-                    {{ else }}
-                      disabled data-tip="requires the app:approve permission"
-                    {{ end }}>
-                    Approve permissions
-                  </button>
-                </div>
-              {{ end }}
-              {{ template "perms_card" (dict "Review" .Data.Audit "Note" (ternary "Approval pending - approving grants the usage listed above" "All requested permissions are approved" .Data.NeedsApproval)) }}
-            {{ end }}
-
-            <!-- Versions -->
-            {{ if .Data.App.is_dev }}
-              <div class="card bg-base-100 border border-base-300 py-6">
-                <p class="text-sm text-base-content/70 text-center">
-                  Dev apps serve directly from disk - versions are not tracked
-                </p>
-              </div>
-            {{ else }}
-              {{ if and .Data.App.staged_changes (not .Data.AskPromote) }}
-                <!-- Pending promotion notice; the AskPromote banner at the
-                     top covers this right after a staged action -->
-                {{ template "promote_prompt" (dict
-                    "Warning" true
-                    "Message" "Showing prod app configuration - Staging has changes which are not promoted yet"
-                    "Path" .Data.Path
-                    "PostUrl" (print .AppPath "/apps/detail/promote")
-                    "Confirm" (print "Promote staging to prod for " .Data.Path "?")
-                    "Target" "#detail-content"
-                    "StageUrl" .Data.App.stage_url
-                    "Perms" .Data.Perms)
-                }}
-              {{ end }}
-              <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                <div class="card bg-base-100 border border-base-300">
-                  <div
-                    class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2">
-                    <h2
-                      class="text-sm font-medium {{ if .Data.App.staged_changes }}
-                        text-warning
-                      {{ end }}"
-                      {{ if .Data.App.staged_changes }}
-                        data-tip="staging is not promoted to prod yet"
-                      {{ end }}>
-                      Staging versions
-                    </h2>
-                    <span class="text-xs text-base-content/70"
-                      >{{ len .Data.StageVersions }} versions</span
-                    >
-                    {{ if .Data.App.stage_url }}
-                      {{ template "open_app_link" (dict "Href" .Data.App.stage_url "Label" "Open staging" "What" "staging app") }}
-                    {{ end }}
-                  </div>
-                  {{ template "version_table" (dict "Versions" .Data.StageVersions "Error" .Data.StageVersionsError "Env" "stage" "Path" .Data.Path "AppPath" .AppPath "Perms" .Data.Perms) }}
-                </div>
-                <div class="card bg-base-100 border border-base-300">
-                  <div
-                    class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2">
-                    <h2 class="text-sm font-medium">Production versions</h2>
-                    <span class="text-xs text-base-content/70"
-                      >{{ len .Data.ProdVersions }} versions</span
-                    >
-                    {{ template "open_app_link" (dict "Href" .Data.App.url "Label" "Open app" "What" "app") }}
-                  </div>
-                  {{ template "version_table" (dict "Versions" .Data.ProdVersions "Error" .Data.ProdVersionsError "Env" "prod" "Path" .Data.Path "AppPath" .AppPath "Perms" .Data.Perms) }}
-                </div>
-              </div>
-            {{ end }}
+            <!-- Per-environment panel (Overview tab only): the parameters,
+                 permissions, containers and versions of prod (default) or
+                 staging. Loaded lazily so the page's first paint stays
+                 cheap; PanelEnv comes from the url's env param (the env
+                 tabs push it, the version switch posts carry it), so the
+                 selected env is shareable and survives re-renders -->
+            <div
+              id="env-panel"
+              class="space-y-4 pt-2"
+              hx-get="{{ .AppPath }}/apps/detail/envpanel?path={{ .Data.Path }}&env={{ .Data.PanelEnv }}"
+              hx-trigger="load"
+              hx-swap="innerHTML">
+              <div class="skeleton h-10 w-56"></div>
+              <div class="skeleton h-40 w-full"></div>
+            </div>
             {{ end }}
             <!-- End of tab branches -->
           {{ end }}
