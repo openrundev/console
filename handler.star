@@ -2634,6 +2634,75 @@ CONFIG_PAGES = [
         ],
     },
     {
+        "page": "api",
+        "title": "API Access",
+        "desc": "MCP and remote management API access: login mechanisms per surface and the operations each surface exposes",
+        "entry_sections": [],
+        "settings": [
+            {"section": "api", "key": "external_url", "label": "External URL",
+             "help": "canonical https origin (https://host[:port]) for API tokens and the OAuth metadata; " +
+                     "defaults to security.callback_url. Required by an enabled surface, along with an HTTPS " +
+                     "listener (or security.trusted_proxies) and RBAC enforcement"},
+            {"section": "api", "key": "access_token_ttl", "label": "Access token TTL", "advanced": True,
+             "help": "OAuth access token lifetime (Go duration, default 1h)"},
+            {"section": "api", "key": "refresh_token_ttl", "label": "Refresh token TTL", "advanced": True,
+             "help": "OAuth refresh token lifetime per rotation (default 720h)"},
+            {"section": "api", "key": "grant_max_ttl", "label": "Login max lifetime", "advanced": True,
+             "help": "absolute OAuth grant lifetime, after which a new interactive login is required (default 2160h)"},
+            {"section": "api", "key": "federated_identity_ttl", "label": "Federated identity TTL", "advanced": True,
+             "help": "provider-derived group snapshot max age (default 720h)"},
+            {"section": "api", "key": "pat_default_ttl", "label": "API key default expiry", "advanced": True,
+             "help": "default API key lifetime (default 2160h); --expires=never is required for non-expiring keys"},
+        ],
+        # Per-surface settings render as their own cards: the enable
+        # switch and the login mechanisms up front, the operation
+        # overrides under Additional settings
+        "groups": [
+            {
+                "title": "MCP",
+                "desc": "the Model Context Protocol endpoint at <external url>/_openrun/mcp for AI clients",
+                "settings": [
+                    {"section": "api", "key": "mcp.enable", "label": "Enabled", "kind": "bool",
+                     "help": "serve the MCP endpoint; needs an HTTPS listener (or trusted proxies), the external " +
+                             "URL and RBAC enforcement"},
+                    {"section": "api", "key": "mcp.auth", "label": "Login mechanisms", "kind": "checklist",
+                     "options": "api_auths",
+                     "help": "browser login mechanisms for MCP OAuth clients (API keys minted with --resource mcp " +
+                             "work regardless); at least one is required, admin by default"},
+                    {"section": "api", "key": "mcp.enable_apis", "label": "Additional APIs to enable", "kind": "checklist",
+                     "options": "api_ops_mcp_disabled", "advanced": True,
+                     "help": "dangerous operations disabled for MCP by default, opted back in (logged at startup)"},
+                    {"section": "api", "key": "mcp.disable_apis", "label": "APIs to disable", "kind": "checklist",
+                     "options": "api_ops_mcp", "advanced": True,
+                     "help": "operations turned off for MCP on top of the defaults; secret_create is on by default, " +
+                             "disable it if secret values must never pass through an AI client"},
+                    {"section": "api", "key": "mcp.skip_destructive_confirm", "label": "Skip destructive confirmation",
+                     "kind": "bool", "advanced": True,
+                     "help": "disable the dry-run preview + confirmation prompt on destructive MCP tools (headless automation)"},
+                ],
+            },
+            {
+                "title": "Remote management (REST)",
+                "desc": "the management REST API over HTTPS, used by the OpenRun CLI on other machines",
+                "settings": [
+                    {"section": "api", "key": "rest.enable", "label": "Enabled", "kind": "bool",
+                     "help": "serve the management API over HTTPS; needs an HTTPS listener (or trusted proxies), " +
+                             "the external URL and RBAC enforcement"},
+                    {"section": "api", "key": "rest.auth", "label": "Login mechanisms", "kind": "checklist",
+                     "options": "api_auths",
+                     "help": "login mechanisms for openrun login (API keys work regardless); at least one is " +
+                             "required, admin by default"},
+                    {"section": "api", "key": "rest.enable_apis", "label": "Additional APIs to enable", "kind": "checklist",
+                     "options": "api_ops_rest_disabled", "advanced": True,
+                     "help": "operations disabled for the remote API by default, opted back in (none currently)"},
+                    {"section": "api", "key": "rest.disable_apis", "label": "APIs to disable", "kind": "checklist",
+                     "options": "api_ops", "advanced": True,
+                     "help": "operations turned off for remote CLI callers (the local unix socket CLI is never affected)"},
+                ],
+            },
+        ],
+    },
+    {
         "page": "builder",
         "title": "App builder",
         "desc": "agent configs, git targets, builder profiles and builder settings",
@@ -2659,6 +2728,15 @@ CONFIG_PAGES = [
         ],
     },
 ]
+
+
+def page_settings(meta):
+    # Every settings row of a config page: the flat list plus the rows of
+    # each per-surface/group card
+    rows = list(meta["settings"])
+    for group in meta.get("groups") or []:
+        rows.extend(group["settings"])
+    return rows
 
 
 def config_page_meta(page):
@@ -2699,6 +2777,38 @@ def config_setting_options(source):
         if not error:
             for entry in ret.value:
                 options.append(entry["service_type"] + "/" + entry["name"])
+        return options
+    if source == "api_auths":
+        # Login mechanisms for the remote API surfaces: the fixed builtin and
+        # admin accounts plus every oauth/saml entry name (static + dynamic)
+        options = ["admin", "builtin"]
+        ret = openrun.get_config_entries(["auth", "saml"])
+        error = ret.error
+        if not error:
+            for section in ("auth", "saml"):
+                for entry in ret.value["sections"].get(section) or []:
+                    if entry["name"] not in options:
+                        options.append(entry["name"])
+        return options
+    if source in ("api_ops", "api_ops_mcp", "api_ops_mcp_disabled", "api_ops_rest_disabled"):
+        # Registry operation names for the enable/disable checklists:
+        # api_ops = every operation (rest disable), api_ops_mcp = the ones
+        # with an MCP tool (mcp disable), api_ops_mcp_disabled = the ones
+        # off for MCP by default (mcp enable_apis); nothing is off by
+        # default for rest
+        if source == "api_ops_rest_disabled":
+            return []
+        ret = openrun.list_api_operations()
+        error = ret.error
+        if error:
+            return []
+        options = []
+        for op in ret.value:
+            if source == "api_ops_mcp" and op["mcp_excluded"]:
+                continue
+            if source == "api_ops_mcp_disabled" and not op["mcp_disabled"]:
+                continue
+            options.append(op["name"])
         return options
     if source in ("builder_agent", "builder_git", "builder_profile"):
         # Config entry names of the section, dynamic and static merged
@@ -2759,7 +2869,6 @@ def rbac_section(rbac):
             "targets": grant.get("targets") or [],
         })
     return {
-        "enabled": rbac.get("enabled") or False,
         "groups": groups,
         "roles": roles,
         "grants": grants,
@@ -2780,9 +2889,8 @@ def rbac_diff(live, draft):
         "roles": dict_diff(live.get("roles") or {}, draft.get("roles") or {}),
         "grants": len(draft.get("grants") or []) != len(live.get("grants") or []) or
                   (live.get("grants") or []) != (draft.get("grants") or []),
-        "enabled": (live.get("enabled") or False) != (draft.get("enabled") or False),
     }
-    diff["any"] = bool(diff["groups"] or diff["roles"] or diff["grants"] or diff["enabled"])
+    diff["any"] = bool(diff["groups"] or diff["roles"] or diff["grants"])
     return diff
 
 
@@ -2807,7 +2915,6 @@ def config_data(req):
     live = rbac_section(cfg["rbac"])
     data["VersionId"] = cfg["version_id"]
     data["RBAC"] = {
-        "enabled": live["enabled"],
         "groups": len(live["groups"]),
         "roles": len(live["roles"]),
         "grants": len(live["grants"]),
@@ -2836,7 +2943,7 @@ def config_data(req):
         # One count per managed setting key that has a dynamic override, plus
         # all keys of the page's free-form kv sections
         dynamic_count = 0
-        for setting in meta["settings"]:
+        for setting in page_settings(meta):
             section_values = values.value["sections"].get(setting["section"]) or {}
             if setting["key"] in (section_values.get("dynamic") or {}):
                 dynamic_count += 1
@@ -2916,6 +3023,7 @@ def config_page_data(req, page):
         "PageDesc": meta["desc"],
         "Settings": [],
         "AdvancedSettings": [],
+        "SettingGroups": [],
         "Sections": [],
         "KVs": [],
     }
@@ -2926,7 +3034,7 @@ def config_page_data(req, page):
         return data
     data["VersionId"] = ret.value["version_id"]
 
-    sections = [s["section"] for s in meta["settings"]]
+    sections = [s["section"] for s in page_settings(meta)]
     for kv in meta.get("kv_sections") or []:
         sections.append(kv["section"])
     values = {"sections": {}}
@@ -2937,7 +3045,7 @@ def config_page_data(req, page):
             return data
         values = ret.value
 
-    for setting in meta["settings"]:
+    def setting_row(setting):
         section_values = values["sections"].get(setting["section"]) or {}
         dynamic = section_values.get("dynamic") or {}
         static = section_values.get("static") or {}
@@ -2945,16 +3053,41 @@ def config_page_data(req, page):
         value = dynamic[setting["key"]] if is_dynamic else static.get(setting["key"])
         row = dict(setting)
         row["kind"] = setting.get("kind") or "text"
-        row["value"] = value if value != None else ""
+        if row["kind"] == "checklist":
+            row["value"] = list(value) if value else []
+        else:
+            row["value"] = value if value != None else ""
         row["is_dynamic"] = is_dynamic
         row["static_value"] = static.get(setting["key"])
-        if row["kind"] == "select":
+        if row["kind"] == "checklist" and row["static_value"]:
+            row["static_value"] = ", ".join([str(v) for v in row["static_value"]])
+        if row["kind"] in ("select", "checklist"):
             row["option_list"] = config_setting_options(setting.get("options") or "")
+        return row
+
+    for setting in meta["settings"]:
+        row = setting_row(setting)
         # advanced settings render in a collapsed section, hidden by default
         if setting.get("advanced"):
             data["AdvancedSettings"].append(row)
         else:
             data["Settings"].append(row)
+
+    for group in meta.get("groups") or []:
+        rows = []
+        advanced = []
+        for setting in group["settings"]:
+            row = setting_row(setting)
+            if setting.get("advanced"):
+                advanced.append(row)
+            else:
+                rows.append(row)
+        data["SettingGroups"].append({
+            "title": group["title"],
+            "desc": group.get("desc") or "",
+            "settings": rows,
+            "advanced": advanced,
+        })
 
     for kv in meta.get("kv_sections") or []:
         dynamic = (values["sections"].get(kv["section"]) or {}).get("dynamic") or {}
@@ -3020,6 +3153,12 @@ def config_page_action_handler(req, page):
         raw = utils.query_param(req, "value")
         if kind == "bool":
             ret = openrun_admin.set_config_value(section, key, raw == "on", version_id)
+            ok = "Set %s %s - change is live" % (section, key)
+        elif kind == "checklist":
+            # The checked set is the value, an empty selection included
+            # (the server rejects an empty auth list); the reset button
+            # removes the dynamic value
+            ret = openrun_admin.set_config_value(section, key, utils.query_param_list(req, "value"), version_id)
             ok = "Set %s %s - change is live" % (section, key)
         elif raw.strip() == "":
             # Clearing the field resets to the static config value
@@ -3106,6 +3245,14 @@ def config_system_action_handler(req):
     return config_page_action_handler(req, "system")
 
 
+def config_api_data(req):
+    return config_page_data(req, "api")
+
+
+def config_api_action_handler(req):
+    return config_page_action_handler(req, "api")
+
+
 def config_builder_data(req):
     return config_page_data(req, "builder")
 
@@ -3150,8 +3297,9 @@ def config_rbac_data(req):
 
 
 def config_rbac_action_handler(req):
-    # Publish / discard / toggle-enabled / delete actions on the RBAC page.
-    # All of these edit the staged draft except publish/discard
+    # Publish / discard / delete actions on the RBAC page. All of these edit
+    # the staged draft except publish/discard. RBAC enforcement is always on
+    # (no dynamic enable flag; security.unsafe_disable_rbac is static only)
     action = utils.query_param(req, "action")
     draft_version = utils.query_param(req, "draft_version")
     force = utils.query_param(req, "force") == "true"
@@ -3162,10 +3310,6 @@ def config_rbac_action_handler(req):
     elif action == "discard":
         ret = openrun_admin.discard_rbac_draft(draft_version)
         ok = "Discarded staged changes"
-    elif action == "toggle_enabled":
-        enabled = utils.query_param(req, "enabled") == "true"
-        ret = openrun_admin.update_rbac_enabled(enabled, draft_version)
-        ok = "RBAC %s in the staged config - publish to apply" % ("enabled" if enabled else "disabled")
     elif action == "delete_group":
         ret = openrun_admin.delete_rbac_group(utils.query_param(req, "name"), draft_version)
         ok = "Deleted group %s from the staged config" % utils.query_param(req, "name")

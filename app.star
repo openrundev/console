@@ -273,6 +273,10 @@ def build_routes():
                      fragments=[
                          ace.fragment("action", method="POST", handler=handler.config_system_action_handler),
                      ] if ENABLE_UPDATES else []),
+            ace.html("/config/api", full="config_page.go.html", partial="page_content", handler=handler.config_api_data,
+                     fragments=[
+                         ace.fragment("action", method="POST", handler=handler.config_api_action_handler),
+                     ]),
             ace.html("/config/builder", full="config_page.go.html", partial="page_content", handler=handler.config_builder_data,
                      fragments=[
                          ace.fragment("action", method="POST", handler=handler.config_builder_action_handler),
@@ -451,12 +455,12 @@ def build_permissions():
             perm("openrun.in", "list_config_history"),
             perm("openrun.in", "get_config_version"),
             perm("openrun.in", "list_rbac_permissions"),
+            perm("openrun.in", "list_api_operations"),
         ]
 
     if ENABLE_CONFIG and ENABLE_UPDATES:
         # Config changes are writes: need both flags
         permissions += [
-            perm("openrun_admin.in", "update_rbac_enabled"),
             perm("openrun_admin.in", "set_rbac_group"),
             perm("openrun_admin.in", "delete_rbac_group"),
             perm("openrun_admin.in", "set_rbac_role"),

@@ -48,13 +48,11 @@
                     <div class="card-body p-4 gap-2">
                       <div class="flex items-center gap-2 flex-wrap">
                         <h2 class="text-sm font-medium">RBAC</h2>
-                        {{ if .Data.RBAC.enabled }}
-                          <span class="badge badge-success badge-sm badge-soft"
-                            >enabled</span
-                          >
-                        {{ else }}
-                          <span class="badge badge-ghost badge-sm"
-                            >disabled</span
+                        {{ if not .AppRBACEnabled }}
+                          <span
+                            class="badge badge-warning badge-sm badge-soft tooltip tooltip-top"
+                            data-tip="security.unsafe_disable_rbac is set on this server: grants are not enforced"
+                            >not enforced</span
                           >
                         {{ end }}
                         {{ if .Data.RBAC.has_staged }}
@@ -73,8 +71,8 @@
                       <p class="text-xs text-base-content/70">
                         Role based access control - {{ .Data.RBAC.groups }}
                         groups, {{ .Data.RBAC.roles }} roles,
-                        {{ .Data.RBAC.grants }} grants. Changes are staged and
-                        go live on publish
+                        {{ .Data.RBAC.grants }} grants. Always enforced; changes
+                        are staged and go live on publish
                       </p>
                     </div>
                   </div>

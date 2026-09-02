@@ -461,6 +461,7 @@ html[data-signin-dismissed] #signin-strip {
   color: var(--or-accent-text);
 }
 .badge-soft.badge-primary,
+.badge-soft.badge-secondary, /* RBAC grant role badges: brand green 2.8:1 on dark */
 .btn-soft.btn-primary {
   color: var(--or-accent-text);
 }

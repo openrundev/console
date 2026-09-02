@@ -1,9 +1,10 @@
 {{/* Copyright (c) ClaceIO, LLC */}}
 {{/* SPDX-License-Identifier: Apache-2.0 */}}
 {{/* Generic config sub page (/config/auth, /config/git, /config/secrets,
-     /config/system, /config/builder): settings fields with effective
-     values, entry section tables (oauth/saml/git_auth/...) and the
-     app_config key/value table. Driven by the CONFIG_PAGES descriptors in
+     /config/system, /config/api, /config/builder): settings fields with
+     effective values, grouped settings cards (the api page's surfaces),
+     entry section tables (oauth/saml/git_auth/...) and the app_config
+     key/value table. Driven by the CONFIG_PAGES descriptors in
      handler.star; all changes take effect immediately (no staging).
      HTMX partial: block page_content */}}
 <!DOCTYPE html>
@@ -80,6 +81,35 @@
                 </div>
               {{ end }}
 
+              <!-- Settings groups (one card per remote API surface) -->
+              {{ range .Data.SettingGroups }}
+                <div class="card bg-base-100 border border-base-300">
+                  <div
+                    class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
+                    <h2 class="text-sm font-medium">{{ .title }}</h2>
+                    <span class="text-xs text-base-content/70">{{ .desc }}</span>
+                  </div>
+                  <div class="card-body p-4 gap-4">
+                    {{ range .settings }}
+                      {{ template "config_setting_row" (dict "Row" . "ActionPath" $actionPath "VersionId" $.Data.VersionId "CanEdit" $canEdit) }}
+                    {{ end }}
+                    {{ if .advanced }}
+                      <details class="group">
+                        <summary
+                          class="cursor-pointer text-sm font-medium text-base-content/70 hover:text-base-content list-none flex items-center gap-1">
+                          <span aria-hidden="true" class="inline-block transition-transform duration-200 group-open:rotate-90">›</span>
+                          Additional settings
+                        </summary>
+                        <div class="flex flex-col gap-4 mt-4 pl-3 border-l border-base-300">
+                          {{ range .advanced }}
+                            {{ template "config_setting_row" (dict "Row" . "ActionPath" $actionPath "VersionId" $.Data.VersionId "CanEdit" $canEdit) }}
+                          {{ end }}
+                        </div>
+                      </details>
+                    {{ end }}
+                  </div>
+                </div>
+              {{ end }}
               <!-- Entry sections (oauth, saml, git auth) -->
               {{ range .Data.Sections }}
                 <div class="card bg-base-100 border border-base-300">
@@ -337,6 +367,49 @@
             {{ end }}
           {{ end }}
         </select>
+      {{ else if eq $row.kind "checklist" }}
+        {{ $current := $row.value }}
+        <div
+          id="setting-{{ $row.section }}-{{ $row.key }}"
+          role="group"
+          aria-label="{{ $row.label }}"
+          class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-1 pt-1.5">
+          {{ range $row.option_list }}
+            {{ $opt := . }}
+            {{ $checked := false }}
+            {{ range $current }}{{ if eq . $opt }}{{ $checked = true }}{{ end }}{{ end }}
+            <label class="flex items-center gap-2 cursor-pointer text-sm min-w-0">
+              <input
+                type="checkbox"
+                name="value"
+                value="{{ $opt }}"
+                class="checkbox checkbox-xs checkbox-primary"
+                {{ if $checked }}checked{{ end }}
+                {{ if not $canEdit }}disabled{{ end }} />
+              <span class="font-mono text-xs truncate">{{ $opt }}</span>
+            </label>
+          {{ end }}
+          {{ range $current }}
+            {{ $val := . }}
+            {{ $known := false }}
+            {{ range $row.option_list }}{{ if eq . $val }}{{ $known = true }}{{ end }}{{ end }}
+            {{ if not $known }}
+              <label class="flex items-center gap-2 cursor-pointer text-sm min-w-0">
+                <input
+                  type="checkbox"
+                  name="value"
+                  value="{{ $val }}"
+                  class="checkbox checkbox-xs checkbox-primary"
+                  checked
+                  {{ if not $canEdit }}disabled{{ end }} />
+                <span class="font-mono text-xs truncate">{{ $val }} (not found)</span>
+              </label>
+            {{ end }}
+          {{ end }}
+          {{ if and (not $row.option_list) (not $current) }}
+            <span class="text-xs text-base-content/70 pt-0.5">no options available</span>
+          {{ end }}
+        </div>
       {{ else if eq $row.kind "textarea" }}
         <textarea
           id="setting-{{ $row.section }}-{{ $row.key }}"

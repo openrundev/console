@@ -186,15 +186,26 @@
 				}
 			});
 
-			// Open the first file (app.star when present) so the tab is
-			// never empty
+			// urlparam: keep the selected file in the URL query string (the
+			// detail Files tab passes urlparam="file") so reloads and shared
+			// links restore it. Selection is replaceState, not pushState - a
+			// history entry per file click would make Back tedious
+			this.urlParam = this.getAttribute('urlparam');
+			const wanted = this.urlParam
+				? new URLSearchParams(window.location.search).get(this.urlParam)
+				: null;
+
+			// Open the file named in the URL when present, else the first
+			// file (app.star when present) so the tab is never empty
 			const rows = this.querySelectorAll('[data-bf-file]');
 			let first = null;
+			let fromUrl = null;
 			rows.forEach((row) => {
 				if (!first) first = row;
 				if (row.getAttribute('data-bf-file') === 'app.star') first = row;
+				if (wanted && row.getAttribute('data-bf-file') === wanted) fromUrl = row;
 			});
-			if (first) this.open(first);
+			if (fromUrl || first) this.open(fromUrl || first);
 		}
 
 		setTreeOpen(open) {
@@ -208,6 +219,11 @@
 			this.querySelectorAll('[data-bf-file].bf-active').forEach((el) => el.classList.remove('bf-active'));
 			row.classList.add('bf-active');
 			if (this.nameEl) this.nameEl.textContent = path;
+			if (this.urlParam) {
+				const url = new URL(window.location.href);
+				url.searchParams.set(this.urlParam, path);
+				history.replaceState(history.state, '', url);
+			}
 			this.renderText('Loading…', 'plaintext');
 			try {
 				const resp = await fetch(this.getAttribute('endpoint') + '&path=' + encodeURIComponent(path));

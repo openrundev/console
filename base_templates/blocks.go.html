@@ -1143,8 +1143,9 @@
       <div class="card bg-base-100 border border-base-300 overflow-hidden">
       {{/* fill: the explorer sizes itself to the remaining viewport
         height (builderfiles.js), so the file view uses all available
-        space */}}
-      <builder-files fill endpoint="{{ $ft.Endpoint }}">
+        space. urlparam: the selected file tracks the ?file= query param
+        (replaceState) and a deep link with ?file= opens that file */}}
+      <builder-files fill urlparam="file" endpoint="{{ $ft.Endpoint }}">
         <nav
           class="bf-tree shrink-0 overflow-y-auto bg-base-200/30 py-2 text-xs"
           aria-label="Version files">
