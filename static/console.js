@@ -587,7 +587,7 @@ function removeBindingRow(btn) {
 // ---- op-form submit indicator ---------------------------------------------
 // The full-page operation forms post via hx-post with a narrow target (the
 // op_form block): while the request is in flight htmx adds .htmx-request to
-// the form (its submit buttons disable, see accessibility.css) and
+// the form (CSS dims its submit buttons and blocks pointer clicks) and
 // #page-progress shows via hx-indicator. The clicked submit button
 // additionally gets the inline spinner: mark it from the submit event's
 // submitter, since CSS cannot tell which of a form's buttons was clicked
@@ -641,8 +641,8 @@ function toggleNavDrawer(btn) {
 // Dismiss the mobile sign-in strip for the rest of the browser session. The
 // pre-paint head snippet reads the flag, so later pages never flash the strip
 function dismissSigninStrip() {
-	sessionStorage.setItem('signin-strip-dismissed', '1');
 	document.documentElement.setAttribute('data-signin-dismissed', '');
+	try { sessionStorage.setItem('signin-strip-dismissed', '1'); } catch (e) { /* storage may be unavailable */ }
 }
 
 // Show an error toast for failed API calls; replaces the previous message
@@ -751,11 +751,14 @@ window.addEventListener('pageshow', () => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
+	let refreshRequest;
 	// Navigation feedback for regular link clicks and form submits
 	document.body.addEventListener('click', (event) => {
 		const link = event.target.closest('a[href]');
 		if (
 			!link ||
+			event.defaultPrevented ||
+			event.button !== 0 ||
 			link.target === '_blank' ||
 			link.origin !== location.origin ||
 			link.getAttribute('href').startsWith('#') ||
@@ -779,30 +782,42 @@ document.addEventListener('DOMContentLoaded', () => {
 		// re-renders <main> from a fresh GET (every page has exactly one
 		// main), so the click visibly refreshes the data with the same
 		// progress bar as a navigation
-		// Done by hand rather than htmx.ajax: its select option applied to
-		// a full-document response swapped in NOTHING (htmx 2.0.3), so the
-		// fresh main is picked out of the parsed response here. htmx.process
-		// re-arms the hx- attributes (lazy tiles, polling) on the new tree
+		// Extract main from the full response, then use htmx.swap so old
+		// polling is cleaned up and afterSwap initializers run on the new tree.
 		if (link.href === location.href && window.htmx) {
 			event.preventDefault();
+			refreshRequest?.abort();
+			const request = new AbortController();
+			refreshRequest = request;
 			const bar = document.getElementById('nav-progress');
 			if (bar) {
 				bar.classList.add('active');
 			}
-			fetch(location.href, { headers: { Accept: 'text/html' } })
-				.then((resp) => resp.text())
+			fetch(location.href, { headers: { Accept: 'text/html' }, signal: request.signal })
+				.then((resp) => {
+					if (!resp.ok) throw new Error('server returned ' + resp.status);
+					if (resp.redirected) {
+						window.location.assign(resp.url);
+						return null;
+					}
+					return resp.text();
+				})
 				.then((text) => {
+					if (text === null || request.signal.aborted) return;
 					const doc = new DOMParser().parseFromString(text, 'text/html');
 					const fresh = doc.querySelector('main');
 					const current = document.querySelector('main');
 					if (fresh && current) {
-						current.replaceWith(fresh);
-						window.htmx.process(fresh);
+						window.htmx.swap(current, fresh.outerHTML, { swapStyle: 'outerHTML' });
+					} else {
+						throw new Error('server returned an unexpected page');
 					}
 				})
-				.catch(() => {})
+				.catch((error) => {
+					if (!request.signal.aborted) showApiError('Refresh failed: ' + error.message);
+				})
 				.finally(() => {
-					if (bar) {
+					if (bar && refreshRequest === request) {
 						bar.classList.remove('active');
 					}
 				});
@@ -815,6 +830,9 @@ document.addEventListener('DOMContentLoaded', () => {
 		// navigation progress bar would never clear for them; they have
 		// their own hx-indicator
 		const form = event.target;
+		if (event.defaultPrevented || form.method === 'dialog' || event.submitter?.formMethod === 'dialog') {
+			return;
+		}
 		if (form && form.matches && form.matches('[hx-post], [hx-get], [hx-put], [hx-patch], [hx-delete]')) {
 			return;
 		}
@@ -849,7 +867,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		toggle.addEventListener('change', (event) => {
 			const theme = event.target.checked ? 'light' : 'dark';
 			document.documentElement.setAttribute('data-theme', 'openrun-' + theme);
-			localStorage.setItem('theme', theme);
+			try { localStorage.setItem('theme', theme); } catch (e) { /* storage may be unavailable */ }
 		});
 	}
 

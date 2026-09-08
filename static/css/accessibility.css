@@ -256,9 +256,8 @@ html[data-signin-dismissed] #signin-strip {
    logo, page background) is pinned static, and only the named content
    region (main) and the header text pair fade. Anything new added to a
    page is static in transitions unless it is explicitly named. Reduced
-   motion opts out (the reduced-motion block above also zeroes animation
-   durations). Chrome 126+; other browsers ignore all of this and keep
-   plain navigation */
+   motion opts out; style.css also minimizes animation durations. Browsers
+   without cross-document view transitions use plain navigation. */
 @media (prefers-reduced-motion: no-preference) {
   /* The custom animations below are for CROSS-DOCUMENT navigations only,
      so they are gated on the cross-doc active type: htmx partial swaps with
@@ -502,7 +501,8 @@ html[data-signin-dismissed] #signin-strip {
    the permission tooltips entirely (native titles included, a long
    standing gap). A disabled button still cannot be activated - the
    disabled attribute blocks click dispatch - only hover is restored.
-   Anchor-based .btn-disabled stays inert: those keep a real href */
+   Disabled anchors must omit href in their markup; this rule restores
+   pointer events and does not itself prevent anchor navigation. */
 button.tooltip:disabled,
 a.tooltip.btn-disabled {
   pointer-events: auto;
@@ -560,9 +560,9 @@ a.tooltip.btn-disabled {
    The full-page operation forms (app/sync/binding/service/config/builder
    create+update) post via hx-post with a narrow target (the op_form
    block): htmx adds .htmx-request to the form while its request is in
-   flight. The submit buttons disable so the operation cannot be
-   double-submitted, and the clicked button (marked .btn-inflight by
-   console.js from the submit event's submitter - CSS alone cannot tell
+   flight. CSS dims the submit buttons and blocks pointer clicks; it does
+   not disable keyboard submission. The clicked button (marked .btn-inflight
+   by console.js from the submit event's submitter - CSS alone cannot tell
    Validate from Create) shows the shared inline spinner (btn-spin
    keyframes in style.css). */
 form.htmx-request button[type="submit"] {

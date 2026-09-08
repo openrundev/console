@@ -6,8 +6,9 @@
 // Fetches the src URL and renders the plain-text response as log lines,
 // following the stream until it ends or the element is removed. Designed for
 // minimal CPU and memory use: chunk-level fast path for plain text, a fixed
-// line cap, and DOM updates batched per animation frame (at most max-lines
-// nodes are ever touched in a frame, however fast the stream is).
+// line cap, and DOM updates batched per animation frame. Each batch adds at
+// most max-lines log rows, then trims the retained rows to the same cap;
+// styled rows can contain multiple span nodes.
 //
 // Console output handling: CRLF, \r overwrite (progress bars), \b; the
 // common ANSI SGR codes (16 colors, bold/dim/italic/underline) render as
@@ -395,7 +396,11 @@
 			try {
 				const res = await fetch(this.getAttribute('src'), { signal: ctl.signal });
 				if (!res.ok) {
-					this._setStatus('error loading logs: HTTP ' + res.status);
+					// A failed stream carries the server's error text as the
+					// body (no data was written yet): show it over the bare code
+					const text = (await res.text().catch(() => '')).trim();
+					if (ctl.signal.aborted) return;
+					this._setStatus('error loading logs: ' + (text || 'HTTP ' + res.status));
 					return;
 				}
 				const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();

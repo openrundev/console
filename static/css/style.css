@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: Apache-2.0 */
-/* Interaction & polish layer (contributor notes: design/notes.md). Theme
+/* Interaction & polish layer. Theme
    colors come from the daisyui custom themes defined in app.star
    (ace.style custom_themes); everything here uses theme variables so it
    adapts to light/dark. */
@@ -84,7 +84,8 @@ h3:not(.font-mono),
 
 /* ---- In-flight actions -----------------------------------------------
    Buttons disabled by htmx during their own request (hx-disabled-elt="this")
-   show an inline spinner. Statically disabled buttons are unaffected. */
+   show an inline spinner. Statically disabled buttons must omit
+   hx-disabled-elt to avoid matching the same selector. */
 button[hx-disabled-elt][disabled] {
   pointer-events: none;
   opacity: 0.75;
@@ -168,8 +169,7 @@ button[hx-disabled-elt][disabled]::before {
 }
 
 /* ---- Field focus ---------------------------------------------------------
-   Focused input glows softly in the brand color and grows slightly wider
-   (width utility transition set in markup). */
+   Focused input labels gain a brand-colored border and glow. */
 label.input {
   transition:
     border-color 200ms ease,
@@ -190,7 +190,7 @@ label.input:focus-within {
    Main list-page headings carry a brand accent bar, giving each screen a
    strong anchor without contrast concerns. The heading shrinks to its text
    (fit-content) so the bar underneath spans exactly the title's width; the
-   bar fades in from nothing up to the brand light green. */
+   bar's gradient runs from nearly transparent to the brand secondary green. */
 .page-title {
   width: fit-content;
 }
@@ -298,7 +298,7 @@ label.input:focus-within {
 }
 
 /* ---- Accessibility ---------------------------------------------------------
-   All motion is removed for users who prefer reduced motion. */
+   Minimize animation and transition durations for reduced motion. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

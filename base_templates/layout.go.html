@@ -25,15 +25,19 @@
       // The generated daisyui styles follow the system preference by default
       // (light and dark themes from ace.style). Apply the persisted manual
       // choice, if any, before styles load to avoid a flash.
-      const theme = localStorage.getItem("theme");
-      if (theme == "light" || theme == "dark") {
-        document.documentElement.setAttribute("data-theme", "openrun-" + theme);
-      }
+      try {
+        const theme = localStorage.getItem("theme");
+        if (theme == "light" || theme == "dark") {
+          document.documentElement.setAttribute("data-theme", "openrun-" + theme);
+        }
+      } catch (e) { /* storage may be unavailable */ }
       // A dismissed mobile sign-in strip stays hidden for the session; the
       // attribute is stamped pre-paint so later pages never flash the strip
-      if (sessionStorage.getItem("signin-strip-dismissed")) {
-        document.documentElement.setAttribute("data-signin-dismissed", "");
-      }
+      try {
+        if (sessionStorage.getItem("signin-strip-dismissed")) {
+          document.documentElement.setAttribute("data-signin-dismissed", "");
+        }
+      } catch (e) { /* storage may be unavailable */ }
     </script>
     <style>
       /* Paint the page background before the stylesheets apply, so
@@ -59,7 +63,7 @@
       The @font-face declarations live here rather than in the css so the
       font urls go through the static helper and get content-hashed names;
       the above-the-fold faces are preloaded with the SAME hashed urls, so
-      each font downloads once and text does not swap after first paint */}}
+      preloads can be reused by the stylesheet, reducing font swaps */}}
     <link
       rel="preload"
       href="{{ static "fonts/schibsted-grotesk-400.woff2" }}"
