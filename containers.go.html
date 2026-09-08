@@ -1,7 +1,8 @@
 {{/* Copyright (c) ClaceIO, LLC */}}
 {{/* SPDX-License-Identifier: Apache-2.0 */}}
-{{/* Containers page (/containers): managed containers with running/stopped
-     filter chips and search. HTMX partial: block container_rows */}}
+{{/* Containers page (/containers): managed containers by type tab (apps,
+     sidecars, litestream, jobs, agents, kaniko, all) with the show-stopped
+     checkbox and search. HTMX partial: block container_rows */}}
 <!DOCTYPE html>
 <html lang="en">
   {{ template "head" . }}
@@ -245,6 +246,23 @@
                 Litestream
               </button>
               {{ end }}
+              {{/* Job run containers: one per run on both runtimes, kept
+                after they exit for their logs - so this tab always lists
+                the stopped ones too, whatever the checkbox says */}}
+              <button
+                class="btn btn-sm join-item transition-transform duration-150 active:scale-95 tooltip tooltip-bottom {{ if eq .Data.Filter "job" }}btn-primary{{ end }}"
+                aria-pressed="{{ if eq .Data.Filter "job" }}true{{ else }}false{{ end }}"
+                data-tip="Job run containers, running and finished (finished ones are always listed here)"
+                data-filter="job"
+                hx-get="{{ $.AppPath }}/containers"
+                hx-vals='{"filter": "job"}'
+                hx-include="#page-search, #show-stopped"
+                hx-target="#container-rows"
+                hx-swap="innerHTML"
+                hx-push-url="true"
+                hx-indicator="#page-progress">
+                Jobs
+              </button>
               {{ if and .Data.Perms (index .Data.Perms "feature:builder") }}
               <button
                 class="btn btn-sm join-item transition-transform duration-150 active:scale-95 tooltip tooltip-bottom {{ if eq .Data.Filter "agent" }}btn-primary{{ end }}"
@@ -355,6 +373,10 @@
                                 <span class="badge badge-ghost badge-xs font-mono"
                                   >sidecar {{ .sidecar }}</span
                                 >
+                              {{ else if .job }}
+                                <span class="badge badge-ghost badge-xs font-mono" title="run {{ .job_run }}"
+                                  >job {{ .job }}</span
+                                >
                               {{ else if and .kind (ne .kind "app") (ne $.Data.Filter "all") }}
                                 <span class="badge badge-ghost badge-xs font-mono"
                                   >{{ .kind }}</span
@@ -424,6 +446,17 @@
                                       {{ end }}>
                                       stop
                                     </button>
+                                  {{ else if .job }}
+                                    {{/* A finished job container is not restarted:
+                                      that would re-execute the command outside
+                                      its run record. Rerun the job from the app */}}
+                                    <a
+                                      href="{{ $.AppPath }}/apps/detail?path={{ .app_path }}&tab=jobs&run={{ .job_run }}"
+                                      class="btn btn-xs btn-ghost tooltip tooltip-left"
+                                      data-tip="This run on the app's Jobs tab"
+                                      aria-label="Job run {{ .job_run }} of {{ .app_path }}">
+                                      run <span aria-hidden="true">→</span>
+                                    </a>
                                   {{ else }}
                                     <button
                                       class="btn btn-xs btn-ghost text-primary tooltip tooltip-left"
@@ -485,6 +518,12 @@
                         <p class="text-xs text-base-content/70">
                           Kaniko pods run while a container app's image is
                           being built and are cleaned up after
+                        </p>
+                      {{ else if eq .Data.Filter "job" }}
+                        <p>No job containers</p>
+                        <p class="text-xs text-base-content/70">
+                          A job run starts a container from the app's image;
+                          finished containers stay until their run is retired
                         </p>
                       {{ else }}
                         <p>No containers are being managed</p>

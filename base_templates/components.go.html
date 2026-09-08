@@ -178,6 +178,10 @@
   {{ else if eq .state "pending" }}
     <span class="status status-warning" aria-hidden="true"></span>
     <span class="text-xs">pending</span>
+  {{ else if eq .state "succeeded" }}
+    {{/* kubernetes job pods that finished */}}
+    <span class="status status-success" aria-hidden="true"></span>
+    <span class="text-xs">succeeded</span>
   {{ else }}
     <span class="status status-warning" aria-hidden="true"></span>
     <span class="text-xs">{{ .state }}</span>

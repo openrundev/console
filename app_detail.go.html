@@ -2,7 +2,8 @@
 {{/* SPDX-License-Identifier: Apache-2.0 */}}
 {{/* App detail page (/apps/detail?path=): overview, promote/reload/delete
      actions, requested permissions, containers, params and stage/prod
-     version tables. HTMX partial: block detail_content */}}
+     version tables, plus the Config, Compare, Files and (apps with jobs)
+     Jobs inspector tabs. HTMX partial: block detail_content */}}
 {{/* container_table renders one environment's containers: per type (app
      container, each sidecar) the running container and the last stopped
      one. Context: dict with Rows, Env (prod/stage/dev), AppPath */}}
@@ -322,6 +323,560 @@
     {{ end }}
   {{ end }}
 {{ end }}
+{{/* job_status_badge renders a run status as a badge. Context: status string */}}
+{{ define "job_status_badge" }}
+  {{- $s := . -}}
+  <span
+    class="badge badge-xs badge-soft whitespace-nowrap {{ if eq $s "succeeded" }}badge-success{{ else if eq $s "running" }}badge-info{{ else if or (eq $s "failed") (eq $s "timed_out") (eq $s "lost") }}badge-error{{ else if eq $s "canceled" }}badge-warning{{ else }}badge-ghost{{ end }}"
+    data-run-status="{{ $s }}"
+    >{{ if eq $s "running" }}<span class="loading loading-spinner loading-xs mr-1" aria-hidden="true"></span>{{ end }}{{ $s }}</span
+  >
+{{ end }}
+
+{{/* job_trigger_badge renders a trigger type. Context: trigger string */}}
+{{ define "job_trigger_badge" }}
+  <span class="badge badge-ghost badge-xs font-mono">{{ . }}</span>
+{{ end }}
+
+{{/* job_run_chips renders a run's identity chips: the job name, trigger
+     badge, non-prod instance badge and the forced marker. Context: a
+     job_run_row dict */}}
+{{ define "job_run_chips" }}
+  <span class="font-mono text-xs">{{ .job }}</span>
+  {{ template "job_trigger_badge" .trigger }}
+  {{ if ne .stage "prod" }}
+    <span class="badge badge-ghost badge-xs">{{ .stage }}</span>
+  {{ end }}
+  {{ if .forced }}
+    <span class="badge badge-warning badge-xs badge-soft" title="run with force">forced</span>
+  {{ end }}
+{{ end }}
+
+{{/* app_job_runs renders the runs table of the Jobs tab (the job/status
+     filter selects, the rows and a poll while a run is active). Rendered
+     stand-alone by the /apps/detail/jobs_runs fragment into #job-runs.
+     Receives the full request context */}}
+{{ define "app_job_runs" }}
+  {{ $runs := .Data.Runs }}
+  {{ $path := .Data.Path }}
+  {{ if .Data.Error }}
+    <p class="text-sm text-error break-all px-4 py-4">{{ .Data.Error }}</p>
+  {{ else if $runs }}
+    {{/* The poll lives on this inner element so a render without an active
+      run stops it (the fragment swaps the element out) */}}
+    <div
+      data-job-runs
+      {{ if $runs.Active }}
+        hx-get="{{ .AppPath }}/apps/detail/jobs_runs?path={{ $path }}&job={{ $runs.Job }}&status={{ $runs.Status }}"
+        hx-trigger="every 10s"
+        hx-target="#job-runs"
+        hx-swap="innerHTML"
+      {{ end }}>
+      <div class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
+        <h2 class="text-sm font-medium">Runs</h2>
+        <span class="text-xs text-base-content/70"
+          >{{ len $runs.Rows }} runs{{ if $runs.Active }} · refreshing while a run is active{{ end }}</span
+        >
+        <form
+          class="ml-auto flex items-center gap-2"
+          hx-get="{{ .AppPath }}/apps/detail/jobs_runs?path={{ $path }}"
+          hx-trigger="change"
+          hx-target="#job-runs"
+          hx-swap="innerHTML"
+          hx-indicator="#page-progress">
+          <select name="job" class="select select-xs min-w-0 font-mono" aria-label="Filter runs by job">
+            <option value="" class="font-sans">all jobs</option>
+            {{ range $runs.Names }}
+              <option value="{{ . }}" {{ if eq . $runs.Job }}selected{{ end }}>{{ . }}</option>
+            {{ end }}
+            {{ if and $runs.Job (not (has $runs.Job $runs.Names)) }}
+              <option value="{{ $runs.Job }}" selected>{{ $runs.Job }}</option>
+            {{ end }}
+          </select>
+          <select name="status" class="select select-xs min-w-0" aria-label="Filter runs by status">
+            <option value="">all statuses</option>
+            {{ range $st := list "running" "succeeded" "failed" "timed_out" "canceled" "lost" }}
+              <option value="{{ $st }}" {{ if eq $st $runs.Status }}selected{{ end }}>{{ $st }}</option>
+            {{ end }}
+          </select>
+        </form>
+      </div>
+      {{ if $runs.Error }}
+        <p class="text-sm text-error break-all px-4 py-4">{{ $runs.Error }}</p>
+      {{ else if not $runs.Rows }}
+        <p class="text-sm text-base-content/70 px-4 py-4">
+          {{ if or $runs.Job $runs.Status }}
+            No runs match the filter
+          {{ else }}
+            No runs yet - runs are recorded when a job is started manually,
+            by its schedule or by a deploy
+          {{ end }}
+        </p>
+      {{ else }}
+        <div class="overflow-x-auto">
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th scope="col">Run</th>
+                <th scope="col">Job</th>
+                <th scope="col">Status</th>
+                <th scope="col">Started</th>
+                <th scope="col" class="hidden md:table-cell">Duration</th>
+                <th scope="col" class="hidden lg:table-cell">By</th>
+                <th scope="col" class="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{ range $runs.Rows }}
+                <tr class="group hover:bg-base-200/60" data-run-id="{{ .id }}">
+                  <td class="whitespace-nowrap">
+                    <span class="font-mono text-xs tooltip tooltip-right" data-tip="{{ .id }}"
+                      >{{ trunc 12 .id }}…</span
+                    >
+                  </td>
+                  <td class="whitespace-nowrap">
+                    {{ template "job_run_chips" . }}
+                  </td>
+                  <td>
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                      {{ template "job_status_badge" .status }}
+                      {{ if and .has_exit_code (ne .status "succeeded") }}
+                        <span class="font-mono text-xs text-base-content/70">exit {{ .exit_code }}</span>
+                      {{ end }}
+                    </div>
+                    {{ if .message }}
+                      <p class="text-xs text-base-content/70 break-all max-w-md" title="{{ .message }}">
+                        {{ if gt (len .message) 160 }}{{ trunc 160 .message }}…{{ else }}{{ .message }}{{ end }}
+                      </p>
+                    {{ end }}
+                  </td>
+                  <td class="text-xs text-base-content/70 whitespace-nowrap">
+                    {{ if .started_at }}
+                      {{ template "time_ago" .started_at }}
+                    {{ else }}
+                      -
+                    {{ end }}
+                  </td>
+                  <td class="text-xs text-base-content/70 whitespace-nowrap tabular-nums hidden md:table-cell">
+                    {{ if .duration }}{{ .duration }}{{ else }}-{{ end }}
+                  </td>
+                  <td class="text-xs text-base-content/70 hidden lg:table-cell break-all">
+                    {{ .actor }}
+                  </td>
+                  <td class="text-right whitespace-nowrap">
+                    <div class="inline-flex items-center gap-0.5">
+                      <button
+                        class="btn btn-xs btn-ghost text-primary tooltip tooltip-left"
+                        data-tip="Show the output of this run"
+                        aria-label="Logs of run {{ .id }}"
+                        hx-get="{{ $.AppPath }}/apps/detail/jobs_logs?path={{ $path }}&run={{ .id }}"
+                        hx-target="#job-logs"
+                        hx-swap="innerHTML show:#job-logs:top"
+                        hx-indicator="#page-progress">
+                        logs
+                      </button>
+                      {{ if .container_id }}
+                        <a
+                          href="{{ $.AppPath }}/containers/detail?id={{ .container_id }}"
+                          class="btn btn-xs btn-ghost tooltip tooltip-left"
+                          data-tip="Container of this run: stats and logs"
+                          aria-label="Container of run {{ .id }}">
+                          container <span aria-hidden="true">→</span>
+                        </a>
+                      {{ end }}
+                      {{ if .active }}
+                        <button
+                          class="btn btn-xs btn-ghost text-error tooltip tooltip-left"
+                          aria-label="Cancel run {{ .id }}"
+                          {{ if index $.Data.Perms "app:update" }}
+                            data-tip="Cancel this run"
+                            hx-post="{{ $.AppPath }}/apps/detail/jobs_cancel"
+                            hx-vals='{"path": "{{ $path }}", "tab": "jobs", "run": "{{ .id }}"}'
+                            hx-confirm="Cancel run {{ .id }} of job {{ .job }}?"
+                            hx-target="#detail-content"
+                            hx-swap="innerHTML transition:true"
+                            hx-disabled-elt="this"
+                            hx-indicator="#page-progress"
+                          {{ else }}
+                            disabled data-tip="requires app:update"
+                          {{ end }}>
+                          cancel
+                        </button>
+                      {{ end }}
+                    </div>
+                  </td>
+                </tr>
+              {{ end }}
+            </tbody>
+          </table>
+        </div>
+      {{ end }}
+    </div>
+  {{ end }}
+{{ end }}
+
+{{/* app_job_logs renders the logs pane of one run: the run header and its
+     output. Rendered stand-alone by the /apps/detail/jobs_logs fragment
+     into #job-logs; renders nothing without a run. Receives the full
+     request context */}}
+{{ define "app_job_logs" }}
+  {{ $logs := .Data.Logs }}
+  {{ if $logs }}
+    <div class="card bg-base-100 border border-base-300" data-job-logs="{{ $logs.RunId }}">
+      <div class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
+        <h2 class="text-sm font-medium">Run output</h2>
+        <span class="font-mono text-xs break-all">{{ $logs.RunId }}</span>
+        {{ if $logs.Run }}
+          {{ template "job_run_chips" $logs.Run }}
+          {{ template "job_status_badge" $logs.Run.status }}
+          {{ if $logs.Run.has_exit_code }}
+            <span class="font-mono text-xs text-base-content/70">exit {{ $logs.Run.exit_code }}</span>
+          {{ end }}
+          {{ if $logs.Run.duration }}
+            <span class="text-xs text-base-content/70 tabular-nums">{{ $logs.Run.duration }}</span>
+          {{ end }}
+        {{ end }}
+        <button
+          type="button"
+          class="btn btn-xs btn-ghost ml-auto"
+          aria-label="Close the run output"
+          onclick="const p = document.getElementById('job-logs'); if (p) p.innerHTML = ''">
+          close
+        </button>
+      </div>
+      <div class="p-4 space-y-2">
+        {{ if $logs.Error }}
+          <p class="text-sm text-error break-all">{{ $logs.Error }}</p>
+        {{ else }}
+          {{ if $logs.Run }}
+            <div class="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-6 gap-y-1 text-xs">
+              {{ if $logs.Run.message }}
+                <span class="text-base-content/70">Message</span>
+                <span class="break-all">{{ $logs.Run.message }}</span>
+              {{ end }}
+              {{ if $logs.Run.image }}
+                <span class="text-base-content/70">Image</span>
+                <span class="font-mono break-all">{{ $logs.Run.image }}</span>
+              {{ end }}
+              {{ if $logs.Run.container_name }}
+                <span class="text-base-content/70">Container</span>
+                <span class="font-mono break-all">{{ $logs.Run.container_name }}</span>
+              {{ end }}
+              {{ if $logs.Run.args }}
+                <span class="text-base-content/70">Arguments</span>
+                <span class="font-mono break-all"
+                  >{{ range $k, $v := $logs.Run.args }}{{ $k }}={{ $v }} {{ end }}</span
+                >
+              {{ end }}
+              {{ if $logs.Run.actor }}
+                <span class="text-base-content/70">By</span>
+                <span class="break-all">{{ $logs.Run.actor }}{{ if $logs.Run.started_at }} · {{ template "time_ago" $logs.Run.started_at }}{{ end }}</span>
+              {{ end }}
+            </div>
+          {{ end }}
+          <pre
+            class="font-mono text-xs bg-base-200 rounded px-3 py-2 whitespace-pre-wrap break-all max-h-96 overflow-auto"
+            aria-label="Run output">{{ if $logs.Logs }}{{ $logs.Logs }}{{ else }}(no output){{ end }}</pre>
+        {{ end }}
+      </div>
+    </div>
+  {{ end }}
+{{ end }}
+
+{{/* app_jobs_pane renders the Jobs tab: the effective jobs table with a
+     run dialog per job, the runs table (#job-runs) and the logs pane
+     (#job-logs). Receives the full request context */}}
+{{ define "app_jobs_pane" }}
+  {{ $jobs := .Data.Jobs }}
+  {{ $path := .Data.Path }}
+  {{ $canRun := and (index .Data.Perms "app:update") (index .Data.Perms "feature:updates") }}
+  {{ $hasDetail := index .Data.Perms "app:read_detail" }}
+  <div id="jobs-pane" class="space-y-4">
+    <!-- Jobs -->
+    <div class="card bg-base-100 border border-base-300">
+      <div class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
+        <h2 class="text-sm font-medium">Jobs</h2>
+        <span class="text-xs text-base-content/70">{{ len $jobs.Rows }} jobs</span>
+        <span class="text-xs text-base-content/70 ml-auto hidden md:inline"
+          >declared in app.star, or set on the app (metadata)</span
+        >
+      </div>
+      {{ if $jobs.Error }}
+        <p class="text-sm text-error break-all px-4 py-4">{{ $jobs.Error }}</p>
+      {{ else if not $jobs.Rows }}
+        <p class="text-sm text-base-content/70 px-4 py-4">
+          No jobs - declare them with ace.job in app.star or set them on
+          the app with app update jobs
+        </p>
+      {{ else }}
+        <div class="overflow-x-auto">
+          <table class="table table-sm" data-jobs>
+            <thead>
+              <tr>
+                <th scope="col">Job</th>
+                <th scope="col">Trigger</th>
+                <th scope="col" class="hidden lg:table-cell">Command</th>
+                <th scope="col" class="hidden md:table-cell">Next run</th>
+                <th scope="col">Last run</th>
+                <th scope="col" class="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{ range $jobs.Rows }}
+                <tr class="group hover:bg-base-200/60" data-job="{{ .name }}" data-job-stage="{{ .stage }}">
+                  <td>
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                      <span class="font-mono text-xs font-medium">{{ .name }}</span>
+                      {{ if eq .stage "stage" }}
+                        <span
+                          class="badge badge-warning badge-xs badge-soft tooltip tooltip-right"
+                          data-tip="the staging app's version of this job differs from prod's; runs from this row target staging"
+                          >stage</span
+                        >
+                      {{ end }}
+                      {{ if eq .origin "metadata" }}
+                        <span
+                          class="badge badge-ghost badge-xs tooltip tooltip-right"
+                          data-tip="set on the app (apps.ace / app update jobs), replacing any app.star job of this name"
+                          >metadata</span
+                        >
+                      {{ end }}
+                      {{ if not .enabled }}
+                        <span
+                          class="badge badge-ghost badge-xs tooltip tooltip-right"
+                          data-tip="never scheduled or gated; a manual run needs force"
+                          >disabled</span
+                        >
+                      {{ end }}
+                    </div>
+                    {{ if .description }}
+                      <p class="text-xs text-base-content/70 max-w-xs">{{ .description }}</p>
+                    {{ end }}
+                    {{ range .warnings }}
+                      <p class="text-xs text-error break-all">{{ . }}</p>
+                    {{ end }}
+                  </td>
+                  <td class="whitespace-nowrap">
+                    {{ template "job_trigger_badge" .trigger }}
+                    {{ if .schedule }}
+                      <span class="font-mono text-xs">{{ .schedule }}</span>
+                      <span class="text-xs text-base-content/70">{{ .timezone }}</span>
+                    {{ end }}
+                  </td>
+                  <td class="hidden lg:table-cell">
+                    {{ if not .executor }}
+                      {{/* list_jobs blanks the execution details for
+                        app:read callers (app:read_detail shows them) */}}
+                      <span class="text-xs text-base-content/70 tooltip tooltip-right" data-tip="requires app:read_detail">-</span>
+                    {{ else }}
+                    <span
+                      class="font-mono text-xs inline-block max-w-56 truncate align-bottom tooltip tooltip-right"
+                      data-tip="{{ if .is_run }}Starlark function {{ .executor }} (called in the OpenRun process){{ else }}{{ .executor }}{{ end }}"
+                      >{{ .executor }}</span
+                    >
+                    {{ end }}
+                    {{ if .is_run }}
+                      <span class="badge badge-ghost badge-xs">starlark</span>
+                    {{ end }}
+                    {{ if .shell }}
+                      <span class="badge badge-ghost badge-xs">shell</span>
+                    {{ end }}
+                    {{ if .image }}
+                      <span class="badge badge-ghost badge-xs font-mono" title="foreign image">{{ .image }}</span>
+                    {{ end }}
+                    <span class="text-xs text-base-content/70 block">timeout {{ .timeout }}{{ if .params }} · params {{ join ", " .params }}{{ end }}</span>
+                  </td>
+                  <td class="text-xs text-base-content/70 whitespace-nowrap hidden md:table-cell">
+                    {{ if .next_run }}
+                      {{/* A future time: "in 4m" (relTime would say "-4m
+                        ago"); a tick that is due while the scheduler claims
+                        it reads "due" */}}
+                      {{ $until := (toDate "2006-01-02T15:04:05Z07:00" .next_run).Sub now }}
+                      <span class="tooltip tooltip-left" data-tip="{{ .next_run }}" data-next-run>
+                        {{ if lt $until 0 }}due{{ else }}in {{ durationRound $until }}{{ end }}
+                      </span>
+                    {{ else }}
+                      -
+                    {{ end }}
+                  </td>
+                  <td class="whitespace-nowrap">
+                    {{ if and .last_run $hasDetail }}
+                      <button
+                        class="inline-flex items-center gap-1.5 text-xs link link-hover"
+                        title="Show the output of run {{ .last_run.id }}"
+                        hx-get="{{ $.AppPath }}/apps/detail/jobs_logs?path={{ $path }}&run={{ .last_run.id }}"
+                        hx-target="#job-logs"
+                        hx-swap="innerHTML show:#job-logs:top"
+                        hx-indicator="#page-progress">
+                        {{ template "job_status_badge" .last_run.status }}
+                        {{ if .last_run.started_at }}
+                          <span class="text-base-content/70">{{ template "time_ago" .last_run.started_at }}</span>
+                        {{ end }}
+                      </button>
+                    {{ else if .last_run }}
+                      {{/* status without the output link: app:read only */}}
+                      <span class="inline-flex items-center gap-1.5 text-xs">
+                        {{ template "job_status_badge" .last_run.status }}
+                        {{ if .last_run.started_at }}
+                          <span class="text-base-content/70">{{ template "time_ago" .last_run.started_at }}</span>
+                        {{ end }}
+                      </span>
+                    {{ else }}
+                      <span class="text-xs text-base-content/70">never</span>
+                    {{ end }}
+                  </td>
+                  <td class="text-right whitespace-nowrap">
+                    <div class="inline-flex items-center gap-0.5">
+                      {{ if $hasDetail }}
+                      <button
+                        class="btn btn-xs btn-ghost tooltip tooltip-left"
+                        data-tip="Runs of this job"
+                        aria-label="Runs of job {{ .name }}"
+                        hx-get="{{ $.AppPath }}/apps/detail/jobs_runs?path={{ $path }}&job={{ .name }}"
+                        hx-target="#job-runs"
+                        hx-swap="innerHTML show:#job-runs:top"
+                        hx-indicator="#page-progress">
+                        runs
+                      </button>
+                      {{ end }}
+                      <button
+                        class="btn btn-xs btn-ghost text-primary tooltip tooltip-left"
+                        aria-label="Run job {{ .name }}"
+                        data-run-job="{{ .name }}"
+                        {{ if $canRun }}
+                          data-tip="Run this job now"
+                          onclick="document.getElementById('job-run-{{ .stage }}-{{ .name }}').showModal()"
+                        {{ else if not (index $.Data.Perms "feature:updates") }}
+                          disabled data-tip="updates are disabled for this console install"
+                        {{ else }}
+                          disabled data-tip="requires app:update"
+                        {{ end }}>
+                        run
+                      </button>
+                    </div>
+                    {{ if $canRun }}
+                      {{/* Run dialog: the target instance, force and the
+                        run arguments for the job's declared params */}}
+                      <dialog
+                        id="job-run-{{ .stage }}-{{ .name }}"
+                        class="modal"
+                        aria-labelledby="job-run-{{ .stage }}-{{ .name }}-title">
+                        <div class="modal-box max-w-md text-left">
+                          <h3 id="job-run-{{ .stage }}-{{ .name }}-title" class="text-base font-semibold mb-2">
+                            Run job <span class="font-mono">{{ .name }}</span>
+                          </h3>
+                          <p class="text-sm text-base-content/70 mb-4">
+                            {{ if .is_run }}
+                              Calls the Starlark function in the OpenRun process.
+                            {{ else }}
+                              Starts a container from the app's deployed image
+                              {{ if .image }}(<span class="font-mono">{{ .image }}</span>){{ end }}
+                              and runs the command; the container is kept for its logs.
+                            {{ end }}
+                            Timeout {{ .timeout }}.
+                          </p>
+                          <form
+                            hx-post="{{ $.AppPath }}/apps/detail/jobs_run"
+                            hx-target="#detail-content"
+                            hx-swap="innerHTML transition:true"
+                            hx-indicator="#page-progress"
+                            onsubmit="this.closest('dialog').close()">
+                            <input type="hidden" name="path" value="{{ $path }}" />
+                            <input type="hidden" name="tab" value="jobs" />
+                            <input type="hidden" name="job" value="{{ .name }}" />
+                            <div class="flex flex-col gap-3">
+                              {{ range .params }}
+                                <input type="hidden" name="arg_names" value="{{ . }}" />
+                                <label class="flex flex-col gap-1">
+                                  <span class="text-sm">
+                                    <span class="font-mono">{{ . }}</span>
+                                    <span class="block text-xs text-base-content/70">Run argument; empty keeps the app's configured value</span>
+                                  </span>
+                                  <input
+                                    type="text"
+                                    name="arg_{{ . }}"
+                                    class="input input-sm font-mono"
+                                    autocomplete="off" />
+                                </label>
+                              {{ end }}
+                              {{ if not $.Data.App.is_dev }}
+                                <label class="flex items-center gap-3 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    name="stage"
+                                    value="1"
+                                    class="checkbox checkbox-sm checkbox-primary"
+                                    {{ if eq .stage "stage" }}checked{{ end }} />
+                                  <span class="text-sm">
+                                    Run on staging
+                                    <span class="block text-xs text-base-content/70">
+                                      The staging app's version and bindings instead of prod's
+                                    </span>
+                                  </span>
+                                </label>
+                              {{ end }}
+                              <label class="flex items-center gap-3 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  name="force"
+                                  value="1"
+                                  class="checkbox checkbox-sm checkbox-warning"
+                                  {{ if not .enabled }}checked{{ end }} />
+                                <span class="text-sm">
+                                  Force
+                                  <span class="block text-xs text-base-content/70">
+                                    Run even if the job is disabled or another run of it is active
+                                  </span>
+                                </span>
+                              </label>
+                            </div>
+                            <div class="modal-action">
+                              <button
+                                type="button"
+                                class="btn btn-sm btn-ghost"
+                                onclick="this.closest('dialog').close()">
+                                Cancel
+                              </button>
+                              <button type="submit" class="btn btn-sm btn-primary">
+                                Run
+                              </button>
+                            </div>
+                          </form>
+                        </div>
+                        <form method="dialog" class="modal-backdrop">
+                          <button aria-label="Close">close</button>
+                        </form>
+                      </dialog>
+                    {{ end }}
+                  </td>
+                </tr>
+              {{ end }}
+            </tbody>
+          </table>
+        </div>
+      {{ end }}
+    </div>
+
+    {{ if $hasDetail }}
+    <!-- Runs of both instances, newest first; refreshes through the
+         jobs_runs fragment (filters, poll while a run is active) -->
+    <div id="job-runs" class="card bg-base-100 border border-base-300">
+      {{ template "app_job_runs" . }}
+    </div>
+
+    <!-- Output of one run, loaded by the logs buttons (or ?run= on the
+         page url: the container detail page of a job container links here) -->
+    <div id="job-logs">
+      {{ template "app_job_logs" . }}
+    </div>
+    {{ else }}
+    {{/* app:read only: the run history and output are app:read_detail */}}
+    <p class="text-xs text-base-content/70" data-detail-note>
+      Run history and output require the app:read_detail permission
+    </p>
+    {{ end }}
+  </div>
+{{ end }}
 <!DOCTYPE html>
 <html lang="en">
   {{ template "head" . }}
@@ -515,6 +1070,10 @@
                 hx-indicator="#page-progress">
                 Overview
               </button>
+              {{/* Config, Compare and Files show the app's configuration,
+                versions and source: app:read_detail only (app:read gets the
+                Overview and, for apps with jobs, the Jobs list) */}}
+              {{ if index .Data.Perms "app:read_detail" }}
               <button
                 class="tab font-medium transition-colors duration-150 {{ if eq $tab "config" }}tab-active bg-primary text-primary-content font-semibold{{ end }}"
                 data-tab="config"
@@ -566,6 +1125,24 @@
                   Files
                 </button>
               {{ end }}
+              {{ end }}
+              {{/* Jobs: only for apps that have jobs (the tab stays while
+                it is the active view, e.g. a run link of an app whose
+                jobs were since removed - the run history outlives them) */}}
+              {{ if or .Data.App.job_count (eq $tab "jobs") }}
+                <button
+                  class="tab font-medium transition-colors duration-150 {{ if eq $tab "jobs" }}tab-active bg-primary text-primary-content font-semibold{{ end }}"
+                  data-tab="jobs"
+                  aria-pressed="{{ if eq $tab "jobs" }}true{{ else }}false{{ end }}"
+                  title="The app's jobs (scheduled, manual and deploy gates), their runs and output"
+                  hx-get="{{ .AppPath }}/apps/detail?path={{ .Data.Path }}&tab=jobs"
+                  hx-target="#detail-content"
+                  hx-swap="innerHTML"
+                  hx-push-url="true"
+                  hx-indicator="#page-progress">
+                  Jobs
+                </button>
+              {{ end }}
             </div>
 
             {{ if eq $tab "config" }}
@@ -574,6 +1151,8 @@
               {{ template "app_compare_pane" . }}
             {{ else if eq $tab "files" }}
               {{ template "app_files_pane" . }}
+            {{ else if eq $tab "jobs" }}
+              {{ template "app_jobs_pane" . }}
             {{ else }}
             <!-- Overview -->
             <div class="card bg-base-100 border border-base-300">
@@ -583,6 +1162,10 @@
                 </h2>
                 <div
                   class="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-6 gap-y-1.5 text-sm">
+                  {{/* Source, commit and spec are app:read_detail fields
+                    (get_app blanks them for app:read callers) */}}
+                  {{ $hasDetail := index .Data.Perms "app:read_detail" }}
+                  {{ if $hasDetail }}
                   <span class="text-xs text-base-content/70 pt-0.5">Source</span>
                   <span class="font-mono text-xs break-all pt-1"
                     >{{ .Data.App.source_url }}{{ if .Data.App.browse_url }}<a
@@ -619,6 +1202,7 @@
                       {{ end }}</span
                     >
                   {{ end }}
+                  {{ end }}
 
                   <span class="text-xs text-base-content/70 pt-0.5"
                     >Managed by</span
@@ -636,6 +1220,7 @@
                     {{ end }}
                   </span>
 
+                  {{ if $hasDetail }}
                   <span class="text-xs text-base-content/70 pt-0.5">Spec</span>
                   <span class="font-mono text-xs break-all pt-1"
                     >{{ if .Data.App.spec }}
@@ -644,6 +1229,7 @@
                       -
                     {{ end }}</span
                   >
+                  {{ end }}
 
                   <span class="text-xs text-base-content/70 pt-0.5">Auth</span>
                   <span class="pt-0.5 flex items-center"
@@ -662,6 +1248,19 @@
                   <span class="font-mono text-xs pt-1"
                     >v{{ .Data.App.version }}</span
                   >
+
+                  {{ if .Data.App.job_count }}
+                    <span class="text-xs text-base-content/70 pt-0.5">Jobs</span>
+                    <span class="text-xs pt-1">
+                      <a
+                        href="{{ .AppPath }}/apps/detail?path={{ .Data.Path }}&tab=jobs"
+                        class="link link-hover"
+                        data-jobs-link
+                        >{{ .Data.App.job_count }} {{ if eq (int .Data.App.job_count) 1 }}job{{ else }}jobs{{ end }}
+                        <span aria-hidden="true">→</span></a
+                      >
+                    </span>
+                  {{ end }}
 
                   {{ if .Data.App.update_time }}
                     <span class="text-xs text-base-content/70 pt-0.5"
@@ -770,6 +1369,7 @@
                  cheap; PanelEnv comes from the url's env param (the env
                  tabs push it, the version switch posts carry it), so the
                  selected env is shareable and survives re-renders -->
+            {{ if index .Data.Perms "app:read_detail" }}
             <div
               id="env-panel"
               class="space-y-4 pt-2"
@@ -779,6 +1379,14 @@
               <div class="skeleton h-10 w-56"></div>
               <div class="skeleton h-40 w-full"></div>
             </div>
+            {{ else }}
+            {{/* app:read only: the per-environment panel (params,
+              permissions, containers, versions) is app:read_detail */}}
+            <p class="text-xs text-base-content/70 pt-2" data-detail-note>
+              Parameters, requested permissions, containers and versions
+              require the app:read_detail permission
+            </p>
+            {{ end }}
             {{ end }}
             <!-- End of tab branches -->
           {{ end }}

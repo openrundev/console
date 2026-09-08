@@ -174,12 +174,19 @@ def build_routes():
                      ace.fragment("compare", partial="app_compare_pane", handler=handler.apps_detail_data),
                      ace.fragment("files", partial="app_files_pane", handler=handler.apps_detail_data),
                      ace.fragment("config_download", handler=handler.apps_detail_config_download_handler),
+                     # Jobs tab: the runs table (filter selects, poll while
+                     # a run is active) and the logs pane of one run
+                     ace.fragment("jobs_runs", partial="app_job_runs", handler=handler.apps_detail_jobs_runs_handler),
+                     ace.fragment("jobs_logs", partial="app_job_logs", handler=handler.apps_detail_jobs_logs_handler),
                  ] + ([
                      ace.fragment("switch", method="POST", handler=handler.apps_switch_handler),
                      ace.fragment("promote", method="POST", handler=handler.apps_promote_handler),
                      ace.fragment("approve", method="POST", handler=handler.apps_approve_handler),
                      ace.fragment("reload", method="POST", handler=handler.apps_detail_reload_handler),
                      ace.fragment("delete", method="POST", handler=handler.apps_detail_delete_handler),
+                     # Jobs tab actions: run now (dialog) and cancel a run
+                     ace.fragment("jobs_run", method="POST", handler=handler.apps_detail_jobs_run_handler),
+                     ace.fragment("jobs_cancel", method="POST", handler=handler.apps_detail_jobs_cancel_handler),
                  ] if ENABLE_UPDATES else [])),
         # The old version-files page redirects to the detail Files tab; the
         # download fragment stays as the version zip endpoint (the full
@@ -424,6 +431,10 @@ def build_permissions():
         perm("openrun.in", "list_services"),
         perm("openrun.in", "server_info"),
         perm("openrun.in", "replication_status"),
+        # App detail Jobs tab (reads; RBAC app:read on the app)
+        perm("openrun.in", "list_jobs"),
+        perm("openrun.in", "list_job_runs"),
+        perm("openrun.in", "job_logs"),
     ]
 
     if ENABLE_UPDATES:
@@ -440,6 +451,8 @@ def build_permissions():
             perm("openrun_admin.in", "create_sync"),
             perm("openrun_admin.in", "run_sync"),
             perm("openrun_admin.in", "delete_sync"),
+            perm("openrun_admin.in", "run_job"),
+            perm("openrun_admin.in", "cancel_job"),
             perm("openrun_admin.in", "create_binding"),
             perm("openrun_admin.in", "update_binding"),
             perm("openrun_admin.in", "delete_binding"),

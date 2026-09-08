@@ -299,6 +299,8 @@ def overview_containers_handler(req):
     ls_running = 0
     sc_total = 0
     sc_running = 0
+    job_total = 0
+    job_running = 0
     runtime = ""
     for entry in ret.value:
         runtime = entry["runtime"]
@@ -306,6 +308,11 @@ def overview_containers_handler(req):
         if entry["name"].endswith("-ls"):
             ls_total += 1
             ls_running += 1 if is_running else 0
+        elif entry.get("job"):
+            # Job run containers (both runtimes): finished ones stay until
+            # their run record is retired, so most are stopped
+            job_total += 1
+            job_running += 1 if is_running else 0
         elif entry.get("role") == "sidecar":
             # App sidecars are separate labeled containers on docker/podman
             # (in-pod on kubernetes, counted with their pod)
@@ -329,6 +336,8 @@ def overview_containers_handler(req):
                      "total": sc_total})
     rows.append({"label": "litestream sidecars", "running": ls_running,
                  "total": ls_total})
+    rows.append({"label": "job runs", "running": job_running,
+                 "total": job_total})
     data["Rows"] = rows
     return data
 
@@ -964,6 +973,9 @@ def env_container_rows(app_conts, env):
     for c in app_conts:
         if c["env"] != env or c["name"].endswith("-ls"):
             continue
+        if c.get("job"):
+            # Job run containers are listed on the Jobs tab, per run
+            continue
         if c.get("role") == "sidecar":
             add("sidecar:" + c["sidecar"], c)
             continue
@@ -1014,13 +1026,14 @@ def app_container_sort_key(entry):
 def apps_detail_data(req):
     # App detail page, a tabbed inspector: Overview (summary card), Config
     # (export output, auto prod<->staging diff), Compare (any two versions
-    # as export diffs) and Files (version file explorer). Only the active
+    # as export diffs), Files (version file explorer) and, for apps with
+    # jobs, Jobs (effective jobs, run history, run output). Only the active
     # tab's data is built; the Overview tab's per-environment panel
     # (params, permissions, containers, versions) loads lazily via the
     # envpanel fragment, with the env selection url-persisted (?env=)
     path = utils.query_param(req, "path")
     tab = utils.query_param(req, "tab")
-    if tab not in ("config", "compare", "files"):
+    if tab not in ("config", "compare", "files", "jobs"):
         tab = "overview"
     data = {
         "Title": "App detail",
@@ -1058,6 +1071,11 @@ def apps_detail_data(req):
         # Dev apps have no versions; those tabs render disabled
         tab = "overview"
         data["Tab"] = tab
+    if tab in ("config", "compare", "files") and not data["Perms"].get("app:read_detail"):
+        # app:read without app:read_detail: the config, version and file
+        # views are not offered (the server denies their APIs)
+        tab = "overview"
+        data["Tab"] = tab
     if tab == "config":
         detail_config_data(data, req)
         return data
@@ -1066,6 +1084,9 @@ def apps_detail_data(req):
         return data
     if tab == "files":
         detail_files_data(data, req)
+        return data
+    if tab == "jobs":
+        detail_jobs_data(data, req)
         return data
 
     # Resolve the sync entry which manages this app, if any
@@ -1079,6 +1100,242 @@ def apps_detail_data(req):
                 }
 
     return data
+
+
+# ---------- App detail: Jobs tab ----------
+
+JOB_RUN_LIMIT = 50
+
+
+def job_stage_of(app_id):
+    # prod / stage / preview / dev from a run's app id prefix (the Go
+    # JobRun.Stage() method is not carried over the plugin boundary)
+    if app_id.startswith("app_stg_"):
+        return "stage"
+    if app_id.startswith("app_pre_"):
+        return "preview"
+    if app_id.startswith("app_dev_"):
+        return "dev"
+    return "prod"
+
+
+def job_duration(started, ended):
+    # "1m 5s" style run duration; empty while the run is active or when the
+    # times are unknown. The plugin passes time.time values, whose
+    # difference is a duration
+    if not started or not ended:
+        return ""
+    secs = int((ended - started).seconds)
+    if secs < 0:
+        return ""
+    if secs < 60:
+        return "%ds" % secs
+    if secs < 3600:
+        return "%dm %ds" % (secs // 60, secs % 60)
+    return "%dh %dm" % (secs // 3600, (secs % 3600) // 60)
+
+
+def job_run_row(run):
+    # One run of the runs table / the logs pane header. started_at stays a
+    # time.time value (the templates render it relative); the zero ended_at
+    # of an active run maps to "" and leaves the duration empty
+    started = utils.nonzero_time(run.get("started_at"))
+    ended = utils.nonzero_time(run.get("ended_at"))
+    exit_code = run.get("exit_code")
+    return {
+        "id": run["id"],
+        "job": run["job_name"],
+        "trigger": run.get("trigger") or "manual",
+        "stage": job_stage_of(run.get("app_id") or ""),
+        "status": run.get("status") or "",
+        "active": run.get("status") == "running",
+        "actor": run.get("actor") or "",
+        "started_at": started,
+        "duration": job_duration(started, ended),
+        "exit_code": exit_code,
+        "has_exit_code": exit_code != None,
+        "message": run.get("message") or "",
+        "image": run.get("image") or "",
+        "container_name": run.get("container_name") or "",
+        "args": run.get("args") or {},
+        "forced": run.get("forced") or False,
+    }
+
+
+def job_row(info):
+    # One effective job of the Jobs table: the spec summary plus the next
+    # scheduled run and the last run. Rows of the stage instance appear only
+    # when the staged spec differs from prod's (list_jobs semantics); their
+    # run dialog targets the staging instance
+    spec = info.get("spec") or {}
+    trigger = spec.get("trigger") or {}
+    ttype = trigger.get("type") or "manual"
+    enabled = spec.get("enabled")
+    if enabled == None:
+        enabled = True
+    image = spec.get("image") or ""
+    if image.startswith("image:"):
+        image = image[len("image:"):]
+    argv = list(spec.get("command") or []) + list(spec.get("args") or [])
+    last = info.get("last_run")
+    return {
+        "name": spec.get("name") or "",
+        "description": spec.get("description") or "",
+        "stage": info.get("stage") or "prod",
+        "origin": info.get("origin") or "",
+        "trigger": ttype,
+        "schedule": trigger.get("schedule") or "",
+        "timezone": trigger.get("timezone") or "",
+        "enabled": enabled,
+        "timeout": spec.get("timeout") or "1h",
+        "is_run": bool(spec.get("run")),
+        "executor": spec.get("run") or " ".join(argv),
+        "shell": spec.get("shell") or False,
+        "image": image,
+        "params": list(spec.get("params") or []),
+        "next_run": info.get("next_run") or "",
+        "last_run": job_run_row(last) if last else None,
+        "warnings": list(info.get("warnings") or []),
+    }
+
+
+def list_job_rows(path):
+    # The Jobs table rows of an app; returns (rows, error)
+    ret = openrun.list_jobs(path)
+    error = ret.error
+    if error:
+        return [], error
+    return [job_row(info) for info in ret.value.get("jobs") or []], ""
+
+
+def job_names(rows):
+    # Distinct job names of the Jobs table, for the runs filter select
+    names = []
+    for row in rows:
+        if row["name"] and row["name"] not in names:
+            names.append(row["name"])
+    return names
+
+
+def job_runs_data(req, path, perms, names):
+    # The runs table: newest first across the prod and stage instances,
+    # filtered by ?job= and ?status=. Command runs link to their container
+    # detail when the containers feature is on and the container still
+    # exists (matched by the run id label; one list_containers call per
+    # render, skipped when no listed run had a container - run jobs)
+    job = utils.query_param(req, "job")
+    status = utils.query_param(req, "status")
+    runs = {"Job": job, "Status": status, "Names": names, "Rows": [], "Error": "", "Active": False}
+    ret = openrun.list_job_runs(path, job=job, status=status, limit=JOB_RUN_LIMIT)
+    error = ret.error
+    if error:
+        runs["Error"] = error
+        return runs
+    rows = [job_run_row(run) for run in ret.value.get("runs") or []]
+    containers = {}
+    if perms.get("feature:container") and any([row["container_name"] for row in rows]):
+        cont_ret = openrun.list_containers(path=path)
+        cont_error = cont_ret.error
+        if not cont_error:
+            for c in cont_ret.value:
+                if c.get("job_run"):
+                    containers[c["job_run"]] = c["id"]
+    for row in rows:
+        row["container_id"] = containers.get(row["id"]) or ""
+        if row["active"]:
+            runs["Active"] = True
+    runs["Rows"] = rows
+    return runs
+
+
+def job_logs_data(run_id):
+    # The logs pane of one run: the run header plus its output (read from
+    # the container while it exists; a run job's result message otherwise)
+    ret = openrun.job_logs(run_id)
+    error = ret.error
+    if error:
+        return {"RunId": run_id, "Error": error, "Run": None, "Logs": ""}
+    return {"RunId": run_id, "Error": "", "Run": job_run_row(ret.value["run"]),
+            "Logs": ret.value.get("logs") or ""}
+
+
+def detail_jobs_data(data, req):
+    # Jobs tab: the effective jobs (prod or dev instance, plus the stage
+    # instance's jobs that differ while a change is staged), the run
+    # history of both instances and, with ?run=, the logs pane of one run
+    # (the container detail page of a job container links here)
+    path = data["Path"]
+    rows, error = list_job_rows(path)
+    data["Jobs"] = {"Rows": rows, "Error": error}
+    if not data["Perms"].get("app:read_detail"):
+        # app:read lists the jobs; the run history and output need
+        # app:read_detail (the pane omits those sections)
+        data["Runs"] = None
+        data["Logs"] = None
+        return
+    data["Runs"] = job_runs_data(req, path, data["Perms"], job_names(rows))
+    run_id = utils.query_param(req, "run")
+    data["Logs"] = job_logs_data(run_id) if run_id else None
+
+
+def apps_detail_jobs_runs_handler(req):
+    # Runs table fragment: the job/status filter selects and the poll while
+    # a run is active re-render #job-runs through here
+    path = utils.query_param(req, "path")
+    perms = utils.get_perms(path)
+    rows, error = list_job_rows(path)
+    if error:
+        return {"Error": error}
+    return {"Path": path, "Perms": perms, "Runs": job_runs_data(req, path, perms, job_names(rows))}
+
+
+def apps_detail_jobs_logs_handler(req):
+    # Logs pane fragment for one run (?run=), swapped into #job-logs
+    return {"Logs": job_logs_data(utils.query_param(req, "run"))}
+
+
+def apps_detail_jobs_run_handler(req):
+    # POST: start a manual run from the Jobs tab run dialog. The dialog
+    # posts the job, the target instance (stage checkbox), force and the
+    # run arguments as arg_<param> fields (arg_names lists the params; an
+    # empty value keeps the app's configured param value). The run is not
+    # waited for: the runs table polls while it is active
+    path, error_data = require_app_path(req, apps_detail_data)
+    if error_data:
+        return error_data
+    job = utils.query_param(req, "job").strip()
+    if not job:
+        data = apps_detail_data(req)
+        data["FlashError"] = "Job name is required"
+        return data
+    args = {}
+    for name in utils.query_param_list(req, "arg_names"):
+        value = utils.query_param(req, "arg_" + name)
+        if value != "":
+            args[name] = value
+    ret = openrun_admin.run_job(path, job, stage=bool(utils.query_param(req, "stage")),
+                                force=bool(utils.query_param(req, "force")), args=args)
+    error = ret.error
+    data = apps_detail_data(req)
+    if error:
+        data["FlashError"] = "Run of job %s failed: %s" % (job, error)
+    else:
+        run = ret.value["run"]
+        data["Flash"] = "Started run %s of job %s on %s" % (run["id"], job, job_stage_of(run.get("app_id") or ""))
+    return data
+
+
+def apps_detail_jobs_cancel_handler(req):
+    # POST: cancel an active run (executing on this node) from the runs table
+    run_id = utils.query_param(req, "run").strip()
+    if not run_id:
+        data = apps_detail_data(req)
+        data["FlashError"] = "Run id is required"
+        return data
+    ret = openrun_admin.cancel_job(run_id)
+    error = ret.error
+    return utils.flash_result(apps_detail_data(req), error,
+                              "Cancel requested for run %s" % run_id, "Cancel failed")
 
 
 def apps_detail_envpanel_handler(req):
@@ -1097,6 +1354,12 @@ def apps_detail_envpanel_handler(req):
         "Error": "",
         "Perms": utils.get_perms(path),
     }
+    if not data["Perms"].get("app:read_detail"):
+        # The panel is not rendered for app:read only callers (the page
+        # omits its loader); the params, audit, containers and versions
+        # calls below would each be denied
+        data["Error"] = "requires the app:read_detail permission"
+        return data
 
     ret = openrun.get_app(path)
     if ret.error:
@@ -1145,8 +1408,9 @@ def apps_detail_envpanel_handler(req):
     # Containers of this environment: per type (app container, each
     # sidecar name) the running container and the last stopped one. The
     # litestream sidecars (-ls suffix) are excluded: the Overview tab's
-    # Replication row links to them
-    cont_ret = openrun.list_containers(times=True)
+    # Replication row links to them. The path filter makes the call
+    # allowed with app:read_detail on the app alone (no container:read)
+    cont_ret = openrun.list_containers(path=path, times=True)
     if not cont_ret.error:
         app_conts = [c for c in cont_ret.value if c["app_path"] == path]
         data["Containers"] = env_container_rows(app_conts, env)
@@ -1184,9 +1448,10 @@ def apps_detail_replication_handler(req):
     # podman (-ls name suffix, prod vs staged told apart by the app id in
     # the container name); each status chip links to its sidecar's
     # container detail when one exists (on kubernetes the sidecar runs
-    # inside the app pod, so there is no separate container to link)
+    # inside the app pod, so there is no separate container to link).
+    # The path filter is allowed with app:read_detail on the app alone
     sidecars = {}
-    cont_ret = openrun.list_containers()
+    cont_ret = openrun.list_containers(path=path)
     cont_error = cont_ret.error
     if not cont_error:
         for c in cont_ret.value:
@@ -2071,14 +2336,18 @@ def services_delete_handler(req):
 # ---------- Containers ----------
 
 
-CONTAINER_TABS = ("apps", "sidecar", "litestream", "all", "agent", "kaniko")
+CONTAINER_TABS = ("apps", "sidecar", "litestream", "job", "all", "agent", "kaniko")
 
 
 def container_kind(entry):
-    # Classify a managed container: the litestream replication sidecars by
-    # their -ls name suffix (same heuristic as the replication status API),
-    # app sidecars by the role label (separate containers on docker/podman;
-    # on kubernetes they run inside the app pod, which keeps kind app)
+    # Classify a managed container: job run containers by their job labels
+    # (a container / pod per run on both runtimes), the litestream
+    # replication sidecars by their -ls name suffix (same heuristic as the
+    # replication status API), app sidecars by the role label (separate
+    # containers on docker/podman; on kubernetes they run inside the app
+    # pod, which keeps kind app)
+    if entry.get("job"):
+        return "job"
     if entry["name"].endswith("-ls"):
         return "litestream"
     if entry.get("role") == "sidecar":
@@ -2088,11 +2357,13 @@ def container_kind(entry):
 
 def containers_data(req):
     # Containers page: tabs by container type - Apps (default), Sidecars,
-    # Litestream, All (everything OpenRun spawned, whatever the type) plus
-    # the app builder's agent containers and (on kubernetes) the kaniko
-    # image build pods as their own tabs. Every tab lists running
-    # containers only unless "show stopped" is on; the search query and the
-    # show-stopped state carry across tab switches
+    # Litestream, Jobs, All (everything OpenRun spawned, whatever the type)
+    # plus the app builder's agent containers and (on kubernetes) the
+    # kaniko image build pods as their own tabs. Every tab lists running
+    # containers only unless "show stopped" is on - except Jobs, which
+    # always lists the finished run containers too (a job container is
+    # stopped for most of its life; it stays until the run is retired); the
+    # search query and the show-stopped state carry across tab switches
     query = utils.query_param(req, "query").lower()
     filter = utils.query_param(req, "filter") or "apps"
     if filter in ("running", "exited"):
@@ -2136,7 +2407,7 @@ def containers_data(req):
                 data["Running"] += 1
 
     def matches(e):
-        if not show_stopped and e["state"] != "running":
+        if not show_stopped and e["state"] != "running" and filter != "job":
             return False
         if query and query not in e["name"].lower() and query not in e["app_path"].lower() and \
            query not in e.get("image", "").lower() and query not in e["id"].lower():
@@ -2175,6 +2446,9 @@ def containers_data(req):
                 continue
         elif filter == "litestream":
             if e["kind"] != "litestream":
+                continue
+        elif filter == "job":
+            if e["kind"] != "job":
                 continue
         elif filter == "apps":
             if e["kind"] != "app":
@@ -2253,10 +2527,11 @@ def containers_detail_data(req):
     # (docker/podman, the sidecar_of label holds the app container name,
     # which get_container resolves like an id); an app container lists its
     # sidecars. Kubernetes pods carry the sidecar names themselves (their
-    # state is in the pod status fragment)
+    # state is in the pod status fragment). A job run container links to
+    # its run on the app's Jobs tab instead (template)
     if c.get("role") == "sidecar":
         c["app_container_id"] = c.get("sidecar_of") or ""
-    elif c.get("runtime") != "kubernetes" and c.get("app_id"):
+    elif c["kind"] == "app" and c.get("runtime") != "kubernetes" and c.get("app_id"):
         cont_ret = openrun.list_containers()
         cont_error = cont_ret.error
         sidecars = []

@@ -47,10 +47,20 @@
                        published app, litestream sidecars their replicated
                        app; with no associated app (e.g. an unpublished
                        session) the button renders disabled, per convention */}}
-                  {{ if .Data.Container.app_path }}
+                  {{ if and .Data.Container.app_path .Data.Container.job }}
+                    {{/* A job run container: straight to its run on the
+                         app's Jobs tab (run history, output, rerun) */}}
+                    <a
+                      href="{{ .AppPath }}/apps/detail?path={{ .Data.Container.app_path }}&tab=jobs&run={{ .Data.Container.job_run }}"
+                      class="btn btn-sm btn-outline transition-transform duration-150 active:scale-95"
+                      data-view-app>
+                      View app job
+                    </a>
+                  {{ else if .Data.Container.app_path }}
                     <a
                       href="{{ .AppPath }}/apps/detail?path={{ .Data.Container.app_path }}"
-                      class="btn btn-sm btn-outline transition-transform duration-150 active:scale-95">
+                      class="btn btn-sm btn-outline transition-transform duration-150 active:scale-95"
+                      data-view-app>
                       View app
                     </a>
                   {{ else }}
@@ -81,7 +91,10 @@
                         {{ end }}>
                         Stop
                       </button>
-                    {{ else }}
+                    {{ else if not .Data.Container.job }}
+                      {{/* A finished job container is not restarted (that
+                           would re-execute the command outside its run
+                           record); the job is rerun from the app */}}
                       <button
                         class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95 {{ if not (and (index .Data.Perms "feature:updates") (or (index .Data.Perms "container:manage") (index .Data.Perms "admin"))) }}tooltip tooltip-bottom{{ end }}"
                         {{ if and (index .Data.Perms "feature:updates") (or (index .Data.Perms "container:manage") (index .Data.Perms "admin")) }}
@@ -410,6 +423,25 @@
                       {{ end }}
                     </span>
 
+                    {{ if $c.job }}
+                      {{/* A job run container: the job and its run, linking to
+                        the run on the app's Jobs tab */}}
+                      <span class="text-xs text-base-content/70 pt-0.5">Job</span>
+                      <span class="pt-1 inline-flex items-center gap-2 flex-wrap" data-job-run>
+                        <span class="font-mono text-xs">{{ $c.job }}</span>
+                        <span class="text-xs text-base-content/70">run</span>
+                        {{ if $c.app_path }}
+                          <a
+                            href="{{ .AppPath }}/apps/detail?path={{ $c.app_path }}&tab=jobs&run={{ $c.job_run }}"
+                            class="link link-hover font-mono text-xs break-all"
+                            title="This run on the app's Jobs tab: status, output, rerun"
+                            >{{ $c.job_run }}</a
+                          >
+                        {{ else }}
+                          <span class="font-mono text-xs break-all">{{ $c.job_run }}</span>
+                        {{ end }}
+                      </span>
+                    {{ end }}
                     {{ if eq $c.role "sidecar" }}
                       {{/* A sidecar container: its name and the app container it
                         belongs to (get_container resolves the name like an id) */}}
