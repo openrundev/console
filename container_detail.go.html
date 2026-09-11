@@ -3,7 +3,7 @@
 {{/* Container detail page (/containers/detail?id=): fast shell with basic
      info; stats/disk load asynchronously via block container_stats
      (hx-trigger load + 15s refresh) and logs stream through the
-     <log-tail> element (logtail.js, /containers/logs_stream).
+     <log-tail> element (the server's shared logtail.js, /containers/logs_stream).
      HTMX partial: block container_content */}}
 <!DOCTYPE html>
 <html lang="en">
@@ -14,7 +14,7 @@
       {{ template "drawer_toggle" }}
 
       <div class="drawer-content">
-        <main class="p-4 lg:p-6 max-w-6xl">
+        <main hx-history-elt class="p-4 lg:p-6 max-w-6xl">
           <div id="container-content" class="space-y-4">
           {{ block "container_content" . }}
             <!-- Header -->
@@ -81,8 +81,8 @@
                           hx-vals='{"id": "{{ .Data.Id }}", "action": "stop"}'
                           hx-confirm="Stop container {{ .Data.Container.name }}? The app will be unavailable until it is started again."
                           hx-target="#container-content"
-                          hx-swap="innerHTML transition:true"
-                          hx-disabled-elt="this"
+                          hx-swap="innerHTML"
+                          hx-disable="this"
                           hx-indicator="#page-progress"
                         {{ else if not (index .Data.Perms "feature:updates") }}
                           disabled data-tip="updates are disabled for this console install"
@@ -101,8 +101,8 @@
                           hx-post="{{ .AppPath }}/containers/detail/lifecycle"
                           hx-vals='{"id": "{{ .Data.Id }}", "action": "start"}'
                           hx-target="#container-content"
-                          hx-swap="innerHTML transition:true"
-                          hx-disabled-elt="this"
+                          hx-swap="innerHTML"
+                          hx-disable="this"
                           hx-indicator="#page-progress"
                         {{ else if not (index .Data.Perms "feature:updates") }}
                           disabled data-tip="updates are disabled for this console install"
@@ -698,7 +698,9 @@
       {{ template "sidebar" . }}
     </div>
 
-    <script src="{{ static "logtail.js" }}"></script>
+    {{/* The <log-tail> viewer is served by the openrun binary for every app
+      (internal/webstatic, shared with the action UI's streamed output) */}}
+    <script src="{{ openrun_static "logtail.js" }}"></script>
     <script>
       // Follow toggle / refresh for the logs <log-tail>. Lives outside the
       // container_content block so it is not re-run on HTMX swaps; the

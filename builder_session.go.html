@@ -20,7 +20,7 @@
 
 
       <div class="drawer-content">
-        <main class="p-4 lg:p-6 space-y-4">
+        <main hx-history-elt class="p-4 lg:p-6 space-y-4">
           <!-- Header -->
           <div
             class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
@@ -66,7 +66,7 @@
               hx-get="{{ .AppPath }}/builder/detail?id={{ .Data.Id }}"
               hx-trigger="builder-turn-done"
               hx-target="#session-content"
-              hx-swap="innerHTML transition:true"
+              hx-swap="innerHTML"
               hx-indicator="#page-progress">
               {{ block "session_content" . }}
                 {{ template "flash_alerts" .Data }}
@@ -108,7 +108,7 @@
                         {{ end }}"
                         {{ if or (index .Data.Perms "app:approve") (index .Data.Perms "admin") }}
                           hx-post="{{ .AppPath }}/builder/detail/approve?id={{ $s.id }}"
-                          hx-disabled-elt="this"
+                          hx-disable="this"
                         {{ else }}
                           disabled data-tip="requires the app:approve
                           permission"
@@ -126,7 +126,7 @@
                         class="btn btn-ghost btn-sm"
                         {{ if $canWrite }}
                           hx-post="{{ .AppPath }}/builder/detail/resume?id={{ $s.id }}"
-                          hx-disabled-elt="this"
+                          hx-disable="this"
                         {{ else }}
                           disabled data-tip="requires builder:create"
                         {{ end }}>
@@ -137,7 +137,7 @@
                         class="btn btn-ghost btn-sm"
                         {{ if $canWrite }}
                           hx-post="{{ .AppPath }}/builder/detail/stop?id={{ $s.id }}"
-                          hx-disabled-elt="this"
+                          hx-disable="this"
                         {{ else }}
                           disabled data-tip="requires builder:create"
                         {{ end }}>
@@ -154,7 +154,7 @@
                           The published app at {{ $s.publish_path }} stays live
                           until unpublished.
                         {{ end }}"
-                        hx-disabled-elt="this"
+                        hx-disable="this"
                       {{ else }}
                         disabled data-tip="requires builder:create"
                       {{ end }}>
@@ -251,7 +251,7 @@
                           {{ else }}
                             The app is deleted from this server.
                           {{ end }}"
-                          hx-disabled-elt="this"
+                          hx-disable="this"
                         {{ else }}
                           disabled data-tip="requires builder:publish"
                         {{ end }}>

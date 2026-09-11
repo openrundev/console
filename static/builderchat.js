@@ -14,7 +14,7 @@
 //
 // The composer form (data-builder-composer) posts through HTMX with
 // hx-swap="none"; this element appends the user's bubble optimistically on
-// htmx:afterRequest and clears the textarea. When the stream ends (sandbox
+// htmx:after:request and clears the textarea. When the stream ends (sandbox
 // stopped), a status line is shown and no reconnect is attempted after the
 // second failure - the page's HTMX refresh reflects the detached state.
 
@@ -157,35 +157,32 @@
 			this.sendLocked = !!(sendBtn && sendBtn.disabled);
 			if (this.turnActive) this.setTurnActive(true);
 			this.onAfterRequest = (e) => {
+				// htmx 4 request context: the response headers HX-Retarget /
+				// HX-Reswap (ctx.hx) override the element's own target and
+				// hx-swap=none, so a retargeted error block is swapped into
+				// #bc-send-error by htmx itself. Server errors (4xx/5xx) are
+				// reported by the console-wide toast and skipped here
+				const ctx = e.detail.ctx;
+				if (!ctx || !ctx.response || ctx.response.status >= 400) return;
 				// The Stop button lives in the chat header (outside the
-				// composer) and posts with hx-swap=none: place its retargeted
-				// error ourselves (htmx drops header overrides on swap=none)
-				// and surface an accepted stop as a status line - the turn
-				// keeps running until the agent acknowledges the cancel
+				// composer) and posts with hx-swap=none: surface an accepted
+				// stop as a status line - the turn keeps running until the
+				// agent acknowledges the cancel
 				if (e.target.matches('[data-builder-cancel]')) {
-					if (!e.detail.successful) return;
-					const slot = document.getElementById('bc-send-error');
-					if (e.detail.xhr && e.detail.xhr.getResponseHeader('HX-Retarget')) {
-						if (slot) slot.innerHTML = e.detail.xhr.responseText;
-					} else {
+					if (!ctx.hx.retarget) {
+						const slot = document.getElementById('bc-send-error');
 						if (slot) slot.innerHTML = '';
 						this.setStatus('Stopping the agent…');
 					}
 					return;
 				}
 				if (!this.composer || !this.composer.contains(e.target)) return;
-				if (!e.detail.successful) return;
 				// A rejected send (agent busy, session still starting) comes
 				// back HTTP 200 with HX-Retarget and the rendered error block;
 				// keep the text in the composer and skip the bubble, or the
-				// chat would sit on a typing indicator that never resolves.
-				// The swap is done here: htmx does not override the form's
-				// hx-swap=none from the HX-Reswap header
+				// chat would sit on a typing indicator that never resolves
+				if (ctx.hx.retarget) return;
 				const errSlot = document.getElementById('bc-send-error');
-				if (e.detail.xhr && e.detail.xhr.getResponseHeader('HX-Retarget')) {
-					if (errSlot) errSlot.innerHTML = e.detail.xhr.responseText;
-					return;
-				}
 				if (errSlot) errSlot.innerHTML = '';
 				const area = this.composer.querySelector('textarea[name=message]');
 				if (area && area.value.trim()) {
@@ -194,7 +191,7 @@
 					this.showTyping();
 				}
 			};
-			document.body.addEventListener('htmx:afterRequest', this.onAfterRequest);
+			document.body.addEventListener('htmx:after:request', this.onAfterRequest);
 
 			// Preview refresh on demand
 			this.onRefreshClick = (e) => {
@@ -232,7 +229,7 @@
 
 		disconnectedCallback() {
 			if (this.aborter) this.aborter.abort();
-			document.body.removeEventListener('htmx:afterRequest', this.onAfterRequest);
+			document.body.removeEventListener('htmx:after:request', this.onAfterRequest);
 			document.body.removeEventListener('click', this.onRefreshClick);
 		}
 

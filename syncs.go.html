@@ -14,7 +14,7 @@
 
 
       <div class="drawer-content">
-        <main class="p-4 lg:p-6 space-y-4 max-w-6xl">
+        <main hx-history-elt class="p-4 lg:p-6 space-y-4 max-w-6xl">
           <!-- Header -->
           <div
             class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
@@ -42,7 +42,7 @@
                   hx-trigger="input changed delay:300ms, search"
                   hx-push-url="true"
                   hx-target="#sync-rows"
-                  hx-swap="innerHTML transition:true"
+                  hx-swap="innerHTML"
                   hx-indicator="#page-progress" />
               </label>
               <a
@@ -198,9 +198,8 @@
                                     data-tip="Fetch from the source and apply
                                     now" hx-post="{{ $.AppPath }}/syncs/run"
                                     hx-vals='{"sync_id": "{{ .id }}"}'
-                                    hx-target="#sync-rows" hx-swap="innerHTML
-                                    transition:true" hx-include="#page-search"
-                                    hx-disabled-elt="this"
+                                    hx-target="#sync-rows" hx-swap="innerHTML" hx-include="#page-search"
+                                    hx-disable="this"
                                     hx-indicator="#page-progress"
                                   {{ else }}
                                     disabled data-tip="requires sync:run"
@@ -217,9 +216,8 @@
                                     hx-vals='{"sync_id": "{{ .id }}"}'
                                     hx-confirm="Remove sync source {{ .repo }}?
                                     Apps applied by it are not deleted."
-                                    hx-target="#sync-rows" hx-swap="innerHTML
-                                    transition:true" hx-include="#page-search"
-                                    hx-disabled-elt="this"
+                                    hx-target="#sync-rows" hx-swap="innerHTML" hx-include="#page-search"
+                                    hx-disable="this"
                                     hx-indicator="#page-progress"
                                   {{ else }}
                                     disabled data-tip="requires sync:delete"
@@ -247,7 +245,7 @@
                         hx-get="{{ .AppPath }}/syncs"
                         hx-vals='{"query": ""}'
                         hx-target="#sync-rows"
-                        hx-swap="innerHTML transition:true"
+                        hx-swap="innerHTML"
                         hx-push-url="true"
                         hx-indicator="#page-progress">
                         Clear search

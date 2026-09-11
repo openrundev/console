@@ -26,7 +26,7 @@
 
 
       <div class="drawer-content">
-        <main class="p-4 lg:p-6 space-y-4 max-w-6xl">
+        <main hx-history-elt class="p-4 lg:p-6 space-y-4 max-w-6xl">
           <!-- Header -->
           <div
             class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
@@ -42,7 +42,7 @@
                 class="btn btn-sm btn-ghost"
                 hx-get="{{ .AppPath }}/overview"
                 hx-target="#overview-root"
-                hx-swap="innerHTML transition:true"
+                hx-swap="innerHTML"
                 hx-indicator="#page-progress">
                 <svg
                   aria-hidden="true"

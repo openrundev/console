@@ -16,7 +16,7 @@
       {{ template "drawer_toggle" }}
 
       <div class="drawer-content">
-        <main class="p-4 lg:p-6 max-w-6xl">
+        <main hx-history-elt class="p-4 lg:p-6 max-w-6xl">
           <div id="page-content" class="space-y-4">
           {{ block "page_content" . }}
             {{ $actionPath := printf "%s/config/%s/action" .AppPath .Data.Page }}
@@ -177,8 +177,8 @@
                                       hx-vals='{"action": "delete_entry", "section": "{{ $section }}", "name": "{{ .name }}", "version_id": "{{ $.Data.VersionId }}"}'
                                       hx-confirm="Delete the dynamic entry {{ .name }}? The change is live immediately{{ if .overrides }} and the static entry from openrun.toml becomes active again{{ end }}."
                                       hx-target="#page-content"
-                                      hx-swap="innerHTML transition:true"
-                                      hx-disabled-elt="this"
+                                      hx-swap="innerHTML"
+                                      hx-disable="this"
                                       hx-indicator="#page-progress"
                                     {{ else }}
                                       disabled data-tip="requires config:update"
@@ -239,8 +239,8 @@
                                     hx-vals='{"action": "kv_delete", "kv_section": "{{ $kv.section }}", "key": "{{ .key }}", "version_id": "{{ $.Data.VersionId }}"}'
                                     hx-confirm="Remove the {{ $kv.section }} override {{ .key }}? Apps revert to the openrun.toml value on their next reload."
                                     hx-target="#page-content"
-                                    hx-swap="innerHTML transition:true"
-                                    hx-disabled-elt="this"
+                                    hx-swap="innerHTML"
+                                    hx-disable="this"
                                     hx-indicator="#page-progress"
                                   {{ else }}
                                     disabled data-tip="requires config:update"
@@ -261,7 +261,7 @@
                     <form
                       hx-post="{{ $actionPath }}"
                       hx-target="#page-content"
-                      hx-swap="innerHTML transition:true"
+                      hx-swap="innerHTML"
                       hx-indicator="#page-progress"
                       class="flex items-center gap-2 flex-wrap">
                       <input type="hidden" name="action" value="kv_set" />
@@ -314,7 +314,7 @@
   <form
     hx-post="{{ .ActionPath }}"
     hx-target="#page-content"
-    hx-swap="innerHTML transition:true"
+    hx-swap="innerHTML"
     hx-indicator="#page-progress"
     class="flex items-start gap-3 flex-wrap">
     <input type="hidden" name="action" value="set_value" />
@@ -455,7 +455,7 @@
             hx-post="{{ .ActionPath }}"
             hx-vals='{"action": "delete_value", "section": "{{ $row.section }}", "key": "{{ $row.key }}", "version_id": "{{ .VersionId }}"}'
             hx-target="#page-content"
-            hx-swap="innerHTML transition:true"
+            hx-swap="innerHTML"
             hx-indicator="#page-progress"
           {{ else }}
             disabled

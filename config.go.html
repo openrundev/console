@@ -18,7 +18,7 @@
 
 
       <div class="drawer-content">
-        <main class="p-4 lg:p-6 max-w-6xl">
+        <main hx-history-elt class="p-4 lg:p-6 max-w-6xl">
           <div id="config-content" class="space-y-4">
             {{ block "config_content" . }}
               <!-- Header -->
@@ -173,8 +173,8 @@
                                       (RBAC and dynamic entries) from this
                                       snapshot? It is validated and written as a
                                       new version." hx-target="#config-content"
-                                      hx-swap="innerHTML transition:true"
-                                      hx-disabled-elt="this"
+                                      hx-swap="innerHTML"
+                                      hx-disable="this"
                                       hx-indicator="#page-progress"
                                     {{ else }}
                                       disabled data-tip="requires config:update"

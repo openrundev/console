@@ -12,7 +12,7 @@
       {{ template "drawer_toggle" }}
 
       <div class="drawer-content">
-        <main class="p-4 lg:p-6 space-y-4 max-w-6xl">
+        <main hx-history-elt class="p-4 lg:p-6 space-y-4 max-w-6xl">
           <!-- Header -->
           <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" . }}
@@ -435,9 +435,9 @@
                                         hx-vals='{"id": "{{ .id }}", "action": "stop"}'
                                         hx-confirm="Stop container {{ .name }}? The app will be unavailable until it is started again."
                                         hx-target="#container-rows"
-                                        hx-swap="innerHTML transition:true"
+                                        hx-swap="innerHTML"
                                         hx-include="#page-search, #app-filter-value, #show-stopped"
-                                        hx-disabled-elt="this"
+                                        hx-disable="this"
                                         hx-indicator="#page-progress"
                                       {{ else if not (index $.Data.Perms "feature:updates") }}
                                         disabled data-tip="updates are disabled for this console install"
@@ -466,9 +466,9 @@
                                         hx-post="{{ $.AppPath }}/containers/lifecycle"
                                         hx-vals='{"id": "{{ .id }}", "action": "start"}'
                                         hx-target="#container-rows"
-                                        hx-swap="innerHTML transition:true"
+                                        hx-swap="innerHTML"
                                         hx-include="#page-search, #app-filter-value, #show-stopped"
-                                        hx-disabled-elt="this"
+                                        hx-disable="this"
                                         hx-indicator="#page-progress"
                                       {{ else if not (index $.Data.Perms "feature:updates") }}
                                         disabled data-tip="updates are disabled for this console install"

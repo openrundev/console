@@ -126,7 +126,7 @@ class SecretInput extends HTMLElement {
 				!canCreate, canCreate ? () => this.lockClicked() : null);
 			if (canCreate) {
 				// hx- attributes only on the enabled button: a disabled
-				// button with hx-disabled-elt matches the in-flight spinner
+				// button with hx-disable matches the in-flight spinner
 				// CSS and would show a permanent spinner. The request fires
 				// on the custom event (not click): the click first opens the
 				// description dialog, which triggers the event on confirm
@@ -134,12 +134,10 @@ class SecretInput extends HTMLElement {
 				lock.setAttribute('hx-trigger', 'secret-store');
 				lock.setAttribute('hx-target', 'closest secret-input');
 				lock.setAttribute('hx-swap', 'outerHTML');
-				// The button sits inside the page form; without this htmx
-				// would post the entire enclosing form to the store
-				// endpoint. The actual parameters are injected in
-				// htmx:configRequest
-				lock.setAttribute('hx-params', 'none');
-				lock.setAttribute('hx-disabled-elt', 'this');
+				// The button sits inside the page form, whose fields htmx
+				// collects into the request body; configRequest replaces
+				// that body with the component's own parameters
+				lock.setAttribute('hx-disable', 'this');
 			}
 			join.appendChild(lock);
 		}
@@ -154,7 +152,7 @@ class SecretInput extends HTMLElement {
 
 		if (!this.dataset.wired) {
 			this.dataset.wired = 'true';
-			this.addEventListener('htmx:configRequest', (event) => this.configRequest(event));
+			this.addEventListener('htmx:config:request', (event) => this.configRequest(event));
 		}
 
 		// Wire the hx- attributes of the freshly rendered buttons. Needed on
@@ -234,9 +232,6 @@ class SecretInput extends HTMLElement {
 		// element (empty editable field on success, locked state + error
 		// message on failure). configRequest injects the parameters
 		this.deleteParams = ref;
-		// The element sits inside the page form: without this htmx would post
-		// the whole form, whose fields (e.g. "name") would collide
-		this.setAttribute('hx-params', 'none');
 		if (window.htmx) {
 			window.htmx.ajax('POST',
 				(this.getAttribute('endpoint') || '').replace(/\/store$/, '/delete'),
@@ -284,14 +279,13 @@ class SecretInput extends HTMLElement {
 	}
 
 	configRequest(event) {
-		const params = event.detail.parameters;
-		const set = (key, val) => {
-			if (typeof params.set === 'function') {
-				params.set(key, val);
-			} else {
-				params[key] = val;
-			}
-		};
+		// The store/delete requests originate inside the page form, whose
+		// fields htmx collected into ctx.request.body (a FormData) - they
+		// would collide with the store parameters (e.g. "name"). Replace
+		// the body with the component's own parameters
+		const params = new FormData();
+		event.detail.ctx.request.body = params;
+		const set = (key, val) => params.set(key, val);
 		const del = this.deleteParams;
 		if (del) {
 			// Delete request (deleteSecret): name/provider parsed from the
@@ -593,17 +587,17 @@ function removeBindingRow(btn) {
 // submitter, since CSS cannot tell which of a form's buttons was clicked
 // (e.g. Validate vs Create app)
 
-document.addEventListener('htmx:beforeRequest', (event) => {
-	const submitter = event.detail.requestConfig?.triggeringEvent?.submitter;
+document.addEventListener('htmx:before:request', (event) => {
+	const submitter = event.detail.ctx?.request?.submitter;
 	if (submitter && submitter.matches('button[type=submit]')) {
 		submitter.classList.add('btn-inflight');
 	}
 });
 
-document.addEventListener('htmx:afterRequest', () => {
+document.addEventListener('htmx:finally:request', () => {
 	// A successful submit swaps the form block (or redirects); clean up for
 	// the responses that leave the page in place (validation errors kept in
-	// the re-rendered block, network failures)
+	// the re-rendered block, server and network failures)
 	for (const btn of document.querySelectorAll('.btn-inflight')) {
 		btn.classList.remove('btn-inflight');
 	}
@@ -688,7 +682,7 @@ function showReloadDialog(path, isDev) {
 
 // Styled replacement for the native hx-confirm dialog. The confirm button
 // picks up a destructive style when the question starts with Delete/Remove
-function showConfirmDialog(question, onConfirm) {
+function showConfirmDialog(question, onConfirm, onCancel) {
 	let dialog = document.getElementById('confirm-dialog');
 	if (!dialog) {
 		dialog = document.createElement('dialog');
@@ -716,7 +710,14 @@ function showConfirmDialog(question, onConfirm) {
 			}
 		});
 		dialog.addEventListener('close', () => {
+			// Closed without confirming (Cancel, Escape, backdrop): the
+			// pending confirm is still set
+			const cancel = dialog.pendingConfirm ? dialog.pendingCancel : null;
 			dialog.pendingConfirm = null;
+			dialog.pendingCancel = null;
+			if (cancel) {
+				cancel();
+			}
 		});
 	}
 
@@ -729,6 +730,7 @@ function showConfirmDialog(question, onConfirm) {
 		(destructive ? 'btn-error' : 'btn-primary');
 
 	dialog.pendingConfirm = onConfirm;
+	dialog.pendingCancel = onCancel;
 	dialog.showModal();
 	// Focus Cancel so Enter does not trigger the action by accident
 	dialog.querySelector('#confirm-dialog-cancel').focus();
@@ -821,25 +823,33 @@ document.addEventListener('DOMContentLoaded', () => {
 		showNavProgress();
 	});
 
-	// Generic error handling for all HTMX API calls
-	document.body.addEventListener('htmx:sendError', () => {
-		showApiError('API call failed: server is not reachable');
+	// Generic error handling for all HTMX API calls. htmx:error covers
+	// failed fetches (server not reachable), timeouts and swap failures;
+	// htmx:response:error the 4xx/5xx responses, which the htmx-config
+	// noSwap setting (layout head) keeps out of the target
+	document.body.addEventListener('htmx:error', (event) => {
+		const error = event.detail.error;
+		if (error && error.name === 'AbortError') {
+			return; // a request superseded or cancelled on purpose
+		}
+		showApiError('API call failed: ' + (error && error.message ? error.message : 'server is not reachable'));
 	});
-	document.body.addEventListener('htmx:responseError', (event) => {
-		const detail = event.detail.xhr.responseText || event.detail.xhr.statusText;
-		showApiError('API call failed: ' + detail);
+	document.body.addEventListener('htmx:response:error', (event) => {
+		const ctx = event.detail.ctx;
+		showApiError('API call failed: ' + (ctx.text || ctx.response.raw.statusText));
 	});
 
 	// Render hx-confirm questions in a styled dialog instead of the native
-	// browser confirm
+	// browser confirm. htmx 4 awaits issueRequest/dropRequest once the
+	// event is cancelled; a dismissed dialog must drop the request, or the
+	// element's request queue stays blocked behind the pending confirm
 	document.body.addEventListener('htmx:confirm', (event) => {
-		if (!event.detail.question) {
+		const question = event.detail.ctx?.confirm;
+		if (!question) {
 			return; // element has no hx-confirm set
 		}
 		event.preventDefault();
-		showConfirmDialog(event.detail.question, () => {
-			event.detail.issueRequest(true); // true skips asking again
-		});
+		showConfirmDialog(question, () => event.detail.issueRequest(), () => event.detail.dropRequest());
 	});
 	// Persist the user's theme choice. The toggle's initial state is set by
 	// an inline script next to it in the sidebar, before first paint, so the
@@ -946,4 +956,4 @@ function highlightConfigPanes(root) {
 	});
 }
 document.addEventListener('DOMContentLoaded', () => highlightConfigPanes());
-document.addEventListener('htmx:afterSwap', (event) => highlightConfigPanes(event.target));
+document.addEventListener('htmx:after:swap', (event) => highlightConfigPanes(event.detail.ctx?.target));

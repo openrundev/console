@@ -15,7 +15,7 @@
 
 
       <div class="drawer-content">
-        <main class="p-4 lg:p-6 space-y-4 max-w-6xl">
+        <main hx-history-elt class="p-4 lg:p-6 space-y-4 max-w-6xl">
           <!-- Header -->
           <div
             class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
@@ -36,7 +36,6 @@
             hx-trigger="input changed delay:500ms, change"
             hx-target="#audit-rows"
             hx-swap="innerHTML"
-            hx-params="*"
             hx-push-url="true"
             hx-include="closest form"
             hx-indicator="#page-progress"
@@ -264,8 +263,7 @@
                         type="button"
                         class="btn btn-xs btn-ghost ml-auto"
                         hx-get="{{ .AppPath }}/audit"
-                        hx-include="closest form"
-                        hx-params="not rid"
+                        hx-include="#audit-filters [name]:not([name=rid])"
                         hx-target="#audit-rows"
                         hx-swap="innerHTML"
                         hx-push-url="true"

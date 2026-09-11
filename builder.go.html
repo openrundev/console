@@ -14,7 +14,7 @@
 
 
       <div class="drawer-content">
-        <main class="p-4 lg:p-6 space-y-4 max-w-6xl">
+        <main hx-history-elt class="p-4 lg:p-6 space-y-4 max-w-6xl">
           <!-- Header -->
           <div
             class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
@@ -169,7 +169,7 @@
                                     {{ if $canWrite }}
                                       hx-post="{{ $.AppPath }}/builder/resume?id={{ .id }}"
                                       hx-target="#builder-rows"
-                                      hx-disabled-elt="this"
+                                      hx-disable="this"
                                       hx-indicator="#page-progress"
                                     {{ else }}
                                       disabled data-tip="requires
@@ -186,7 +186,7 @@
                                     {{ if $canWrite }}
                                       hx-post="{{ $.AppPath }}/builder/stop?id={{ .id }}"
                                       hx-target="#builder-rows"
-                                      hx-disabled-elt="this"
+                                      hx-disable="this"
                                       hx-indicator="#page-progress"
                                     {{ else }}
                                       disabled data-tip="requires
@@ -206,7 +206,7 @@
                                     workspace and preview app are removed. A
                                     published app stays live until unpublished."
                                     hx-target="#builder-rows"
-                                    hx-disabled-elt="this"
+                                    hx-disable="this"
                                     hx-indicator="#page-progress"
                                   {{ else }}
                                     disabled data-tip="requires builder:create"

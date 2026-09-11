@@ -200,11 +200,11 @@
                       {{ if index $perms "app:promote" }}
                         data-tip="Promote staging to prod"
                         hx-post="{{ $root }}/apps/promote"
-                        hx-disabled-elt="this" hx-vals='{"path": "{{ .path }}"}'
+                        hx-disable="this" hx-vals='{"path": "{{ .path }}"}'
                         hx-confirm="Promote staging
                         {{ if .staging }}v{{ .staging.version }}{{ end }}
                         to prod for {{ .path }}?" hx-target="#app-groups"
-                        hx-swap="innerHTML transition:true"
+                        hx-swap="innerHTML"
                         hx-include="#page-search, #app-filter-value,
                         #app-tab-value" hx-indicator="#page-progress"
                       {{ else }}
@@ -219,10 +219,9 @@
                       {{ if or (index $perms "app:approve") (index $perms "admin") }}
                         data-tip="Approve the requested plugin permissions"
                         hx-post="{{ $root }}/apps/approve"
-                        hx-disabled-elt="this" hx-vals='{"path": "{{ .path }}"}'
+                        hx-disable="this" hx-vals='{"path": "{{ .path }}"}'
                         hx-confirm="Approve the plugin permissions requested by
-                        {{ .path }}?" hx-target="#app-groups" hx-swap="innerHTML
-                        transition:true" hx-include="#page-search,
+                        {{ .path }}?" hx-target="#app-groups" hx-swap="innerHTML" hx-include="#page-search,
                         #app-filter-value, #app-tab-value"
                         hx-indicator="#page-progress"
                       {{ else }}
@@ -265,12 +264,12 @@
                       aria-label="Delete {{ .path }}"
                       {{ if index $perms "app:delete" }}
                         data-tip="Delete app" hx-post="{{ $root }}/apps/delete"
-                        hx-disabled-elt="this" hx-vals='{"path": "{{ .path }}"}'
+                        hx-disable="this" hx-vals='{"path": "{{ .path }}"}'
                         hx-confirm="Delete {{ .path }}? This deletes the prod,
                         staging and preview apps, plus any auto bindings with
                         their database objects and data."
                         hx-target="#app-groups"
-                        hx-swap="innerHTML transition:true"
+                        hx-swap="innerHTML"
                         hx-include="#page-search, #app-filter-value,
                         #app-tab-value" hx-indicator="#page-progress"
                       {{ else }}
@@ -349,8 +348,8 @@
         {{ if index .Perms "app:promote" }}
           hx-post="{{ .PostUrl }}" hx-vals='{"path": "{{ .Path }}"}'
           {{ if .Confirm }}hx-confirm="{{ .Confirm }}"{{ end }}
-          hx-target="{{ .Target }}" hx-swap="innerHTML transition:true"
-          hx-disabled-elt="this" hx-indicator="#page-progress"
+          hx-target="{{ .Target }}" hx-swap="innerHTML"
+          hx-disable="this" hx-indicator="#page-progress"
         {{ else }}
           disabled data-tip="requires app:promote"
         {{ end }}>
@@ -557,8 +556,8 @@
     class="card-body p-4 gap-3"
     hx-post="{{ .AppPath }}/builder/detail/publish?id={{ $s.id }}"
     hx-target="#session-content"
-    hx-swap="innerHTML transition:true"
-    hx-disabled-elt="find button[type=submit]"
+    hx-swap="innerHTML"
+    hx-disable="find button[type=submit]"
     data-builder-publish>
     <h3 class="font-semibold text-sm">
       {{ if $s.edit_app }}
@@ -706,11 +705,10 @@
       {{ end }}
     </p>
     <div class="flex items-center gap-2">
-      {{/* hx-disabled-elt=this OVERRIDES the form's
-        inherited "find button[type=submit]": find is
-        relative to the requesting element (this
-        button), matches nothing, and htmx throws on
-        the null before sending the request
+      {{/* The Validate button issues its own request, so it
+        disables itself; the form's hx-disable (relative to
+        the form) applies to the submit only - htmx 4 does not
+        inherit attributes
       */}}
       <button
         type="button"
@@ -718,7 +716,7 @@
         hx-post="{{ .AppPath }}/builder/detail/publish_check?id={{ $s.id }}"
         hx-target="#publish-check-result"
         hx-swap="innerHTML"
-        hx-disabled-elt="this"
+        hx-disable="this"
         hx-indicator="#page-progress">
         Validate
       </button>
@@ -789,7 +787,7 @@
       <form
         hx-post="{{ .PostUrl }}"
         hx-target="{{ .Target }}"
-        hx-swap="innerHTML transition:true"
+        hx-swap="innerHTML"
         {{ if .Include }}hx-include="{{ .Include }}"{{ end }}
         hx-indicator="#page-progress"
         onsubmit="this.closest('dialog').close()">

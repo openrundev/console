@@ -109,11 +109,11 @@
       aria-label="Delete binding {{ .Path }}"
       {{ if index .Perms "binding:delete" }}
         data-tip="Delete binding" hx-post="{{ .AppPath }}/bindings/delete"
-        hx-disabled-elt="this" hx-vals='{"path": "{{ .Path }}"}'
+        hx-disable="this" hx-vals='{"path": "{{ .Path }}"}'
         hx-confirm="Delete binding {{ .Path }}? Its database accounts are
         dropped (for a base binding including the schema/database and its
         data), and apps referencing it will fail to load."
-        hx-target="#binding-groups" hx-swap="innerHTML transition:true"
+        hx-target="#binding-groups" hx-swap="innerHTML"
         hx-include="#page-search" hx-indicator="#page-progress"
       {{ else }}
         disabled data-tip="requires binding:delete"
@@ -148,7 +148,7 @@
 
 
       <div class="drawer-content">
-        <main class="p-4 lg:p-6 space-y-4 max-w-6xl">
+        <main hx-history-elt class="p-4 lg:p-6 space-y-4 max-w-6xl">
           <!-- Header -->
           <div
             class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
@@ -176,7 +176,7 @@
                   hx-trigger="input changed delay:300ms, search"
                   hx-push-url="true"
                   hx-target="#binding-groups"
-                  hx-swap="innerHTML transition:true"
+                  hx-swap="innerHTML"
                   hx-indicator="#page-progress" />
               </label>
               <a
@@ -305,9 +305,9 @@
                                     hx-confirm="Delete service {{ .id }}?
                                     Bindings referencing it will stop working."
                                     hx-target="#binding-groups"
-                                    hx-swap="innerHTML transition:true"
+                                    hx-swap="innerHTML"
                                     hx-include="#page-search"
-                                    hx-disabled-elt="this"
+                                    hx-disable="this"
                                     hx-indicator="#page-progress"
                                   {{ else }}
                                     disabled data-tip="requires service:delete"
@@ -559,7 +559,7 @@
                         hx-get="{{ .AppPath }}/bindings"
                         hx-vals='{"query": ""}'
                         hx-target="#binding-groups"
-                        hx-swap="innerHTML transition:true"
+                        hx-swap="innerHTML"
                         hx-push-url="true"
                         hx-indicator="#page-progress">
                         Clear search

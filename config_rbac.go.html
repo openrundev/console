@@ -16,7 +16,7 @@
 
 
       <div class="drawer-content">
-        <main class="p-4 lg:p-6 max-w-6xl">
+        <main hx-history-elt class="p-4 lg:p-6 max-w-6xl">
           <div id="rbac-content" class="space-y-4">
             {{ block "rbac_content" . }}
               <!-- Header -->
@@ -136,8 +136,8 @@
                           {{ .Data.Draft.created_by }}
                           (last edit by {{ .Data.Draft.updated_by }})? This
                           cannot be undone." hx-target="#rbac-content"
-                          hx-swap="innerHTML transition:true"
-                          hx-disabled-elt="this" hx-indicator="#page-progress"
+                          hx-swap="innerHTML"
+                          hx-disable="this" hx-indicator="#page-progress"
                         {{ else }}
                           disabled data-tip="requires config:update"
                         {{ end }}>
@@ -151,8 +151,8 @@
                           "{{ .Data.DraftVersion }}"}' hx-confirm="Publish the
                           staged RBAC configuration? It is validated and becomes
                           live immediately." hx-target="#rbac-content"
-                          hx-swap="innerHTML transition:true"
-                          hx-disabled-elt="this" hx-indicator="#page-progress"
+                          hx-swap="innerHTML"
+                          hx-disable="this" hx-indicator="#page-progress"
                         {{ else }}
                           disabled data-tip="requires config:update"
                         {{ end }}>
@@ -165,8 +165,8 @@
                           hx-vals='{"action": "publish", "draft_version": "{{ .Data.DraftVersion }}", "force": "true"}'
                           hx-confirm="Force publish, overriding the failed safety check? Make sure you reviewed the warning."
                           hx-target="#rbac-content"
-                          hx-swap="innerHTML transition:true"
-                          hx-disabled-elt="this"
+                          hx-swap="innerHTML"
+                          hx-disable="this"
                           hx-indicator="#page-progress">
                           Force publish
                         </button>
@@ -284,8 +284,8 @@
                                             {{ .name }}
                                             from the staged config?"
                                             hx-target="#rbac-content"
-                                            hx-swap="innerHTML transition:true"
-                                            hx-disabled-elt="this"
+                                            hx-swap="innerHTML"
+                                            hx-disable="this"
                                             hx-indicator="#page-progress"
                                           {{ else }}
                                             disabled data-tip="{{ $editTitle }}"
@@ -382,8 +382,8 @@
                                             from the staged config? Publish
                                             fails while grants still reference
                                             it." hx-target="#rbac-content"
-                                            hx-swap="innerHTML transition:true"
-                                            hx-disabled-elt="this"
+                                            hx-swap="innerHTML"
+                                            hx-disable="this"
                                             hx-indicator="#page-progress"
                                           {{ else }}
                                             disabled data-tip="{{ $editTitle }}"
@@ -502,8 +502,8 @@
                                             hx-confirm="Delete this grant from
                                             the staged config?"
                                             hx-target="#rbac-content"
-                                            hx-swap="innerHTML transition:true"
-                                            hx-disabled-elt="this"
+                                            hx-swap="innerHTML"
+                                            hx-disable="this"
                                             hx-indicator="#page-progress"
                                           {{ else }}
                                             disabled data-tip="{{ $editTitle }}"

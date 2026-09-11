@@ -83,13 +83,13 @@ h3:not(.font-mono),
 }
 
 /* ---- In-flight actions -----------------------------------------------
-   Buttons disabled by htmx during their own request (hx-disabled-elt="this")
+   Buttons disabled by htmx during their own request (hx-disable="this")
    show an inline spinner. Statically disabled buttons are unaffected. */
-button[hx-disabled-elt][disabled] {
+button[hx-disable][disabled] {
   pointer-events: none;
   opacity: 0.75;
 }
-button[hx-disabled-elt][disabled]::before {
+button[hx-disable][disabled]::before {
   content: "";
   display: inline-block;
   width: 0.7em;
@@ -218,22 +218,12 @@ label.input:focus-within {
   border-color: color-mix(in oklab, var(--color-secondary) 24%, var(--color-base-300));
 }
 
-/* ---- HTMX swap polish ---------------------------------------------------
-   Swapped-in content settles with a soft fade/slide, so filters, actions
-   and auto-refreshes feel alive instead of snapping. */
-@keyframes fade-slide-in {
-  from {
-    opacity: 0.4;
-    transform: translateY(3px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-.htmx-settling {
-  animation: fade-slide-in 250ms var(--ease-out-soft);
-}
+/* ---- HTMX swaps ---------------------------------------------------------
+   Swapped-in content lands instantly. No animation keyed on the
+   htmx-settling / htmx-added classes: htmx 4 removes them after the 1ms
+   settle delay, so a class-driven fade can only ever flash a dimmed
+   frame and snap (flicker). Swaps do not use view transitions either -
+   see the transitions note in accessibility.css. */
 
 /* ---- Tables ---------------------------------------------------------------
    Crisp column headers in the brand secondary color over a brand-tinted
@@ -257,11 +247,6 @@ label.input:focus-within {
 .logo-mark:hover {
   transform: scale(1.05);
 }
-
-/* Cross-document view transitions are declared (with their types
-   descriptor) and documented in accessibility.css, which loads after this
-   file - no @view-transition here, a second typeless declaration would
-   silently take over if that one ever moved earlier in the cascade */
 
 /* ---- Navigation progress -----------------------------------------------
    Fixed top bar shown between clicking a link and the next page rendering,

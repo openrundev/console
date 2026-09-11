@@ -249,165 +249,29 @@ html[data-signin-dismissed] #signin-strip {
   }
 }
 
-/* ---- View transitions ----------------------------------------------------
-   Same-origin page navigations fade via view transitions instead of
-   flashing a repaint (audit -> containers etc.). The model is
-   ANIMATE-NOTHING-BY-DEFAULT: the root snapshot (all chrome - sidebar,
-   logo, page background) is pinned static, and only the named content
-   region (main) and the header text pair fade. Anything new added to a
-   page is static in transitions unless it is explicitly named. Reduced
-   motion opts out (the reduced-motion block above also zeroes animation
-   durations). Chrome 126+; other browsers ignore all of this and keep
-   plain navigation */
-@media (prefers-reduced-motion: no-preference) {
-  /* The custom animations below are for CROSS-DOCUMENT navigations only,
-     so they are gated on the cross-doc active type: htmx partial swaps with
-     transition:true start SAME-document view transitions against this very
-     stylesheet, and ungated they made every chip/tab swap dip the whole
-     page - sidebar logo and header included - to the background and back
-     (the root fade-through + title rise/settle read as chrome flicker).
-     Same-document transitions carry no types, match nothing here, and fall
-     back to the UA default plus-lighter crossfade: unchanged pixels stay
-     EXACTLY static (opacities sum to 1) while the swapped content
-     crossfades - which is the wanted partial-swap look. Browsers that
-     ignore the types descriptor simply keep default crossfades */
-  @view-transition {
-    navigation: auto;
-    types: cross-doc;
-  }
-  /* THE ROOT IS PINNED: chrome is static because it is never animated,
-     not because each piece is individually exempted. Everything without a
-     view-transition-name below - the sidebar INCLUDING the logo above
-     #main-nav, the drawer chrome, the page background - lives in the root
-     snapshot, which snaps straight to the new state on every transition.
-     Only the NEW snapshot shows: snapshots composite with plus-lighter,
-     so keeping both visible double-exposes anything that differs (the
-     sidebar menu-active highlight glowed on two nav entries at once).
-     Before this, chrome was pinned piecemeal (console-sidebar on
-     #main-nav, console-header on .page-header) while root faded - and
-     every unnamed piece of chrome, like the logo, flickered with the root
-     fade */
-  ::view-transition-old(root) {
-    display: none;
-  }
-  ::view-transition-new(root) {
-    animation: none;
-  }
-  /* The page content region is the ONLY thing that fades on navigation.
-     Fade-through: the old content fades fully out to the page background
-     before the new one fades in. A plain crossfade double-exposes two
-     dissimilar pages (audit's dense table over config's cards) which
-     reads as a bright flash; sequencing through the solid background
-     never overlaps them. The group box does not tween (transparent box,
-     a size snap is invisible) */
-  main {
-    view-transition-name: console-content;
-  }
-  ::view-transition-group(console-content) {
-    animation: none;
-  }
-  html:active-view-transition-type(cross-doc)::view-transition-old(
-      console-content) {
-    animation: vt-page-out 90ms ease-out both;
-  }
-  html:active-view-transition-type(cross-doc)::view-transition-new(
-      console-content) {
-    animation: vt-page-in 150ms ease-out 60ms both;
-  }
+/* ---- Page and swap transitions: NONE (2026-09-10) -------------------------
+   Navigations and htmx swaps cut instantly. The console used to run view
+   transitions (cross-document via @view-transition, same-document via
+   hx-swap transition:true): first a sequenced fade-through, then a 150ms
+   plus-lighter crossfade. Both read as flicker: the fade-through blinked
+   the content region and an unchanged page title, and a crossfade
+   double-exposes everything that differs (shifted rows ghost, two pages
+   blend) for its whole duration. There is no animated transition that is
+   free of such artifacts, so there is none. The layout head keeps
+   `<link rel="expect" blocking="render">` so a navigation paints the new
+   page in one complete frame (no partially rendered page), and Chrome's
+   paint holding shows the old page until then. Do not add
+   view-transition-name or transition:true back without re-reading this.
 
-  /* title and description animate as a pair: both carry the same
-     view-transition-class (Chrome 125+), so the rise/settle rules are
-     written once against *.console-pair. Names must still be unique */
-  .page-title {
-    view-transition-name: console-title;
-    view-transition-class: console-pair;
-  }
-  .page-desc {
-    view-transition-name: console-desc;
-    view-transition-class: console-pair;
-  }
-  /* header right-side cluster (search box, page action buttons) fades with
-     the same sequenced no-scale treatment */
-  .page-actions {
-    view-transition-name: console-actions;
-    view-transition-class: console-pair;
-  }
-
-  /* THE STACKING INVARIANT — read before adding a view-transition-name.
-     A view-transition-name creates a stacking context on the element even
-     when no transition is running. An element in its own stacking context at
-     z-index:auto is painted at the level of normal page content, so any
-     popup opened from inside it (a daisyUI dropdown, a menu) is painted
-     UNDER the content that follows it in the DOM - the menu opens but is
-     hidden behind later cards. This bit .page-header (app detail Actions)
-     and .page-actions (builder Publish) separately. `main` is named too
-     (console-content), so every popup host inside it competes within
-     main's own stacking context - the lift below resolves order there.
-
-     Fix, in ONE place: every console chrome element that carries a
-     view-transition-name is lifted above page content here. When you add a
-     new view-transition-name to a chrome element that can host a popup, add
-     its selector to this list - do not scatter per-element z-index. Chrome
-     legitimately sits above page content, so an always-on lift is correct;
-     it stays below the fixed overlays (.nav-progress z-index:100,
-     .skip-link z-index:200). The names are only set for non-reduced-motion,
-     so this rule lives in the same block. */
-  .page-header,
-  .page-actions {
-    position: relative;
-    z-index: 20;
-  }
-  /* No geometry tween and no snapshot scaling: the group box snaps (the
-     titles are left-anchored transparent text, a width snap is invisible)
-     and old/new keep their natural size, so differing title widths
-     (Containers vs Configuration) never stretch the text. The fades run in
-     sequence - old fully out, new landing just after - so two readable
-     texts never overlap */
-  html:active-view-transition-type(cross-doc)::view-transition-group(
-      *.console-pair) {
-    animation: none;
-  }
-  html:active-view-transition-type(cross-doc)::view-transition-old(
-      *.console-pair),
-  html:active-view-transition-type(cross-doc)::view-transition-new(
-      *.console-pair) {
-    width: auto;
-    height: auto;
-  }
-  html:active-view-transition-type(cross-doc)::view-transition-old(
-      *.console-pair) {
-    animation: vt-title-out 90ms ease-out both;
-  }
-  html:active-view-transition-type(cross-doc)::view-transition-new(
-      *.console-pair) {
-    animation: vt-title-in 160ms cubic-bezier(0.2, 0.8, 0.2, 1) 70ms both;
-  }
-}
-
-@keyframes vt-title-out {
-  to {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-}
-
-@keyframes vt-title-in {
-  from {
-    opacity: 0;
-    transform: translateY(5px);
-  }
-}
-
-@keyframes vt-page-out {
-  to {
-    opacity: 0;
-  }
-}
-
-@keyframes vt-page-in {
-  from {
-    opacity: 0;
-  }
+   Chrome elements that host popups (a daisyUI dropdown in the page header
+   or the page actions cluster) are lifted above page content so a menu is
+   never painted under the cards that follow it in the DOM; the lift stays
+   below the fixed overlays (.nav-progress z-index:100, .skip-link
+   z-index:200) */
+.page-header,
+.page-actions {
+  position: relative;
+  z-index: 20;
 }
 
 /* ---- Resizable panels ----------------------------------------------------
@@ -551,9 +415,36 @@ a.tooltip.btn-disabled {
    states (mirroring daisyui's) restore the normal absolute placement.
    The opacity transitions (and the sidebar show delay) are unaffected. */
 .tooltip:not(:hover):not(.tooltip-open):not(:has(:focus-visible)) > .tooltip-content,
-.tooltip[data-tip]:not(:hover):not(.tooltip-open):not(:has(:focus-visible))::before,
+.tooltip[data-tip]:not(:hover):not(.tooltip-open):not(:has(:focus-visible)):not([hx-disable][disabled])::before,
 .tooltip:not(:hover):not(.tooltip-open):not(:has(:focus-visible))::after {
   position: fixed;
+}
+
+/* In-flight spinner on tooltip buttons. The spinner (style.css
+   button[hx-disable][disabled]::before) and the daisyui tooltip bubble
+   share the button's ::before: only content/size/border came from the
+   spinner rule, the bubble's absolute placement, padding, background and
+   hover-only opacity still applied, so the spinner appeared OUTSIDE the
+   button at the bubble position (below it for tooltip-bottom) and only
+   while the pointer stayed over the button (the hover restore above).
+   While the request runs, reset the bubble box so the spinner is a plain
+   inline flex item before the label (the .btn gap spaces it), always
+   visible, and hide the bubble's arrow (::after). The parking rule above
+   excludes the in-flight state for the same reason. */
+button.tooltip[hx-disable][disabled]::before {
+  position: static;
+  inset: auto;
+  transform: none;
+  opacity: 1;
+  color: inherit;
+  background: none;
+  padding: 0;
+  max-width: none;
+  z-index: auto;
+  transition: none;
+}
+button.tooltip[hx-disable][disabled]::after {
+  display: none;
 }
 
 /* ---- Op-form posts -------------------------------------------------------

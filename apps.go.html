@@ -15,7 +15,7 @@
 
 
       <div class="drawer-content">
-        <main class="p-4 lg:p-6 space-y-4 max-w-6xl">
+        <main hx-history-elt class="p-4 lg:p-6 space-y-4 max-w-6xl">
           <!-- Header -->
           <div
             class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
@@ -352,9 +352,9 @@
                           {{ end }}"
                           {{ if index $.Data.Perms "sync:run" }}
                             hx-post="{{ $.AppPath }}/apps/sync"
-                            hx-disabled-elt="this" hx-vals='{"sync_id":
+                            hx-disable="this" hx-vals='{"sync_id":
                             "{{ .sync.id }}"}' hx-target="#app-groups"
-                            hx-swap="innerHTML transition:true"
+                            hx-swap="innerHTML"
                             hx-include="#page-search, #app-filter-value,
                             #app-tab-value" hx-indicator="#page-progress"
                           {{ else }}
