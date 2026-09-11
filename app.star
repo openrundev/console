@@ -128,7 +128,8 @@ OPENRUN_THEMES = {
 # action. Form subpages use a fragment with an empty path for their POST: it
 # registers on the page path itself with the same template, only the handler
 # differs. Write routes are added only when their feature flag is enabled;
-# the read pages always register (with no action fragments when disabled)
+# core read pages always register; config, builder and container read pages
+# additionally require their area flag
 def build_routes():
     routes = [
         # Overview home page: fleet counts and health. Registered at both "/"
@@ -169,7 +170,7 @@ def build_routes():
                      # its version switch buttons post to the switch fragment)
                      ace.fragment("envpanel", partial="app_env_panel", handler=handler.apps_detail_envpanel_handler),
                      # Compare/Files tab pane refreshes (version select
-                     # changes) and the Config tab's .ace download - all
+                     # changes) and the Config tab's .star download - all
                      # reads, always registered
                      ace.fragment("compare", partial="app_compare_pane", handler=handler.apps_detail_data),
                      ace.fragment("files", partial="app_files_pane", handler=handler.apps_detail_data),
@@ -190,7 +191,7 @@ def build_routes():
                  ] if ENABLE_UPDATES else [])),
         # The old version-files page redirects to the detail Files tab; the
         # download fragment stays as the version zip endpoint (the full
-        # template is never rendered, the handler always redirects)
+        # page handler redirects; download errors render the detail template)
         ace.html("/apps/files", full="app_detail.go.html", handler=handler.apps_files_handler,
                  fragments=[
                      # Zip download of the version files (streamed)
@@ -345,7 +346,7 @@ def build_routes():
             ace.api("/builder/events", handler=handler.builder_events_handler, type="TEXT"),
             # Raw workspace file content for the <builder-files> viewer
             ace.api("/builder/file", handler=handler.builder_file_handler, type="TEXT"),
-            # Source zip download: redirects to a single-access temp file url
+            # Source zip download: streams the workspace as an attachment
             ace.html("/builder/download", full="builder_session.go.html", handler=handler.builder_download_handler),
         ]
         if ENABLE_UPDATES:

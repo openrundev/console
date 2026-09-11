@@ -898,7 +898,7 @@ def detail_files_data(data, req):
 
 
 def apps_detail_config_download_handler(req):
-    # GET: the prod export output as an apply-ready .ace download
+    # GET: the prod export output as an apply-ready .star download
     path = utils.query_param(req, "path")
     ret = openrun.export_app(path)
     if ret.error:
@@ -915,7 +915,7 @@ def apps_detail_config_download_handler(req):
 def apps_version_file_handler(req):
     # TEXT route: raw content of one version file, rendered by the Files
     # tab's <builder-files> viewer (client side syntax highlighting). The
-    # component appends &path=<file> to the endpoint url
+    # component sets the path query parameter to the selected file
     app_path = utils.query_param(req, "app").strip()
     env = utils.query_param(req, "env").strip() or "prod"
     version = utils.query_param(req, "version").strip()
@@ -1620,17 +1620,20 @@ def apps_files_handler(req):
 
 def apps_files_download_handler(req):
     # GET: bundle the version's files into a zip and stream it back to the
-    # client as an attachment (chunked, no disk/db staging); errors re-render
-    # the files page
+    # client as an attachment (chunked, no disk/db staging). Errors returned
+    # by get_version_zip render the detail page; later producer errors are
+    # handled by the framework while writing the download
     path = utils.query_param(req, "path")
     version = utils.query_param(req, "version")
     env = utils.query_param(req, "env") or "prod"
 
     ret = openrun.get_version_zip(resolve_env_path(path, env), version=version)
     if ret.error:
-        data = apps_files_handler(req)
+        # apps_files_handler now returns a redirect, not template data.
+        # Render the detail page so the download error remains visible.
+        data = apps_detail_data(req)
         data["FlashError"] = "Download failed: %s" % ret.error
-        return data
+        return ace.response(data, "app_detail.go.html")
     return ace.response(ret.value["content"], download=ret.value["name"],
                         content_type="application/zip")
 
@@ -2602,7 +2605,9 @@ def containers_logs_stream_handler(req):
     ret = openrun.container_logs_stream(id, tail=tail_int, follow=follow)
     if ret.error:
         return "error: %s" % ret.error
-    # Return the stream response object itself; the framework streams it
+    # Return the stream response object itself. Deferred producer errors are
+    # handled by the framework: HTTP 500 before data, an aborted response
+    # after data. Only errors returned by the plugin call use the text above
     return ret
 
 
@@ -4594,8 +4599,8 @@ def builder_detail_action(req, action):
             ret = build.send_message(id, message=message)
             if ret.error:
                 # The composer posts with hx-swap=none (the transcript is
-                # SSE-driven), so a discarded error looks like a hang.
-                # Retarget the error into the chat's error slot instead
+                # driven by the JSON-lines stream), so a discarded error
+                # looks like a hang. Retarget it into the chat's error slot
                 return ace.response({"SendError": "Message not sent: " + ret.error}, block="bc_send_error",
                                     retarget="#bc-send-error", reswap="innerHTML")
     elif action == "cancel":
@@ -4768,8 +4773,9 @@ def builder_file_handler(req):
 
 def builder_download_handler(req):
     # Bundle the workspace source into a zip and stream it back to the client
-    # as an attachment (chunked, no disk/db staging); errors render the
-    # session page with a flash
+    # as an attachment (chunked, no disk/db staging). Errors returned by
+    # get_source_zip render the session page with a flash; later producer
+    # errors are handled by the framework while writing the download
     ret = build.get_source_zip(utils.query_param(req, "id").strip())
     error = ret.error
     if error:

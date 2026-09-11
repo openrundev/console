@@ -581,7 +581,7 @@ function removeBindingRow(btn) {
 // ---- op-form submit indicator ---------------------------------------------
 // The full-page operation forms post via hx-post with a narrow target (the
 // op_form block): while the request is in flight htmx adds .htmx-request to
-// the form (its submit buttons disable, see accessibility.css) and
+// the form (CSS dims its submit buttons and blocks pointer clicks) and
 // #page-progress shows via hx-indicator. The clicked submit button
 // additionally gets the inline spinner: mark it from the submit event's
 // submitter, since CSS cannot tell which of a form's buttons was clicked
@@ -635,8 +635,8 @@ function toggleNavDrawer(btn) {
 // Dismiss the mobile sign-in strip for the rest of the browser session. The
 // pre-paint head snippet reads the flag, so later pages never flash the strip
 function dismissSigninStrip() {
-	sessionStorage.setItem('signin-strip-dismissed', '1');
 	document.documentElement.setAttribute('data-signin-dismissed', '');
+	try { sessionStorage.setItem('signin-strip-dismissed', '1'); } catch (e) { /* storage may be unavailable */ }
 }
 
 // Show an error toast for failed API calls; replaces the previous message
@@ -758,6 +758,8 @@ document.addEventListener('DOMContentLoaded', () => {
 		const link = event.target.closest('a[href]');
 		if (
 			!link ||
+			event.defaultPrevented ||
+			event.button !== 0 ||
 			link.target === '_blank' ||
 			link.origin !== location.origin ||
 			link.getAttribute('href').startsWith('#') ||
@@ -780,27 +782,32 @@ document.addEventListener('DOMContentLoaded', () => {
 		// (the earlier anti-flicker fix) read as a dead control. The swap
 		// re-renders <main> from a fresh GET (every page has exactly one
 		// main), so the click visibly refreshes the data with the same
-		// progress bar as a navigation
-		// Done by hand rather than htmx.ajax: its select option applied to
-		// a full-document response swapped in NOTHING (htmx 2.0.3), so the
-		// fresh main is picked out of the parsed response here. htmx.process
-		// re-arms the hx- attributes (lazy tiles, polling) on the new tree
+		// progress bar as a navigation. Through htmx.ajax (htmx 4: the
+		// HX-Boosted header makes the server answer with the FULL page
+		// where a plain HX-Request gets the partial; select picks the fresh
+		// main and the outerHTML swap replaces the current one) so htmx
+		// cleans up the old tree's polling and listeners and initializes
+		// the new one. Requests from the same source serialize (default
+		// hx-sync queue), so a double click refreshes twice, never races;
+		// failures surface through the console-wide error toast, and an
+		// expired session follows the HX-Redirect to the login page
 		if (link.href === location.href && window.htmx) {
 			event.preventDefault();
+			const current = document.querySelector('main');
+			if (!current) {
+				return;
+			}
 			const bar = document.getElementById('nav-progress');
 			if (bar) {
 				bar.classList.add('active');
 			}
-			fetch(location.href, { headers: { Accept: 'text/html' } })
-				.then((resp) => resp.text())
-				.then((text) => {
-					const doc = new DOMParser().parseFromString(text, 'text/html');
-					const fresh = doc.querySelector('main');
-					const current = document.querySelector('main');
-					if (fresh && current) {
-						current.replaceWith(fresh);
-						window.htmx.process(fresh);
-					}
+			window.htmx
+				.ajax('GET', location.href, {
+					source: current,
+					target: current,
+					swap: 'outerHTML',
+					select: 'main',
+					headers: { 'HX-Boosted': 'true' },
 				})
 				.catch(() => {})
 				.finally(() => {
@@ -817,6 +824,9 @@ document.addEventListener('DOMContentLoaded', () => {
 		// navigation progress bar would never clear for them; they have
 		// their own hx-indicator
 		const form = event.target;
+		if (event.defaultPrevented || form.method === 'dialog' || event.submitter?.formMethod === 'dialog') {
+			return;
+		}
 		if (form && form.matches && form.matches('[hx-post], [hx-get], [hx-put], [hx-patch], [hx-delete]')) {
 			return;
 		}
@@ -859,7 +869,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		toggle.addEventListener('change', (event) => {
 			const theme = event.target.checked ? 'light' : 'dark';
 			document.documentElement.setAttribute('data-theme', 'openrun-' + theme);
-			localStorage.setItem('theme', theme);
+			try { localStorage.setItem('theme', theme); } catch (e) { /* storage may be unavailable */ }
 		});
 	}
 

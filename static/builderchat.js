@@ -14,9 +14,9 @@
 //
 // The composer form (data-builder-composer) posts through HTMX with
 // hx-swap="none"; this element appends the user's bubble optimistically on
-// htmx:after:request and clears the textarea. When the stream ends (sandbox
-// stopped), a status line is shown and no reconnect is attempted after the
-// second failure - the page's HTMX refresh reflects the detached state.
+// htmx:after:request and clears the textarea. Failed connections are retried
+// twice; opening a stream resets the failure count. An inline error line
+// stops reconnects, and the page's HTMX refresh reflects the sandbox state.
 
 (function () {
 	'use strict';
@@ -501,8 +501,8 @@
 			} catch (e) {
 				if (this.aborter.signal.aborted) return;
 			}
-			// Stream ended: sandbox stopped or transient hiccup. One quick
-			// retry, then leave it to the page state
+			// Retry failed connections after 2s and 4s. Opening a stream
+			// resets the count, so a completed stream starts again after 2s
 			this.failures++;
 			if (this.failures <= 2 && document.contains(this)) {
 				setTimeout(() => { if (document.contains(this)) this.connect(); }, 2000 * this.failures);

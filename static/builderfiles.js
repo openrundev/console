@@ -127,6 +127,7 @@
 		}
 
 		disconnectedCallback() {
+			this.fileAbort?.abort();
 			if (this.fitAbort) {
 				this.fitAbort.abort();
 			}
@@ -215,6 +216,10 @@
 		}
 
 		async open(row) {
+			// A slow response must never replace the newly selected file.
+			this.fileAbort?.abort();
+			const request = new AbortController();
+			this.fileAbort = request;
 			const path = row.getAttribute('data-bf-file');
 			this.querySelectorAll('[data-bf-file].bf-active').forEach((el) => el.classList.remove('bf-active'));
 			row.classList.add('bf-active');
@@ -226,14 +231,18 @@
 			}
 			this.renderText('Loading…', 'plaintext');
 			try {
-				const resp = await fetch(this.getAttribute('endpoint') + '&path=' + encodeURIComponent(path));
+				const url = new URL(this.getAttribute('endpoint'), window.location.href);
+				url.searchParams.set('path', path);
+				const resp = await fetch(url, { signal: request.signal });
 				const text = await resp.text();
+				if (request.signal.aborted) return;
 				if (!resp.ok || text.startsWith('error: ')) {
 					this.renderText(text || 'error loading file', 'plaintext');
 					return;
 				}
 				this.renderText(text, languageFor(path));
 			} catch (e) {
+				if (request.signal.aborted) return;
 				this.renderText('error loading file: ' + e, 'plaintext');
 			}
 		}
@@ -261,8 +270,10 @@
 	// the session content) and persists across visits in localStorage
 
 	const SPLIT_KEY = 'builder-split';
-	const stored = localStorage.getItem(SPLIT_KEY);
-	if (stored) document.documentElement.style.setProperty('--builder-split', stored);
+	try {
+		const stored = parseFloat(localStorage.getItem(SPLIT_KEY));
+		if (Number.isFinite(stored)) setSplit(stored, false);
+	} catch (e) { /* storage may be unavailable */ }
 
 	function setSplit(pct, persist) {
 		const clamped = Math.max(25, Math.min(72, pct));
