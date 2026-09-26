@@ -20,18 +20,32 @@
   {{ end }}
 
   {{ if .IsDev }}
-    <div
-      id="cl_reload_listener"
-      hx-ext="sse"
-      sse-connect="{{ .AppPath }}/_openrun_app/sse"
-      sse-swap="openrun_reload"
-      hx-trigger="sse:openrun_reload"></div>
-    <script>
-      document
-        .getElementById("cl_reload_listener")
-        .addEventListener("sse:openrun_reload", function (event) {
-          location.reload();
-        });
-    </script>
+    {{ if or (eq .HtmxVersion "4") (hasPrefix "4." .HtmxVersion) }}
+      <!-- htmx 4: the hx-sse extension dispatches named server events on the element -->
+      <div
+        id="cl_reload_listener"
+        hx-sse:connect="{{ .AppPath }}/_openrun_app/sse"></div>
+      <script>
+        document
+          .getElementById("cl_reload_listener")
+          .addEventListener("openrun_reload", function (event) {
+            location.reload();
+          });
+      </script>
+    {{ else }}
+      <div
+        id="cl_reload_listener"
+        hx-ext="sse"
+        sse-connect="{{ .AppPath }}/_openrun_app/sse"
+        sse-swap="openrun_reload"
+        hx-trigger="sse:openrun_reload"></div>
+      <script>
+        document
+          .getElementById("cl_reload_listener")
+          .addEventListener("sse:openrun_reload", function (event) {
+            location.reload();
+          });
+      </script>
+    {{ end }}
   {{ end }}
 {{ end -}}
