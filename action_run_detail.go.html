@@ -1,0 +1,267 @@
+{{/* Copyright (c) ClaceIO, LLC */}}
+{{/* SPDX-License-Identifier: Apache-2.0 */}}
+{{/* Action run detail page (/actions/runs/detail?run=): one async run - its
+  record and arguments, the result values or the output tail, and cancel
+  while it is active. HTMX partial: block run_detail_content (polled while
+  the run is active)
+*/}}
+<!DOCTYPE html>
+<html lang="en">
+  {{ template "head" . }}
+
+  <body class="min-h-screen bg-base-200">
+    <div class="drawer lg:drawer-open">
+      {{ template "drawer_toggle" }}
+
+      <div class="drawer-content">
+        <main hx-history-elt class="p-4 lg:p-6 max-w-6xl">
+          <div id="run-detail-content" class="space-y-4">
+            {{ block "run_detail_content" . }}
+              {{ $run := .Data.Run }}
+              {{ $doc := .Data.Doc }}
+              {{/* The poll lives on this element so a render of a finished
+                run stops it (the swap replaces the element) */}}
+              <div
+                class="space-y-4"
+                data-run-detail="{{ .Data.RunId }}"
+                {{ if and $run $run.active }}
+                  hx-get="{{ .AppPath }}/actions/runs/detail?run={{ .Data.RunId }}"
+                  hx-trigger="every 5s"
+                  hx-target="#run-detail-content"
+                  hx-swap="innerHTML"
+                {{ end }}>
+                <!-- Header -->
+                <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+                  {{ template "hamburger" . }}
+                  <div>
+                    {{ template "page_title" "Actions" }}
+                    <div class="flex items-center gap-2">
+                      <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0">
+                        <ul>
+                          <li><a href="{{ .AppPath }}/actions">Actions</a></li>
+                          <li><a href="{{ .AppPath }}/actions?tab=runs">Runs</a></li>
+                          {{ if $run }}
+                            <li class="font-mono"><a href="{{ .AppPath }}/actions/detail?path={{ $run.main_path }}&action={{ $run.action_path }}{{ if $run.stage_flag }}&stage=1{{ end }}">{{ $run.action_name }}</a></li>
+                          {{ end }}
+                          <li class="font-mono">{{ .Data.RunId }}</li>
+                        </ul>
+                      </nav>
+                      {{ template "help_link" .Data.HelpUrl }}
+                    </div>
+                    <h2 class="text-xl font-medium break-all">
+                      {{ if $run }}{{ $run.action_name }} run{{ else }}Run {{ .Data.RunId }}{{ end }}
+                    </h2>
+                    {{ if $run }}
+                      <p class="page-desc text-sm text-base-content/70 flex items-center gap-1.5 flex-wrap">
+                        {{ template "run_status_badge" $run.status }}
+                        {{ if ne $run.stage "prod" }}<span class="badge badge-ghost badge-xs">{{ $run.stage }}</span>{{ end }}
+                        {{ if $run.active }}<span class="text-xs">refreshing while the run is active</span>{{ end }}
+                      </p>
+                    {{ end }}
+                  </div>
+                  {{ if $run }}
+                    <div class="page-actions ml-auto flex items-center gap-2">
+                      {{ if $run.active }}
+                        <button
+                          class="btn btn-sm btn-ghost text-error transition-transform duration-150 active:scale-95 tooltip tooltip-bottom"
+                          data-run-cancel
+                          {{ if index .Data.Perms "feature:updates" }}
+                            data-tip="Stop this run"
+                            hx-post="{{ .AppPath }}/actions/runs/detail/cancel"
+                            hx-vals='{"run": "{{ .Data.RunId }}"}'
+                            hx-confirm="Cancel run {{ .Data.RunId }} of {{ $run.action_name }}?"
+                            hx-target="#run-detail-content"
+                            hx-swap="innerHTML"
+                            hx-disable="this"
+                            hx-indicator="#page-progress"
+                          {{ else }}
+                            disabled data-tip="updates are disabled for this console install"
+                          {{ end }}>
+                          Cancel run
+                        </button>
+                      {{ end }}
+                      <a
+                        href="{{ .AppPath }}/actions/open?path={{ $run.main_path }}&action={{ $run.action_path }}&run={{ .Data.RunId }}{{ if $run.stage_flag }}&stage=1{{ end }}"
+                        class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95 tooltip tooltip-bottom"
+                        data-tip="Open the run's page in the app, inside the console"
+                        data-run-open>
+                        Open
+                      </a>
+                      {{ if .Data.Url }}
+                        <a
+                          href="{{ .Data.Url }}"
+                          target="_blank"
+                          rel="noopener"
+                          class="btn btn-sm btn-ghost tooltip tooltip-bottom"
+                          data-tip="Open the run's page in a new tab"
+                          aria-label="Open the run's page in a new tab">
+                          {{ template "globe_icon" }}
+                        </a>
+                      {{ end }}
+                    </div>
+                  {{ end }}
+                </div>
+
+                {{ template "page_progress" }}
+                {{ template "flash_alerts" .Data }}
+                {{ if .Data.Error }}
+                  {{ template "error_alert" .Data.Error }}
+                {{ end }}
+
+                {{ if $run }}
+                  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <!-- Overview -->
+                    <section class="card bg-base-100 border border-base-300" aria-labelledby="run-overview-heading">
+                      <div class="card-body p-4 gap-3">
+                        <h2 id="run-overview-heading" class="text-sm font-medium text-base-content/70">Overview</h2>
+                        <div class="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-6 gap-y-1.5 text-sm">
+                          <span class="text-xs text-base-content/70 pt-0.5">Run</span>
+                          <span class="font-mono text-xs break-all pt-1">{{ $run.id }}</span>
+                          <span class="text-xs text-base-content/70 pt-0.5">App</span>
+                          <span class="font-mono text-xs break-all pt-1">
+                            {{ if or (index .Data.Perms "app:read") (index .Data.Perms "admin") }}
+                              <a href="{{ .AppPath }}/apps/detail?path={{ $run.main_path }}" class="link link-hover" data-app-link>{{ $run.main_path }}</a>
+                            {{ else }}
+                              {{ $run.main_path }}
+                            {{ end }}
+                            {{ if ne $run.stage "prod" }}<span class="badge badge-ghost badge-xs">{{ $run.stage }}</span>{{ end }}
+                          </span>
+                          <span class="text-xs text-base-content/70 pt-0.5">Action</span>
+                          <span class="text-xs pt-1">
+                            <a href="{{ .AppPath }}/actions/detail?path={{ $run.main_path }}&action={{ $run.action_path }}{{ if $run.stage_flag }}&stage=1{{ end }}" class="link link-hover" data-action-link>{{ $run.action_name }}</a>
+                            <span class="font-mono text-base-content/70">{{ $run.action_path }}</span>
+                          </span>
+                          <span class="text-xs text-base-content/70 pt-0.5">Status</span>
+                          <span class="text-xs pt-1">
+                            {{ template "run_status_badge" $run.status }}
+                            {{ if $run.has_exit_code }}<span class="font-mono ml-1">exit {{ $run.exit_code }}</span>{{ end }}
+                          </span>
+                          <span class="text-xs text-base-content/70 pt-0.5">Started</span>
+                          <span class="text-xs pt-1">{{ if $run.started_at }}{{ template "time_ago" $run.started_at }}{{ else }}-{{ end }}</span>
+                          <span class="text-xs text-base-content/70 pt-0.5">{{ if $run.ended_at }}Ended{{ else }}Duration{{ end }}</span>
+                          <span class="text-xs pt-1">
+                            {{ if $run.ended_at }}{{ template "time_ago" $run.ended_at }} ({{ $run.duration }}){{ else }}running{{ end }}
+                          </span>
+                          <span class="text-xs text-base-content/70 pt-0.5">By</span>
+                          <span class="text-xs pt-1 break-all">{{ or $run.actor "-" }} {{ if $run.source }}<span class="badge badge-ghost badge-xs font-mono">{{ $run.source }}</span>{{ end }}</span>
+                          <span class="text-xs text-base-content/70 pt-0.5">Version</span>
+                          <span class="text-xs pt-1">v{{ $run.version }}{{ if $run.node_id }} on <span class="font-mono">{{ $run.node_id }}</span>{{ end }}</span>
+                          {{ if $run.request_id }}
+                            <span class="text-xs text-base-content/70 pt-0.5">Request</span>
+                            <span class="font-mono text-xs break-all pt-1">
+                              {{ if or (index .Data.Perms "audit:read") (index .Data.Perms "admin") }}
+                                <a href="{{ .AppPath }}/audit?rid={{ $run.request_id }}" class="link link-hover" data-audit-link title="The audit trail of the request which started the run">{{ $run.request_id }}</a>
+                              {{ else }}
+                                {{ $run.request_id }}
+                              {{ end }}
+                            </span>
+                          {{ end }}
+                        </div>
+                        {{ if $run.message }}
+                          <p class="text-sm text-error break-all" data-run-message>{{ $run.message }}</p>
+                        {{ end }}
+                      </div>
+                    </section>
+
+                    <!-- Arguments -->
+                    <section class="card bg-base-100 border border-base-300 lg:col-span-2" aria-labelledby="run-args-heading">
+                      <div class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2">
+                        <h2 id="run-args-heading" class="text-sm font-medium">Arguments</h2>
+                        <span class="text-xs text-base-content/70">password params are not recorded, file params by name</span>
+                      </div>
+                      {{ if $run.args }}
+                        <div class="overflow-x-auto">
+                          <table class="table table-sm" data-args-table>
+                            <thead>
+                              <tr>
+                                <th scope="col">Param</th>
+                                <th scope="col">Value</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {{ range $k, $v := $run.args }}
+                                <tr data-arg="{{ $k }}">
+                                  <td class="font-mono text-xs whitespace-nowrap">{{ $k }}</td>
+                                  <td class="font-mono text-xs break-all">{{ $v }}</td>
+                                </tr>
+                              {{ end }}
+                            </tbody>
+                          </table>
+                        </div>
+                      {{ else }}
+                        <p class="text-sm text-base-content/70 px-4 py-4">No arguments recorded</p>
+                      {{ end }}
+                    </section>
+                  </div>
+
+                  <!-- Result / output -->
+                  <section class="card bg-base-100 border border-base-300" aria-labelledby="run-result-heading" data-run-result>
+                    <div class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
+                      <h2 id="run-result-heading" class="text-sm font-medium">{{ if $run.is_stream }}Output{{ else }}Result{{ end }}</h2>
+                      {{ if $run.active }}
+                        <span class="text-xs text-base-content/70">available when the run ends</span>
+                      {{ else if $run.is_stream }}
+                        <span class="text-xs text-base-content/70">{{ $run.output_bytes }} bytes{{ if $doc.truncated }}, showing the tail{{ end }}{{ if $doc.has_exit_status }} · exit status {{ $doc.exit_status }}{{ end }}</span>
+                      {{ else }}
+                        <span class="text-xs text-base-content/70">{{ if $doc.report }}{{ $doc.report }} · {{ end }}{{ $run.result_rows }} {{ if eq $run.result_rows 1 }}row{{ else }}rows{{ end }}{{ if $doc.truncated }} (truncated to the size limit){{ end }}</span>
+                      {{ end }}
+                    </div>
+                    {{ if $run.active }}
+                      <p class="text-sm text-base-content/70 px-4 py-4">The run is still executing - open the run's page in the app to follow its output live</p>
+                    {{ else }}
+                      <div class="p-4 space-y-3">
+                        {{ if $doc.status }}
+                          <p class="text-sm font-medium break-words" data-result-status>{{ $doc.status }}</p>
+                        {{ end }}
+                        {{ if $doc.param_errors }}
+                          <ul class="text-sm text-error space-y-0.5" data-param-errors>
+                            {{ range $k, $v := $doc.param_errors }}
+                              <li><span class="font-mono">{{ $k }}</span>: {{ $v }}</li>
+                            {{ end }}
+                          </ul>
+                        {{ end }}
+                        {{ if $run.is_stream }}
+                          {{ if $doc.output }}
+                            <pre class="bg-base-200 rounded-box p-3 text-xs font-mono whitespace-pre-wrap break-all max-h-[32rem] overflow-auto" data-run-output>{{ $doc.output }}</pre>
+                          {{ else }}
+                            <p class="text-sm text-base-content/70">No output</p>
+                          {{ end }}
+                        {{ else if $doc.rows }}
+                          <div class="overflow-x-auto">
+                            <table class="table table-xs" data-result-table>
+                              <thead>
+                                <tr>
+                                  {{ range $doc.columns }}<th scope="col">{{ . }}</th>{{ end }}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {{ range $doc.rows }}
+                                  {{ $row := . }}
+                                  <tr>
+                                    {{ range $doc.columns }}<td class="font-mono text-xs break-all">{{ index $row . }}</td>{{ end }}
+                                  </tr>
+                                {{ end }}
+                              </tbody>
+                            </table>
+                          </div>
+                        {{ else if $doc.lines }}
+                          <pre class="bg-base-200 rounded-box p-3 text-xs font-mono whitespace-pre-wrap break-all max-h-[32rem] overflow-auto" data-result-lines>{{ range $doc.lines }}{{ . }}
+{{ end }}</pre>
+                        {{ else if not $doc.status }}
+                          <p class="text-sm text-base-content/70">No result values</p>
+                        {{ end }}
+                      </div>
+                    {{ end }}
+                  </section>
+                {{ end }}
+              </div>
+            {{ end }}
+            <!-- End of "run_detail_content" block -->
+          </div>
+        </main>
+      </div>
+
+      {{ template "sidebar" . }}
+    </div>
+  </body>
+</html>

@@ -1,0 +1,174 @@
+{{/* Copyright (c) ClaceIO, LLC */}}
+{{/* SPDX-License-Identifier: Apache-2.0 */}}
+{{/* Action detail page (/actions/detail?path=&action=): the definition of
+  one action (params, traits, the form UI url) and, for an async action,
+  its runs. HTMX partial: block action_detail_content
+*/}}
+<!DOCTYPE html>
+<html lang="en">
+  {{ template "head" . }}
+
+  <body class="min-h-screen bg-base-200">
+    <div class="drawer lg:drawer-open">
+      {{ template "drawer_toggle" }}
+
+      <div class="drawer-content">
+        <main hx-history-elt class="p-4 lg:p-6 max-w-6xl">
+          <div id="action-detail-content" class="space-y-4">
+            {{ block "action_detail_content" . }}
+              {{ $act := .Data.Action }}
+              <!-- Header -->
+              <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+                {{ template "hamburger" . }}
+                <div>
+                  {{ template "page_title" "Actions" }}
+                  <div class="flex items-center gap-2">
+                    <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0">
+                      <ul>
+                        <li><a href="{{ .AppPath }}/actions">Actions</a></li>
+                        <li class="font-mono"><a href="{{ .AppPath }}/actions?query={{ .Data.Path }}">{{ .Data.Path }}</a></li>
+                        {{ if $act }}<li class="font-mono">{{ $act.tool }}</li>{{ end }}
+                      </ul>
+                    </nav>
+                    {{ template "help_link" .Data.HelpUrl }}
+                  </div>
+                  <h2 class="text-xl font-medium break-all" data-action-name>
+                    {{ if $act }}{{ $act.name }}{{ else }}{{ .Data.Selector }}{{ end }}
+                  </h2>
+                  {{ if $act }}
+                    <p class="page-desc text-sm text-base-content/70 flex items-center gap-1.5 flex-wrap">
+                      <span class="font-mono text-xs">{{ $act.path }}</span>
+                      {{ if .Data.Stage }}<span class="badge badge-ghost badge-xs" title="the staging instance's definition and runs">stage</span>{{ end }}
+                      {{ template "action_badges" $act }}
+                    </p>
+                  {{ end }}
+                </div>
+                {{ if $act }}
+                  <div class="page-actions ml-auto flex items-center gap-2">
+                    <a
+                      href="{{ .AppPath }}/actions/open?path={{ .Data.Path }}&action={{ $act.tool }}{{ if .Data.Stage }}&stage=1{{ end }}"
+                      class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95 tooltip tooltip-bottom"
+                      data-tip="Open the action's page inside the console"
+                      data-action-open>
+                      Open
+                    </a>
+                    {{ if .Data.Url }}
+                      <a
+                        href="{{ .Data.Url }}"
+                        target="_blank"
+                        rel="noopener"
+                        class="btn btn-sm btn-ghost tooltip tooltip-bottom"
+                        data-tip="Open the action's page in a new tab"
+                        aria-label="Open the action's page in a new tab">
+                        {{ template "globe_icon" }}
+                      </a>
+                    {{ end }}
+                  </div>
+                {{ end }}
+              </div>
+
+              {{ template "page_progress" }}
+              {{ template "flash_alerts" .Data }}
+              {{ if .Data.Error }}
+                {{ template "error_alert" .Data.Error }}
+              {{ end }}
+
+              {{ if $act }}
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  <!-- Overview -->
+                  <section class="card bg-base-100 border border-base-300" aria-labelledby="action-overview-heading">
+                    <div class="card-body p-4 gap-3">
+                      <h2 id="action-overview-heading" class="text-sm font-medium text-base-content/70">Overview</h2>
+                      <div class="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-6 gap-y-1.5 text-sm">
+                        <span class="text-xs text-base-content/70 pt-0.5">App</span>
+                        <span class="font-mono text-xs break-all pt-1">
+                          {{ if or (index .Data.Perms "app:read") (index .Data.Perms "admin") }}
+                            <a href="{{ .AppPath }}/apps/detail?path={{ .Data.Path }}" class="link link-hover" data-app-link>{{ .Data.Path }}</a>
+                          {{ else }}
+                            {{ .Data.Path }}
+                          {{ end }}
+                        </span>
+                        <span class="text-xs text-base-content/70 pt-0.5">Tool</span>
+                        <span class="font-mono text-xs break-all pt-1">{{ $act.tool }}</span>
+                        <span class="text-xs text-base-content/70 pt-0.5">Path</span>
+                        <span class="font-mono text-xs break-all pt-1">{{ $act.path }}</span>
+                        <span class="text-xs text-base-content/70 pt-0.5">Mode</span>
+                        <span class="text-xs pt-1">{{ if $act.async }}async - runs in the background, runs are recorded{{ else }}sync - answers the request{{ end }}</span>
+                        <span class="text-xs text-base-content/70 pt-0.5">Suggest</span>
+                        <span class="text-xs pt-1">{{ if $act.suggest }}yes{{ else }}no{{ end }}</span>
+                        <span class="text-xs text-base-content/70 pt-0.5">Hints</span>
+                        <span class="text-xs pt-1">{{ if $act.hints }}{{ range $i, $h := $act.hints }}{{ if $i }}, {{ end }}{{ $h }}{{ end }}{{ else }}none declared{{ end }}</span>
+                        {{ if .Data.Url }}
+                          <span class="text-xs text-base-content/70 pt-0.5">URL</span>
+                          <span class="font-mono text-xs break-all pt-1"><a href="{{ .Data.Url }}" target="_blank" rel="noopener" class="link link-hover">{{ .Data.Url }}</a></span>
+                        {{ end }}
+                      </div>
+                      {{ if $act.description }}
+                        <p class="text-sm break-words" data-action-description>{{ $act.description }}</p>
+                      {{ end }}
+                      <p class="text-xs text-base-content/70">
+                        CLI: <code class="font-mono">openrun action run {{ .Data.Path }} {{ $act.tool }}</code>
+                      </p>
+                    </div>
+                  </section>
+
+                  <!-- Params -->
+                  <section class="card bg-base-100 border border-base-300 lg:col-span-2" aria-labelledby="action-params-heading">
+                    <div class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2">
+                      <h2 id="action-params-heading" class="text-sm font-medium">Params</h2>
+                      <span class="text-xs text-base-content/70">{{ len .Data.Params }} {{ if eq (len .Data.Params) 1 }}param{{ else }}params{{ end }}</span>
+                    </div>
+                    {{ if .Data.Params }}
+                      <div class="overflow-x-auto">
+                        <table class="table table-sm" data-params-table>
+                          <thead>
+                            <tr>
+                              <th scope="col">Name</th>
+                              <th scope="col">Type</th>
+                              <th scope="col" class="hidden md:table-cell">Default</th>
+                              <th scope="col" class="hidden lg:table-cell">Description</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {{ range .Data.Params }}
+                              <tr data-param="{{ .name }}">
+                                <td class="whitespace-nowrap">
+                                  <span class="font-mono text-xs">{{ .name }}</span>
+                                  {{ if .required }}<span class="badge badge-xs badge-soft badge-warning ml-1" title="required">required</span>{{ end }}
+                                </td>
+                                <td class="whitespace-nowrap">
+                                  <span class="badge badge-ghost badge-xs font-mono">{{ .type }}</span>
+                                  {{ if .display_type }}<span class="badge badge-ghost badge-xs font-mono">{{ .display_type }}</span>{{ end }}
+                                  {{ if .options }}
+                                    <span class="text-xs text-base-content/70">{{ range $i, $o := .options }}{{ if $i }} | {{ end }}{{ $o }}{{ end }}</span>
+                                  {{ end }}
+                                </td>
+                                <td class="hidden md:table-cell font-mono text-xs break-all">{{ if .default }}{{ .default }}{{ else }}-{{ end }}</td>
+                                <td class="hidden lg:table-cell text-xs text-base-content/70 break-words">{{ .description }}</td>
+                              </tr>
+                            {{ end }}
+                          </tbody>
+                        </table>
+                      </div>
+                    {{ else }}
+                      <p class="text-sm text-base-content/70 px-4 py-4">This action takes no params</p>
+                    {{ end }}
+                  </section>
+                </div>
+
+                {{ if .Data.Runs }}
+                  <div id="action-runs" class="card bg-base-100 border border-base-300">
+                    {{ template "action_runs_panel" . }}
+                  </div>
+                {{ end }}
+              {{ end }}
+            {{ end }}
+            <!-- End of "action_detail_content" block -->
+          </div>
+        </main>
+      </div>
+
+      {{ template "sidebar" . }}
+    </div>
+  </body>
+</html>

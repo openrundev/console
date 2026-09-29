@@ -1267,3 +1267,237 @@
     >
   {{ end }}
 {{ end }}
+
+{{/* ---------- Actions ---------- */}}
+
+{{/* run_status_badge renders an async action run status (the job run
+  statuses share the vocabulary). Context: the status string */}}
+{{ define "run_status_badge" }}
+  {{- $s := . -}}
+  <span
+    class="badge badge-xs badge-soft whitespace-nowrap {{ if eq $s "succeeded" }}badge-success{{ else if eq $s "running" }}badge-info{{ else if or (eq $s "failed") (eq $s "timed_out") (eq $s "lost") }}badge-error{{ else if eq $s "canceled" }}badge-warning{{ else }}badge-ghost{{ end }}"
+    data-run-status="{{ $s }}"
+    >{{ if eq $s "running" }}<span class="loading loading-spinner loading-xs mr-1" aria-hidden="true"></span>{{ end }}{{ $s }}</span
+  >
+{{ end }}
+
+{{/* action_badges renders an action's traits: the run mode, suggest
+  support and the declared side-effect hints. Context: an action_row dict */}}
+{{ define "action_badges" }}
+  {{ if .async }}
+    <span class="badge badge-xs badge-soft badge-info" title="runs in the background, its runs are recorded">async</span>
+  {{ end }}
+  {{ if .suggest }}
+    <span class="badge badge-xs badge-ghost" title="suggests arguments (a suggest handler)">suggest</span>
+  {{ end }}
+  {{ range .hints }}
+    {{ if eq . "destructive" }}
+      <span class="badge badge-xs badge-soft badge-warning" title="declared destructive: clients confirm before running it">{{ . }}</span>
+    {{ else }}
+      <span class="badge badge-xs badge-ghost" title="declared hint">{{ . }}</span>
+    {{ end }}
+  {{ end }}
+{{ end }}
+
+{{/* action_runs_panel renders the async runs table with its status and
+  "mine" filters: the Runs tab of the actions page (across apps; the
+  search box narrows the apps, .Data.Tab is "runs") and the runs section of
+  an action detail page (.Data.Path + .Data.Selector name the action; the
+  /actions/detail/runs fragment re-renders it into #action-runs). Receives
+  the full request context, reads .Data.Runs (action_runs_data) */}}
+{{ define "action_runs_panel" }}
+  {{ $runs := .Data.Runs }}
+  {{ $root := .AppPath }}
+  {{ $detail := .Data.Path }}
+  <div data-action-runs>
+    <form
+      class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap"
+      {{/* The detail fragment renders this panel alone (target the panel);
+        /actions answers with the whole tab content (target that) */}}
+      {{ if $detail }}
+        hx-get="{{ $root }}/actions/detail/runs?path={{ $detail }}&action={{ .Data.Selector }}{{ if .Data.Stage }}&stage=1{{ end }}"
+        hx-include="closest form"
+        hx-target="#action-runs"
+      {{ else }}
+        hx-get="{{ $root }}/actions"
+        hx-include="closest form, #page-search, #action-tab-value"
+        hx-push-url="true"
+        hx-target="#action-content"
+      {{ end }}
+      hx-trigger="change"
+      hx-swap="innerHTML"
+      hx-indicator="#page-progress"
+      onsubmit="return false">
+      <h2 class="text-sm font-medium">Runs</h2>
+      <span class="text-xs text-base-content/70" data-runs-count
+        >{{ len $runs.Rows }} {{ if eq (len $runs.Rows) 1 }}run{{ else }}runs{{ end }}{{ if ne (len $runs.Rows) $runs.Total }} of the {{ $runs.Total }} loaded{{ end }}{{ if $runs.NextPage }} · scroll for more{{ end }}</span
+      >
+      <div class="ml-auto flex items-center gap-3">
+        {{ if $runs.UserId }}
+          <label class="flex items-center gap-1.5 text-xs cursor-pointer whitespace-nowrap" title="Only the runs you started">
+            <input type="checkbox" name="mine" value="1" class="checkbox checkbox-xs" {{ if $runs.Mine }}checked{{ end }} />
+            mine
+          </label>
+        {{ end }}
+        <select name="status" class="select select-xs min-w-0" aria-label="Filter runs by status">
+          <option value="">all statuses</option>
+          {{ range $runs.Statuses }}
+            <option value="{{ . }}" {{ if eq . $runs.Status }}selected{{ end }}>{{ . }}</option>
+          {{ end }}
+        </select>
+      </div>
+    </form>
+    {{ if $runs.Warnings }}
+      <details class="text-xs text-warning px-4 pt-2" data-action-warnings>
+        <summary class="cursor-pointer">The runs of {{ len $runs.Warnings }} {{ if eq (len $runs.Warnings) 1 }}app{{ else }}apps{{ end }} could not be read - expand for details</summary>
+        <ul class="mt-1 space-y-0.5 font-mono break-all">
+          {{ range $runs.Warnings }}<li data-action-warning>{{ . }}</li>{{ end }}
+        </ul>
+      </details>
+    {{ end }}
+    {{ if $runs.Error }}
+      <p class="text-sm text-error break-all px-4 py-4">{{ $runs.Error }}</p>
+    {{ else if not $runs.Rows }}
+      <p class="text-sm text-base-content/70 px-4 py-4">
+        {{ if or $runs.Status $runs.Mine $runs.Query }}
+          No runs match the filter
+        {{ else if $detail }}
+          No runs yet - runs are recorded when this action is started from its page, the API, the CLI or MCP
+        {{ else }}
+          No async action runs yet - runs are recorded when an action declared async is started
+        {{ end }}
+      </p>
+    {{ else }}
+      <div class="overflow-x-auto">
+        <table class="table table-sm" data-runs-table>
+          <thead>
+            <tr>
+              <th scope="col" class="w-8"><span class="sr-only">Details</span></th>
+              <th scope="col">Run</th>
+              {{ if not $detail }}
+                <th scope="col">App</th>
+              {{ end }}
+              <th scope="col">Action</th>
+              <th scope="col">Status</th>
+              <th scope="col" class="hidden xl:table-cell">Args</th>
+              <th scope="col">Started</th>
+              <th scope="col" class="hidden md:table-cell">Duration</th>
+              <th scope="col" class="hidden lg:table-cell">By</th>
+              <th scope="col" class="text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{ template "action_run_rows" . }}
+          </tbody>
+        </table>
+      </div>
+    {{ end }}
+  </div>
+{{ end }}
+
+{{/* action_run_rows renders the rows of a runs table (action_runs_panel):
+  the first page inside the table, the next pages by the /actions/runs_page
+  fragment (rows only, swapped after the row which requested them). The
+  last row of a full page carries the request of the next page
+  (.Data.Runs.NextPage, hx-trigger revealed) - the audit list's infinite
+  scroll. Receives the full request context */}}
+{{ define "action_run_rows" }}
+  {{ $runs := .Data.Runs }}
+  {{ $root := .AppPath }}
+  {{ $detail := .Data.Path }}
+  {{ $next := $runs.NextPage }}
+  {{ $count := len $runs.Rows }}
+  {{ range $i, $row := $runs.Rows }}
+    <tr
+      class="group hover:bg-base-200/60"
+      data-run-id="{{ $row.id }}"
+      data-run-status="{{ $row.status }}"
+      {{ if and $next (eq $count (add $i 1)) }}
+        hx-get="{{ $next }}" hx-trigger="revealed" hx-swap="afterend" hx-indicator="#page-progress"
+      {{ end }}>
+      <td class="w-8">
+        <a
+          href="{{ $root }}/actions/runs/detail?run={{ $row.id }}"
+          class="btn btn-xs btn-ghost btn-square tooltip tooltip-right"
+          data-tip="Expand: the run's arguments, result and output"
+          aria-label="View details of run {{ $row.id }}">
+          {{ template "drilldown_icon" }}
+        </a>
+      </td>
+      <td class="whitespace-nowrap">
+        <a
+          href="{{ $root }}/actions/runs/detail?run={{ $row.id }}"
+          class="link link-hover font-mono text-xs tooltip tooltip-right"
+          data-tip="{{ $row.id }}"
+          >{{ trunc 12 $row.id }}…</a
+        >
+        {{ if ne $row.stage "prod" }}
+          <span class="badge badge-ghost badge-xs">{{ $row.stage }}</span>
+        {{ end }}
+      </td>
+      {{ if not $detail }}
+        <td class="whitespace-nowrap">
+          <a
+            href="{{ $root }}/apps/detail?path={{ $row.main_path }}"
+            class="link link-hover font-mono text-xs break-all"
+            >{{ $row.main_path }}</a
+          >
+        </td>
+      {{ end }}
+      <td class="whitespace-nowrap">
+        <a
+          href="{{ $root }}/actions/detail?path={{ $row.main_path }}&action={{ $row.action_path }}{{ if $row.stage_flag }}&stage=1{{ end }}"
+          class="link link-hover text-xs font-medium"
+          >{{ $row.action_name }}</a
+        >
+        <span class="font-mono text-xs text-base-content/70 hidden xl:inline">{{ $row.action_path }}</span>
+      </td>
+      <td>
+        <div class="flex items-center gap-1.5 flex-wrap">
+          {{ template "run_status_badge" $row.status }}
+          {{ if and $row.has_exit_code (ne $row.status "succeeded") }}
+            <span class="font-mono text-xs text-base-content/70">exit {{ $row.exit_code }}</span>
+          {{ end }}
+        </div>
+        {{ if $row.message }}
+          <p class="text-xs text-base-content/70 break-all max-w-md" title="{{ $row.message }}">
+            {{ if gt (len $row.message) 120 }}{{ trunc 120 $row.message }}…{{ else }}{{ $row.message }}{{ end }}
+          </p>
+        {{ else if $row.result_status }}
+          <p class="text-xs text-base-content/70 break-all max-w-md" title="{{ $row.result_status }}">
+            {{ if gt (len $row.result_status) 120 }}{{ trunc 120 $row.result_status }}…{{ else }}{{ $row.result_status }}{{ end }}
+          </p>
+        {{ end }}
+      </td>
+      <td class="hidden xl:table-cell">
+        {{ if $row.args_summary.chips }}
+          <div class="flex items-center gap-1 flex-wrap max-w-xs" title="{{ $row.args_summary.all }}" data-run-args>
+            {{ range $row.args_summary.chips }}<span class="badge badge-ghost badge-xs font-mono">{{ . }}</span>{{ end }}
+            {{ if $row.args_summary.more }}<span class="text-xs text-base-content/70">+{{ $row.args_summary.more }}</span>{{ end }}
+          </div>
+        {{ else }}
+          <span class="text-xs text-base-content/70">-</span>
+        {{ end }}
+      </td>
+      <td class="text-xs text-base-content/70 whitespace-nowrap">
+        {{ if $row.started_at }}{{ template "time_ago" $row.started_at }}{{ else }}-{{ end }}
+      </td>
+      <td class="text-xs text-base-content/70 whitespace-nowrap tabular-nums hidden md:table-cell">
+        {{ if $row.duration }}{{ $row.duration }}{{ else }}-{{ end }}
+      </td>
+      <td class="text-xs text-base-content/70 hidden lg:table-cell break-all">
+        {{ $row.actor }}
+        {{ if $row.source }}<span class="badge badge-ghost badge-xs font-mono">{{ $row.source }}</span>{{ end }}
+      </td>
+      <td class="text-right whitespace-nowrap">
+        <a
+          href="{{ $root }}/actions/open?path={{ $row.main_path }}&action={{ $row.action_path }}&run={{ $row.id }}{{ if $row.stage_flag }}&stage=1{{ end }}"
+          class="btn btn-xs btn-ghost text-primary tooltip tooltip-left"
+          data-tip="Open the run's page in the app, inside the console"
+          aria-label="Open run {{ $row.id }} in the app">
+          open
+        </a>
+      </td>
+    </tr>
+  {{ end }}
+{{ end }}

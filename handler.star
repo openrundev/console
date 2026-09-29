@@ -4794,3 +4794,520 @@ def builder_events_handler(req):
     if ret.error:
         return "error: %s" % ret.error
     return ret
+
+
+# ---------- Actions ----------
+# The Actions page (/actions): the actions of the apps the user can use,
+# and the recent runs of their async actions across apps; the action detail,
+# run detail and viewer pages. Everything is read as the console user: the
+# openrun.in action APIs apply the app's login provider match, app:access
+# and the action's permit list to the caller (arch/docs/actions-cli-mcp.md)
+
+ACTION_RUN_LIMIT = 500  # runs per page of the runs lists (the newest first; infinite scroll loads the next page)
+ACTION_RUN_STATUSES = ["running", "succeeded", "failed", "timed_out", "canceled", "lost"]
+ACTIONS_HELP = "/docs/actions/overview/"
+STAGE_SUFFIX = "_cl_stage"
+
+
+def action_glob(query):
+    # The apps page search convention: a search containing ":", starting
+    # with "/", or equal to "all" is an app path glob evaluated server-side;
+    # anything else is a text search applied to the listed rows. A search
+    # with a name=value term is a runs filter (run_filter_match), never a
+    # glob
+    stripped = query.strip()
+    if "=" in stripped:
+        return ""
+    if ":" in stripped or stripped.startswith("/") or stripped.lower() == "all":
+        return stripped
+    return ""
+
+
+def run_filter_match(row, query):
+    # The action app's run history filter (matchesRunFilter in
+    # internal/app/action/runs_ui.go): every whitespace separated term must
+    # match; a name=value term an argument exactly (case-insensitive), a
+    # bare term a substring of any argument value, of the result status or
+    # of the failure message - and here also of the app path, the action
+    # name/path and the actor, the columns of the cross-app list
+    for term in query.split():
+        name, sep, value = term.partition("=")
+        if sep and name:
+            if (row["args"].get(name) or "").lower() != value.lower():
+                return False
+            continue
+        needle = term.lower()
+        texts = list(row["args"].values()) + [row["result_status"], row["message"], row["app_path"],
+                                              row["action_name"], row["action_path"], row["actor"]]
+        if not any([needle in (text or "").lower() for text in texts]):
+            return False
+    return True
+
+
+def run_page_limit(req):
+    # The page size of the runs lists: ACTION_RUN_LIMIT, or a smaller
+    # ?limit= (the tests page with a few runs)
+    raw = utils.query_param(req, "limit")
+    if raw.isdigit() and int(raw) > 0 and int(raw) < ACTION_RUN_LIMIT:
+        return int(raw)
+    return ACTION_RUN_LIMIT
+
+
+def run_cursor(row):
+    # The before cursor which continues a listing after this row (the API's
+    # keyset paging position: "<unix nanos>_<id>")
+    started = row["started_at"]
+    if type(started) != "time.time":
+        return ""
+    return "%d_%s" % (started.unix_nano, row["id"])
+
+
+def args_summary(args):
+    # The arguments of a run as "name=value" chips for the runs table: the
+    # first few (sorted by name, values shortened) and the count of the rest
+    names = sorted(args.keys())
+    chips = []
+    for name in names[:3]:
+        value = str(args[name])
+        if len(value) > 24:
+            value = value[:24] + "…"
+        chips.append(name + "=" + value)
+    return {"chips": chips, "more": len(names) - len(chips),
+            "all": ", ".join([name + "=" + str(args[name]) for name in names])}
+
+
+def action_search_match(needle, fields):
+    if not needle:
+        return True
+    for field in fields:
+        if needle in (field or "").lower():
+            return True
+    return False
+
+
+def action_hint_labels(hints):
+    # The declared side-effect hints of an action as badge labels
+    labels = []
+    if not hints:
+        return labels
+    for key, label in [("read_only", "read-only"), ("destructive", "destructive"),
+                       ("idempotent", "idempotent"), ("open_world", "open-world")]:
+        if hints.get(key):
+            labels.append(label)
+    return labels
+
+
+def action_row(info):
+    # One action of the list / the detail header (an ActionInfo)
+    hints = info.get("hints") or {}
+    return {
+        "app_path": info["app_path"],
+        "name": info["name"],
+        "tool": info["tool"],
+        "path": info["path"],
+        "description": info.get("description") or "",
+        "suggest": info.get("suggest") or False,
+        "async": info.get("async") or False,
+        "hints": action_hint_labels(hints),
+        "destructive": bool(hints.get("destructive")),
+    }
+
+
+def action_param_row(p):
+    # One param of the detail page: the default is shown as text, masked for
+    # password params
+    default = p.get("default")
+    display_type = p.get("display_type") or ""
+    if default == None:
+        default_text = ""
+    elif display_type == "PASSWORD":
+        default_text = "••••••"
+    else:
+        default_text = str(default)
+    return {
+        "name": p["name"],
+        "type": p.get("type") or "",
+        "description": p.get("description") or "",
+        "default": default_text,
+        "required": p.get("required") or False,
+        "display_type": display_type,
+        "options": list(p.get("options") or []),
+    }
+
+
+def actions_list_data(query):
+    # The Actions tab: the actions the user can run, grouped by app (app
+    # path order; the actions of an app in their declared order). A glob
+    # search is passed to list_actions (server-side app matching), a
+    # substring search filters name/tool/path/description/app path here.
+    # Warnings name the apps whose actions could not be read (a broken app)
+    glob = action_glob(query)
+    needle = "" if glob else query.strip().lower()
+    listing = {"Groups": [], "Total": 0, "Shown": 0, "Warnings": [], "Error": ""}
+    ret = openrun.list_actions(path=glob or "all")
+    error = ret.error
+    if error:
+        listing["Error"] = error
+        return listing
+    groups = {}
+    for info in ret.value.get("actions") or []:
+        listing["Total"] += 1
+        row = action_row(info)
+        if not action_search_match(needle, [row["app_path"], row["name"], row["tool"], row["path"], row["description"]]):
+            continue
+        listing["Shown"] += 1
+        if row["app_path"] not in groups:
+            groups[row["app_path"]] = {"path": row["app_path"], "actions": []}
+            listing["Groups"].append(groups[row["app_path"]])
+        groups[row["app_path"]]["actions"].append(row)
+    listing["Warnings"] = list(ret.value.get("warnings") or [])
+    return listing
+
+
+def action_main_path(app_path):
+    # The main app path of a run's app instance path (a staging instance's
+    # own path carries the stage suffix), for the app detail links
+    if app_path.endswith(STAGE_SUFFIX):
+        return app_path[:-len(STAGE_SUFFIX)]
+    return app_path
+
+
+def action_run_row(run):
+    # One async run of the runs tables and the run detail header (an
+    # ActionRun basic view). started_at stays a time.time value (the
+    # templates render it relative); the unset ended_at of an active run
+    # maps to "" and leaves the duration empty
+    started = utils.nonzero_time(run.get("started_at"))
+    ended = utils.nonzero_time(run.get("ended_at"))
+    exit_code = run.get("exit_code")
+    status = run.get("status") or ""
+    app_path = run.get("app_path") or ""
+    return {
+        "id": run["id"],
+        "app_path": app_path,
+        # The API names the main app of a staging instance's run; older
+        # servers do not, the suffix form of the staging path is derived
+        "main_path": run.get("main_app_path") or action_main_path(app_path),
+        "action_path": run.get("action_path") or "",
+        "action_name": run.get("action_name") or "",
+        "source": run.get("source") or "",
+        "actor": run.get("actor") or "",
+        "request_id": run.get("request_id") or "",
+        "stage": job_stage_of(run.get("app_id") or ""),
+        # The links to the run's action and its page name the main app path
+        # plus this flag: the staging instance is another app (its own id
+        # and url), a run of it is not found through the prod action
+        "stage_flag": "1" if job_stage_of(run.get("app_id") or "") == "stage" else "",
+        "status": status,
+        "active": status == "running",
+        "started_at": started,
+        "ended_at": ended,
+        "duration": job_duration(started, ended),
+        "exit_code": exit_code,
+        "has_exit_code": exit_code != None,
+        "message": run.get("message") or "",
+        "args": run.get("args") or {},
+        "args_summary": args_summary(run.get("args") or {}),
+        "is_stream": run.get("is_stream") or False,
+        "result_status": run.get("result_status") or "",
+        "result_rows": run.get("result_rows") or 0,
+        "output_bytes": run.get("output_bytes") or 0,
+        "version": run.get("version") or 0,
+        "node_id": run.get("node_id") or "",
+    }
+
+
+def action_runs_data(req, user_id, path="", action="", stage=False):
+    # The runs table, newest first, one page (ACTION_RUN_LIMIT) at a time:
+    # across the apps the user can use (the Runs tab; the search box glob
+    # narrows the apps) or of one action (the action detail page: path +
+    # action). ?status= filters server-side; ?mine=1 keeps the runs the
+    # current user started and the search text is the run history filter
+    # (run_filter_match), both applied to the page's rows. stage reads the
+    # staging instance(s): the detail page of a staging run's action.
+    # Infinite scroll: ?before= (the cursor of a page's last run) continues
+    # the listing; a full page sets NextPage, the url the last row loads
+    # when revealed (the /actions/runs_page fragment renders rows only)
+    status = utils.query_param(req, "status")
+    mine = utils.query_param(req, "mine") == "1"
+    query = utils.query_param(req, "query")
+    before = utils.query_param(req, "before")
+    limit = run_page_limit(req)
+    glob = "" if path else action_glob(query)
+    text = "" if glob else query.strip()
+    runs = {"Status": status, "Mine": mine, "Query": text, "Statuses": ACTION_RUN_STATUSES, "Rows": [],
+            "Error": "", "Active": False, "Total": 0, "Warnings": [], "UserId": user_id, "NextPage": "",
+            "IsMore": bool(before)}
+    # Across apps the prod AND the staging instances are listed (one call
+    # each, the API reads one instance kind per call), merged newest first;
+    # one action's runs are those of the instance asked for
+    instances = [stage] if path else [False, True]
+    listed = []
+    for stage_instance in instances:
+        ret = openrun.list_action_runs(path=path or glob or "all", action=action, status=status,
+                                       stage=stage_instance, limit=limit, before=before)
+        error = ret.error
+        if error:
+            runs["Error"] = error
+            return runs
+        listed += [action_run_row(run) for run in ret.value.get("runs") or []]
+        runs["Warnings"] += list(ret.value.get("warnings") or [])
+    if len(instances) > 1:
+        listed = utils.sort_recent(listed, "started_at", "id")[:limit]
+    if len(listed) == limit and run_cursor(listed[-1]):
+        params = ["path=" + path, "action=" + action, "stage=" + ("1" if stage else ""), "status=" + status,
+                  "mine=" + ("1" if mine else ""), "query=" + query, "before=" + run_cursor(listed[-1])]
+        if limit != ACTION_RUN_LIMIT:
+            params.append("limit=%d" % limit)
+        runs["NextPage"] = req.AppPath + "/actions/runs_page?" + "&".join(params)
+    for row in listed:
+        runs["Total"] += 1
+        if mine and row["actor"] != user_id:
+            continue
+        if not run_filter_match(row, text):
+            continue
+        if row["active"]:
+            runs["Active"] = True
+        runs["Rows"].append(row)
+    return runs
+
+
+def action_runs_page_handler(req):
+    # The next page of a runs list (infinite scroll): rows only, appended
+    # after the row which requested them. path+action name one action's
+    # list (the detail page), else the cross-app list
+    path = utils.query_param(req, "path")
+    selector = utils.query_param(req, "action")
+    stage = utils.query_param(req, "stage") == "1"
+    return {"Path": path, "Selector": selector, "Stage": stage, "UserId": req.UserId,
+            "Runs": action_runs_data(req, req.UserId, path=path, action=selector, stage=stage)}
+
+
+def actions_data(req):
+    # Actions page: the Actions tab (grouped by app) or the Runs tab (the
+    # recent async runs across apps). Only the active tab's data is read
+    query = utils.query_param(req, "query")
+    tab = utils.query_param(req, "tab")
+    data = {
+        "Title": "Actions",
+        "Nav": "actions",
+        "Query": query,
+        "Tab": "runs" if tab == "runs" else "",
+        "Perms": utils.get_perms(),
+        "UserId": req.UserId,
+        "HelpUrl": utils.docs_link(ACTIONS_HELP),
+        "Actions": None,
+        "Runs": None,
+    }
+    if data["Tab"] == "runs":
+        data["Runs"] = action_runs_data(req, req.UserId)
+    else:
+        data["Actions"] = actions_list_data(query)
+    return data
+
+
+def action_detail_data(req):
+    # Action detail page (/actions/detail?path=&action=): the definition
+    # (params, hints, the form UI url) and, for an async action, its runs.
+    # action is the tool name or the action path; per-app permissions gate
+    # the app detail link
+    path = utils.query_param(req, "path")
+    selector = utils.query_param(req, "action")
+    stage = utils.query_param(req, "stage") == "1"
+    data = {
+        "Title": "Action detail",
+        "Nav": "actions",
+        "Path": path,
+        "Selector": selector,
+        "Stage": stage,
+        "Error": "",
+        "Action": None,
+        "Params": [],
+        "Url": "",
+        "Runs": None,
+        "Perms": utils.get_perms(path) if path else utils.get_perms(),
+        "UserId": req.UserId,
+        "HelpUrl": utils.docs_link(ACTIONS_HELP),
+    }
+    if not path:
+        data["Error"] = "app path is required"
+        return data
+    ret = openrun.get_action(path, action=selector, stage=stage)
+    error = ret.error
+    if error:
+        data["Error"] = error
+        return data
+    detail = ret.value
+    data["Action"] = action_row(detail)
+    data["Selector"] = data["Action"]["tool"]
+    data["Title"] = data["Action"]["name"]
+    data["Params"] = [action_param_row(p) for p in detail.get("params") or []]
+    data["Url"] = detail.get("url") or ""
+    if data["Action"]["async"]:
+        data["Runs"] = action_runs_data(req, req.UserId, path=path, action=data["Action"]["tool"], stage=stage)
+    return data
+
+
+def action_detail_runs_handler(req):
+    # Runs panel fragment of the detail page: the status/mine filters
+    # re-render #action-runs through here
+    path = utils.query_param(req, "path")
+    selector = utils.query_param(req, "action")
+    stage = utils.query_param(req, "stage") == "1"
+    return {"Path": path, "Selector": selector, "Stage": stage, "Perms": utils.get_perms(path), "UserId": req.UserId,
+            "Runs": action_runs_data(req, req.UserId, path=path, action=selector, stage=stage)}
+
+
+def run_document_data(doc):
+    # The bounded run document of get_action_run for the run detail page:
+    # a values run's result (table rows with their column union, or text
+    # lines), a stream run's output tail and exit status, param errors
+    values = list(doc.get("values") or [])
+    columns = []
+    rows = []
+    lines = []
+    for v in values:
+        if type(v) == "dict":
+            for k in v.keys():
+                if k not in columns:
+                    columns.append(k)
+            rows.append(v)
+        else:
+            lines.append(str(v))
+    exit_status = doc.get("exit_status")
+    return {
+        "status": doc.get("status") or "",
+        "report": doc.get("report") or "",
+        "columns": columns,
+        "rows": rows,
+        "lines": lines,
+        "output": doc.get("output") or "",
+        "truncated": doc.get("truncated") or False,
+        "exit_status": exit_status,
+        "has_exit_status": exit_status != None,
+        "param_errors": doc.get("param_errors") or {},
+        "message": doc.get("message") or "",
+    }
+
+
+def action_run_detail_data(req):
+    # Run detail page (/actions/runs/detail?run=): the run record, its args
+    # and its result or output tail; polls while the run is active
+    run_id = utils.query_param(req, "run")
+    data = {
+        "Title": "Action run",
+        "Nav": "actions",
+        "RunId": run_id,
+        "Error": "",
+        "Run": None,
+        "Doc": None,
+        "Url": "",
+        "Tool": "",
+        "Perms": utils.get_perms(),
+        "UserId": req.UserId,
+        "HelpUrl": utils.docs_link(ACTIONS_HELP),
+    }
+    if not run_id:
+        data["Error"] = "run id is required"
+        return data
+    ret = openrun.get_action_run(run_id)
+    error = ret.error
+    if error:
+        data["Error"] = error
+        return data
+    view = ret.value
+    data["Run"] = action_run_row(view["run"])
+    data["Doc"] = run_document_data(view.get("document") or {})
+    data["Url"] = view.get("url") or ""
+    data["Tool"] = view.get("tool") or ""
+    data["Perms"] = utils.get_perms(data["Run"]["main_path"])
+    return data
+
+
+def action_run_cancel_handler(req):
+    # POST: cancel an active run (the run's action checks apply to the
+    # caller); re-renders the run detail with the outcome
+    run_id = utils.query_param(req, "run")
+    ret = openrun_admin.cancel_action_run(run_id)
+    error = ret.error
+    data = action_run_detail_data(req)
+    return utils.flash_result(data, error, "Cancel requested for run %s" % run_id, "Cancel failed")
+
+
+def url_split(url):
+    # (origin, rest) of a url: the origin is scheme://host[:port] lower-cased
+    # with a default port dropped (https :443, http :80) so that two
+    # spellings of one browser origin compare equal - GetAppUrl always spells
+    # the port, the request url usually omits a default one; rest is the
+    # path (and query) after the origin
+    parts = url.split("/", 3)
+    if len(parts) < 3:
+        return url.lower(), ""
+    scheme = parts[0].lower()
+    host = parts[2].lower()
+    if (scheme == "https:" and host.endswith(":443")) or (scheme == "http:" and host.endswith(":80")):
+        host = host.rsplit(":", 1)[0]
+    rest = "/" + parts[3] if len(parts) > 3 else ""
+    return scheme + "//" + host, rest
+
+
+def url_origin(url):
+    return url_split(url)[0]
+
+
+def action_open_data(req):
+    # Viewer page (/actions/open?path=&action=[&run=]): the action's form
+    # UI (or one run's page) framed inside the console. A prod app on the
+    # default domain is served on every host, so it is framed through the
+    # console's own origin: the frame is same-origin whatever host the user
+    # typed, and the browser sends the app's session cookie. An app on its
+    # own domain, and a staging instance (?stage=1; served on the stage
+    # subdomain), is framed only when that is the console's origin: the
+    # app's X-Frame-Options: SAMEORIGIN blocks the frame otherwise and its
+    # Lax session cookie would not be sent, so the page offers a new tab
+    path = utils.query_param(req, "path")
+    selector = utils.query_param(req, "action")
+    run_id = utils.query_param(req, "run")
+    stage = utils.query_param(req, "stage") == "1"
+    data = {
+        "Title": "Open action",
+        "Nav": "actions",
+        "Path": path,
+        "Selector": selector,
+        "RunId": run_id,
+        "Stage": stage,
+        "Error": "",
+        "Action": None,
+        "Url": "",
+        "SameOrigin": False,
+        "Perms": utils.get_perms(path) if path else utils.get_perms(),
+        "HelpUrl": utils.docs_link(ACTIONS_HELP),
+    }
+    if not path:
+        data["Error"] = "app path is required"
+        return data
+    ret = openrun.get_action(path, action=selector, stage=stage)
+    error = ret.error
+    if error:
+        data["Error"] = error
+        return data
+    data["Action"] = action_row(ret.value)
+    data["Selector"] = data["Action"]["tool"]
+    data["Title"] = data["Action"]["name"]
+    url = ret.value.get("url") or ""
+    if run_id:
+        url = url + "/runs/" + run_id
+    console_origin = url_origin(req.AppUrl)
+    app_origin, app_rest = url_split(url)
+    if ":" not in path and not stage:
+        # A default-domain prod app: served on every host, framed through
+        # the console's own origin
+        url = console_origin + app_rest
+        data["SameOrigin"] = True
+    else:
+        # Its own domain, or the staging instance (served on the stage
+        # subdomain of its domain): framed only when that is the console's
+        # origin
+        data["SameOrigin"] = app_origin == console_origin
+    data["Url"] = url
+    return data

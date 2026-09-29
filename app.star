@@ -210,6 +210,25 @@ def build_routes():
                      ace.fragment("delete", method="POST", handler=handler.syncs_detail_delete_handler),
                  ] if ENABLE_UPDATES else []),
         ace.html("/audit", full="audit.go.html", partial="audit_rows", handler=handler.audit_data),
+        # Actions: the actions of the apps the user can use (list + the
+        # recent async runs across apps as tabs), the action detail with its
+        # runs, the run detail (cancel is a write) and the viewer which
+        # frames an action's page. Read as the console user: no feature
+        # flag, the server's action checks decide what is listed
+        ace.html("/actions", full="actions.go.html", partial="action_content", handler=handler.actions_data,
+                 fragments=[
+                     # Next page of a runs list (infinite scroll), rows only
+                     ace.fragment("runs_page", partial="action_run_rows", handler=handler.action_runs_page_handler),
+                 ]),
+        ace.html("/actions/detail", full="action_detail.go.html", partial="action_detail_content", handler=handler.action_detail_data,
+                 fragments=[
+                     ace.fragment("runs", partial="action_runs_panel", handler=handler.action_detail_runs_handler),
+                 ]),
+        ace.html("/actions/runs/detail", full="action_run_detail.go.html", partial="run_detail_content", handler=handler.action_run_detail_data,
+                 fragments=[
+                     ace.fragment("cancel", method="POST", handler=handler.action_run_cancel_handler),
+                 ] if ENABLE_UPDATES else []),
+        ace.html("/actions/open", full="action_open.go.html", handler=handler.action_open_data),
         # Replication detail (linked from the overview replication tile):
         # read-only, always registered like the overview it extends
         ace.html("/replication", full="replication.go.html", partial="repl_rows", handler=handler.replication_data),
@@ -436,6 +455,12 @@ def build_permissions():
         perm("openrun.in", "list_jobs"),
         perm("openrun.in", "list_job_runs"),
         perm("openrun.in", "job_logs"),
+        # Actions page (reads; the server applies the app's login provider
+        # match, app:access and the action's permit to the console user)
+        perm("openrun.in", "list_actions"),
+        perm("openrun.in", "get_action"),
+        perm("openrun.in", "list_action_runs"),
+        perm("openrun.in", "get_action_run"),
     ]
 
     if ENABLE_UPDATES:
@@ -454,6 +479,7 @@ def build_permissions():
             perm("openrun_admin.in", "delete_sync"),
             perm("openrun_admin.in", "run_job"),
             perm("openrun_admin.in", "cancel_job"),
+            perm("openrun_admin.in", "cancel_action_run"),
             perm("openrun_admin.in", "create_binding"),
             perm("openrun_admin.in", "update_binding"),
             perm("openrun_admin.in", "delete_binding"),

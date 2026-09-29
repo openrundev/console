@@ -1,0 +1,106 @@
+{{/* Copyright (c) ClaceIO, LLC */}}
+{{/* SPDX-License-Identifier: Apache-2.0 */}}
+{{/* Action viewer (/actions/open?path=&action=[&run=]): the action's page in
+  the app (or one run's page) framed inside the console. Only same-origin
+  apps are framed (see action_open_data); the page offers a new tab
+  otherwise. No HTMX partial: a full page load each time
+*/}}
+<!DOCTYPE html>
+<html lang="en">
+  {{ template "head" . }}
+
+  <body class="min-h-screen bg-base-200">
+    <div class="drawer lg:drawer-open">
+      {{ template "drawer_toggle" }}
+
+      <div class="drawer-content">
+        <main hx-history-elt class="p-4 lg:p-6 flex flex-col gap-4 min-h-screen">
+          {{ $act := .Data.Action }}
+          <div class="page-header flex items-center gap-2 flex-wrap">
+            {{ template "hamburger" . }}
+            <div>
+              {{ template "page_title" "Actions" }}
+              <div class="flex items-center gap-2">
+                <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0">
+                  <ul>
+                    <li><a href="{{ .AppPath }}/actions">Actions</a></li>
+                    <li class="font-mono"><a href="{{ .AppPath }}/actions?query={{ .Data.Path }}">{{ .Data.Path }}</a></li>
+                    {{ if $act }}
+                      <li class="font-mono"><a href="{{ .AppPath }}/actions/detail?path={{ .Data.Path }}&action={{ $act.tool }}{{ if .Data.Stage }}&stage=1{{ end }}">{{ $act.tool }}{{ if .Data.Stage }} (stage){{ end }}</a></li>
+                    {{ end }}
+                    {{ if .Data.RunId }}
+                      <li class="font-mono"><a href="{{ .AppPath }}/actions/runs/detail?run={{ .Data.RunId }}">{{ .Data.RunId }}</a></li>
+                    {{ end }}
+                  </ul>
+                </nav>
+                {{ template "help_link" .Data.HelpUrl }}
+              </div>
+              <h2 class="text-xl font-medium break-all">
+                {{ if $act }}{{ $act.name }}{{ if .Data.RunId }} run{{ end }}{{ else }}{{ .Data.Selector }}{{ end }}
+              </h2>
+            </div>
+            {{ if .Data.Url }}
+              <div class="page-actions ml-auto flex items-center gap-2">
+                <a
+                  href="{{ .Data.Url }}"
+                  target="_blank"
+                  rel="noopener"
+                  class="btn btn-sm btn-ghost tooltip tooltip-bottom"
+                  data-tip="Open in a new tab"
+                  aria-label="Open the action's page in a new tab"
+                  data-open-new-tab>
+                  New tab {{ template "globe_icon" }}
+                </a>
+              </div>
+            {{ end }}
+          </div>
+
+          {{ if .Data.Error }}
+            {{ template "error_alert" .Data.Error }}
+          {{ else if .Data.SameOrigin }}
+            {{/* The frame fills the rest of the viewport; the app page keeps
+              its own scrolling. No sandbox: the framed app is a same-origin
+              page which needs its session cookie and scripts. The src is
+              set by console.js from data-src plus the console's current
+              theme (?_cl_theme=), which the framed page adopts (and hides
+              its own switcher for); theme switches are posted to the frame */}}
+            <div class="card bg-base-100 border border-base-300 flex-1 min-h-[24rem] overflow-hidden">
+              <iframe
+                data-src="{{ .Data.Url }}"
+                title="{{ if $act }}{{ $act.name }}{{ else }}Action{{ end }} - {{ .Data.Path }}"
+                class="w-full h-full min-h-[24rem] flex-1 bg-base-100"
+                style="height: calc(100vh - 11rem)"
+                referrerpolicy="same-origin"
+                data-action-frame></iframe>
+            </div>
+          {{ else }}
+            <div class="card bg-base-100 border border-base-300 py-10" data-cross-origin>
+              <div class="flex flex-col items-center gap-2 text-center text-sm text-base-content/70 px-4">
+                <span class="text-xl" aria-hidden="true">↗</span>
+                <p class="text-base-content">
+                  {{ if .Data.Stage }}The staging instance is served on its stage domain{{ else }}This app is served on its own domain{{ end }}
+                </p>
+                <p class="text-xs max-w-md">
+                  The console cannot frame a page from another origin: the app's
+                  page allows same-origin framing only and the browser would not
+                  send the app's login cookie into the frame
+                </p>
+                <a
+                  href="{{ .Data.Url }}"
+                  target="_blank"
+                  rel="noopener"
+                  class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95 mt-2"
+                  data-open-new-tab-primary>
+                  Open in a new tab {{ template "globe_icon" }}
+                </a>
+                <span class="font-mono text-xs break-all">{{ .Data.Url }}</span>
+              </div>
+            </div>
+          {{ end }}
+        </main>
+      </div>
+
+      {{ template "sidebar" . }}
+    </div>
+  </body>
+</html>

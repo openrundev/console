@@ -587,6 +587,29 @@
           </li>
           {{ end }}
           <li class="menu-title">Operate</li>
+          {{/* Actions: always registered (no feature flag); the list is
+            whatever the server's action checks allow the user */}}
+          <li
+            class="tooltip tooltip-bottom"
+            data-tip="Actions of the apps you can use, and their background runs">
+            <a
+              href="{{ .AppPath }}/actions"
+              {{ if eq .Data.Nav "actions" }}aria-current="page"{{ end }}
+              class="{{ if eq .Data.Nav "actions" }}menu-active{{ end }}"
+              ><svg
+                aria-hidden="true"
+                focusable="false"
+                class="w-5 h-5 text-primary"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round">
+                <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" /></svg
+              >Actions</a
+            >
+          </li>
           {{/* Containers screens are install-gated (enable_container param);
             a disabled install has no /containers routes at all
           */}}

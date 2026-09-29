@@ -1,0 +1,309 @@
+{{/* Copyright (c) ClaceIO, LLC */}}
+{{/* SPDX-License-Identifier: Apache-2.0 */}}
+{{/* Actions page (/actions): the actions of the apps the user can use,
+  grouped by app, and a Runs tab with the recent async runs across apps.
+  HTMX partial: block action_content
+*/}}
+<!DOCTYPE html>
+<html lang="en">
+  {{ template "head" . }}
+
+
+  <body class="min-h-screen bg-base-200">
+    <div class="drawer lg:drawer-open">
+      {{ template "drawer_toggle" }}
+
+
+      <div class="drawer-content">
+        <main hx-history-elt class="p-4 lg:p-6 space-y-4 max-w-6xl">
+          <!-- Header -->
+          <div
+            class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+            {{ template "hamburger" . }}
+            <div>
+              <div class="flex items-center gap-2">
+                {{ template "page_title" "Actions" }}
+                {{ template "help_link" .Data.HelpUrl }}
+              </div>
+              <p class="page-desc text-sm text-base-content/70">
+                Operations exposed by the apps you can use, and their background
+                runs
+              </p>
+            </div>
+            <div class="page-actions ml-auto flex items-center gap-2">
+              <label
+                class="input input-sm flex-1 min-w-0 sm:flex-none sm:w-48 sm:focus-within:w-60 transition-[width] duration-300 flex">
+                <kbd class="kbd kbd-xs hidden sm:inline-flex" aria-hidden="true"
+                  >⌘K</kbd
+                >
+                <input
+                  id="page-search"
+                  type="search"
+                  name="query"
+                  aria-label="Filter actions"
+                  title='Actions: text in the action, app, path and description. Runs: name=value matches an argument, a word any argument value, the result status, the message, the app, the action or the user; all terms must match. A leading /, a :, or "all" switches to app path globs like /utils/** or example.com:/**'
+                  value="{{ .Data.Query }}"
+                  placeholder="Filter actions…"
+                  hx-get="{{ .AppPath }}/actions"
+                  hx-trigger="input changed delay:300ms, search"
+                  hx-push-url="true"
+                  hx-target="#action-content"
+                  hx-swap="innerHTML"
+                  hx-include="#action-tab-value, #action-runs form"
+                  hx-indicator="#page-progress" />
+              </label>
+            </div>
+          </div>
+
+          {{ template "page_progress" }}
+
+
+          <div id="action-content" class="space-y-4">
+            {{ block "action_content" . }}
+              {{ template "flash_alerts" .Data }}
+              <!-- Current tab, included by the search and filter requests
+                   so partial refreshes stay on the active tab -->
+              <input
+                type="hidden"
+                id="action-tab-value"
+                name="tab"
+                value="{{ .Data.Tab }}" />
+              <div
+                role="group"
+                aria-label="Actions page views"
+                class="tabs tabs-border">
+                <button
+                  class="tab transition-colors duration-150 {{ if eq .Data.Tab "" }}
+                    tab-active
+                  {{ end }}"
+                  data-tab=""
+                  aria-pressed="{{ if eq .Data.Tab "" -}}
+                    true
+                  {{- else -}}
+                    false
+                  {{- end }}"
+                  title="The actions you can run, grouped by app"
+                  hx-get="{{ .AppPath }}/actions"
+                  hx-vals='{"tab": ""}'
+                  hx-target="#action-content"
+                  hx-swap="innerHTML"
+                  hx-include="#page-search"
+                  hx-push-url="true"
+                  hx-indicator="#page-progress">
+                  Actions
+                </button>
+                <button
+                  class="tab transition-colors duration-150 {{ if eq .Data.Tab "runs" }}
+                    tab-active
+                  {{ end }}"
+                  data-tab="runs"
+                  aria-pressed="{{ if eq .Data.Tab "runs" -}}
+                    true
+                  {{- else -}}
+                    false
+                  {{- end }}"
+                  title="The recent background runs of async actions, across apps"
+                  hx-get="{{ .AppPath }}/actions"
+                  hx-vals='{"tab": "runs"}'
+                  hx-target="#action-content"
+                  hx-swap="innerHTML"
+                  hx-include="#page-search"
+                  hx-push-url="true"
+                  hx-indicator="#page-progress">
+                  Runs
+                </button>
+              </div>
+
+              {{ if eq .Data.Tab "runs" }}
+                <div
+                  id="action-runs"
+                  class="card bg-base-100 border border-base-300">
+                  {{ template "action_runs_panel" . }}
+                </div>
+              {{ else }}
+                {{ $listing := .Data.Actions }}
+                {{ if $listing.Error }}
+                  {{ template "error_alert" $listing.Error }}
+                {{ end }}
+                {{ if $listing.Warnings }}
+                  {{/* One collapsed alert: a server with many broken or
+                    unapproved apps would otherwise push the list down
+                  */}}
+                  <details
+                    class="alert alert-warning alert-soft text-xs py-2 block"
+                    data-action-warnings>
+                    <summary class="cursor-pointer" role="alert">
+                      The actions of
+                      {{ len $listing.Warnings }}
+                      {{ if eq (len $listing.Warnings) 1 }}
+                        app
+                      {{ else }}
+                        apps
+                      {{ end }}
+                      could not be read (broken or unapproved apps) - expand for
+                      details
+                    </summary>
+                    <ul class="mt-2 space-y-1 font-mono break-all">
+                      {{ range $listing.Warnings }}
+                        <li data-action-warning>{{ . }}</li>
+                      {{ end }}
+                    </ul>
+                  </details>
+                {{ end }}
+                {{ if $listing.Groups }}
+                  <p class="text-xs text-base-content/70" data-actions-count>
+                    {{ $listing.Shown }}
+                    {{ if eq $listing.Shown 1 }}action{{ else }}actions{{ end }}
+                    in
+                    {{ len $listing.Groups }}
+                    {{ if eq (len $listing.Groups) 1 }}
+                      app
+                    {{ else }}
+                      apps
+                    {{ end }}{{ if ne $listing.Shown $listing.Total }}
+                      (of {{ $listing.Total }})
+                    {{ end }}
+                  </p>
+                  {{ range $listing.Groups }}
+                    <section
+                      class="card bg-base-100 border border-base-300"
+                      data-action-app="{{ .path }}"
+                      aria-label="Actions of {{ .path }}">
+                      <div
+                        class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
+                        <h2 class="text-sm font-medium font-mono break-all">
+                          {{ if or (index $.Data.Perms "app:read") (index $.Data.Perms "admin") }}
+                            <a
+                              href="{{ $.AppPath }}/apps/detail?path={{ .path }}"
+                              class="link link-hover tooltip tooltip-right"
+                              data-tip="App detail"
+                              >{{ .path }}</a
+                            >
+                          {{ else }}
+                            {{ .path }}
+                          {{ end }}
+                        </h2>
+                        <span class="text-xs text-base-content/70"
+                          >{{ len .actions }}
+                          {{ if eq (len .actions) 1 }}
+                            action
+                          {{ else }}
+                            actions
+                          {{ end }}</span
+                        >
+                      </div>
+                      <div class="overflow-x-auto">
+                        <table class="table table-sm">
+                          <thead>
+                            <tr>
+                              <th scope="col" class="w-8">
+                                <span class="sr-only">Details</span>
+                              </th>
+                              <th scope="col">Action</th>
+                              <th scope="col" class="hidden md:table-cell">
+                                Tool
+                              </th>
+                              <th scope="col" class="hidden lg:table-cell">
+                                Traits
+                              </th>
+                              <th scope="col" class="text-right">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {{ range .actions }}
+                              <tr
+                                class="group hover:bg-base-200/60"
+                                data-action="{{ .tool }}">
+                                <td class="w-8">
+                                  <a
+                                    href="{{ $.AppPath }}/actions/detail?path={{ .app_path }}&action={{ .tool }}"
+                                    class="btn btn-xs btn-ghost btn-square tooltip tooltip-right"
+                                    data-tip="Expand: params, description and runs"
+                                    aria-label="View details of action {{ .name }} of {{ .app_path }}">
+                                    {{ template "drilldown_icon" }}
+                                  </a>
+                                </td>
+                                <td>
+                                  <a
+                                    href="{{ $.AppPath }}/actions/detail?path={{ .app_path }}&action={{ .tool }}"
+                                    class="link link-hover text-sm font-medium"
+                                    >{{ .name }}</a
+                                  >
+                                  <span
+                                    class="font-mono text-xs text-base-content/70 ml-1"
+                                    >{{ .path }}</span
+                                  >
+                                  {{ if .description }}
+                                    <p
+                                      class="text-xs text-base-content/70 break-words max-w-xl">
+                                      {{ .description }}
+                                    </p>
+                                  {{ end }}
+                                </td>
+                                <td class="hidden md:table-cell">
+                                  <span class="font-mono text-xs"
+                                    >{{ .tool }}</span
+                                  >
+                                </td>
+                                <td class="hidden lg:table-cell">
+                                  <div
+                                    class="flex items-center gap-1 flex-wrap">
+                                    {{ template "action_badges" . }}
+                                  </div>
+                                </td>
+                                <td class="text-right whitespace-nowrap">
+                                  <a
+                                    href="{{ $.AppPath }}/actions/open?path={{ .app_path }}&action={{ .tool }}"
+                                    class="btn btn-xs btn-ghost text-primary tooltip tooltip-left"
+                                    data-tip="Open the action's page inside the console"
+                                    aria-label="Open action {{ .name }} of {{ .app_path }}">
+                                    open
+                                  </a>
+                                </td>
+                              </tr>
+                            {{ end }}
+                          </tbody>
+                        </table>
+                      </div>
+                    </section>
+                  {{ end }}
+                {{ else if not $listing.Error }}
+                  <div class="card bg-base-100 border border-base-300 py-10">
+                    <div
+                      class="flex flex-col items-center gap-2 text-center text-sm text-base-content/70">
+                      {{ if .Data.Query }}
+                        <span class="text-xl" aria-hidden="true">🔍</span>
+                        <p>No actions match "{{ .Data.Query }}"</p>
+                        <button
+                          class="btn btn-xs btn-outline transition-transform duration-150 active:scale-95"
+                          onclick="const s = document.getElementById('page-search'); if (s) s.value = ''"
+                          hx-get="{{ .AppPath }}/actions"
+                          hx-vals='{"query": ""}'
+                          hx-target="#action-content"
+                          hx-swap="innerHTML"
+                          hx-push-url="true"
+                          hx-indicator="#page-progress">
+                          Clear search
+                        </button>
+                      {{ else }}
+                        <span class="text-xl" aria-hidden="true">⚡</span>
+                        <p>No actions available</p>
+                        <p class="text-xs text-base-content/70">
+                          Actions are operations an app declares with
+                          ace.action; the apps you can access list theirs here
+                        </p>
+                      {{ end }}
+                    </div>
+                  </div>
+                {{ end }}
+              {{ end }}
+            {{ end }}
+            <!-- End of "action_content" block -->
+          </div>
+        </main>
+      </div>
+
+      {{ template "sidebar" . }}
+    </div>
+  </body>
+</html>

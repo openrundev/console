@@ -752,6 +752,41 @@ window.addEventListener('pageshow', () => {
 	}
 });
 
+// currentScheme is the console's effective theme: the persisted choice
+// stamped on <html> pre-paint, else the system preference
+function currentScheme() {
+	const attr = document.documentElement.getAttribute('data-theme') || '';
+	if (attr.endsWith('dark')) {
+		return 'dark';
+	}
+	if (attr.endsWith('light')) {
+		return 'light';
+	}
+	return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+// loadActionFrames starts the action viewer's frame (iframe[data-src]) with
+// the console's theme passed as ?_cl_theme=, so the framed action page
+// renders in the same theme and hides its own switcher. The src is set here
+// rather than in the markup so the frame never loads twice
+function loadActionFrames() {
+	for (const frame of document.querySelectorAll('iframe[data-action-frame][data-src]')) {
+		const url = new URL(frame.dataset.src, location.href);
+		url.searchParams.set('_cl_theme', currentScheme());
+		frame.src = url.toString();
+	}
+}
+
+// postFrameTheme tells the framed action page about a theme switch
+// (actions.js listens for the message and follows)
+function postFrameTheme(theme) {
+	for (const frame of document.querySelectorAll('iframe[data-action-frame]')) {
+		if (frame.contentWindow) {
+			frame.contentWindow.postMessage({ type: 'cl_theme', theme: theme }, location.origin);
+		}
+	}
+}
+
 document.addEventListener('DOMContentLoaded', () => {
 	// Navigation feedback for regular link clicks and form submits
 	document.body.addEventListener('click', (event) => {
@@ -870,8 +905,10 @@ document.addEventListener('DOMContentLoaded', () => {
 			const theme = event.target.checked ? 'light' : 'dark';
 			document.documentElement.setAttribute('data-theme', 'openrun-' + theme);
 			try { localStorage.setItem('theme', theme); } catch (e) { /* storage may be unavailable */ }
+			postFrameTheme(theme);
 		});
 	}
+	loadActionFrames();
 
 	// Keep the hamburger's aria-expanded in sync when the drawer is closed
 	// by the overlay click instead of the button

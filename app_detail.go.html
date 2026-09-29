@@ -1249,6 +1249,18 @@
                     >v{{ .Data.App.version }}</span
                   >
 
+                  {{ if .Data.App.action_count }}
+                    <span class="text-xs text-base-content/70 pt-0.5">Actions</span>
+                    <span class="text-xs pt-1">
+                      <a
+                        href="{{ .AppPath }}/actions?query={{ .Data.Path }}"
+                        class="link link-hover"
+                        data-actions-link
+                        >{{ .Data.App.action_count }} {{ if eq (int .Data.App.action_count) 1 }}action{{ else }}actions{{ end }}
+                        <span aria-hidden="true">→</span></a
+                      >
+                    </span>
+                  {{ end }}
                   {{ if .Data.App.job_count }}
                     <span class="text-xs text-base-content/70 pt-0.5">Jobs</span>
                     <span class="text-xs pt-1">
