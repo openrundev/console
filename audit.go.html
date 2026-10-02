@@ -92,7 +92,7 @@
                     id="event_type"
                     name="event_type">
                     <option value="">all</option>
-                    {{ range $t := list "http" "system" "action" "custom" }}
+                    {{ range $t := list "http" "system" "action" "mcp" "custom" }}
                       <option
                         value="{{ $t }}"
                         {{ if eq $.Data.Filters.event_type $t }}
@@ -349,6 +349,11 @@
                             <span
                               class="badge badge-xs badge-soft badge-warning"
                               >system</span
+                            >
+                          {{ else if eq $e.event_type "mcp" }}
+                            <span
+                              class="badge badge-xs badge-soft badge-info"
+                              >mcp</span
                             >
                           {{ else }}
                             <span class="badge badge-xs badge-ghost"
