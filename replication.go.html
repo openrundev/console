@@ -5,18 +5,7 @@
   path. Linked from the overview replication tile.
   HTMX partial: block repl_rows
 */}}
-<!DOCTYPE html>
-<html lang="en">
-  {{ template "head" . }}
-
-
-  <body class="min-h-screen bg-base-200">
-    <div class="drawer lg:drawer-open">
-      {{ template "drawer_toggle" }}
-
-
-      <div class="drawer-content">
-        <main hx-history-elt class="p-4 lg:p-6 space-y-4 max-w-6xl">
+{{ template "page_open" (dict "Ctx" . "Main" "space-y-4 max-w-6xl") }}
           <!-- Header -->
           <div
             class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
@@ -28,25 +17,7 @@
               </p>
             </div>
             <div class="page-actions ml-auto flex items-center gap-2">
-              <label
-                class="input input-sm flex-1 min-w-0 sm:flex-none sm:w-48 sm:focus-within:w-60 transition-[width] duration-300 flex">
-                <kbd class="kbd kbd-xs hidden sm:inline-flex" aria-hidden="true"
-                  >⌘K</kbd
-                >
-                <input
-                  id="page-search"
-                  type="search"
-                  name="query"
-                  aria-label="Filter by app"
-                  value="{{ .Data.Query }}"
-                  placeholder="Filter by app…"
-                  hx-get="{{ .AppPath }}/replication"
-                  hx-trigger="input changed delay:300ms, search"
-                  hx-push-url="true"
-                  hx-target="#repl-rows"
-                  hx-swap="innerHTML"
-                  hx-indicator="#page-progress" />
-              </label>
+              {{ template "page_search" (dict "Query" .Data.Query "Label" "Filter by app" "Placeholder" "Filter by app…" "Url" (print .AppPath "/replication") "Target" "#repl-rows") }}
             </div>
           </div>
 
@@ -251,10 +222,4 @@
             {{ end }}
             <!-- End of "repl_rows" block -->
           </div>
-        </main>
-      </div>
-
-      {{ template "sidebar" . }}
-    </div>
-  </body>
-</html>
+{{ template "page_close" . }}

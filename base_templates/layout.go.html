@@ -216,9 +216,40 @@
   </div>
 {{ end }}
 
+{{/* page_open / page_close: the page shell every screen shares - doctype,
+  head, body, the nav drawer with its toggle, and the <main hx-history-elt>
+  (htmx history restores swap main; every page has exactly one). A page
+  file is: license + doc comment, page_open, its main content, page_close.
+  Context dict: Ctx (the page context, for head and sidebar), Main (the
+  main classes after the shared padding: width and vertical rhythm, like
+  "space-y-4 max-w-6xl"), Scripts (optional: resolved script urls loaded at
+  the top of body, before the drawer) */}}
+{{ define "page_open" }}
+<!DOCTYPE html>
+<html lang="en">
+  {{ template "head" .Ctx }}
+  <body class="min-h-screen bg-base-200">
+    {{ range .Scripts }}
+      <script src="{{ . }}"></script>
+    {{ end }}
+    <div class="drawer lg:drawer-open">
+      {{ template "drawer_toggle" }}
+      <div class="drawer-content">
+        <main hx-history-elt class="p-4 lg:p-6 {{ .Main }}">
+{{ end }}
+
+{{ define "page_close" }}
+        </main>
+      </div>
+      {{ template "sidebar" . }}
+    </div>
+  </body>
+</html>
+{{ end }}
+
 {{/* drawer_toggle is the hidden checkbox controlled by the mobile
   hamburger and sidebar overlay. It must be the first child of .drawer on
-  every full page
+  every full page (page_open puts it there)
 */}}
 {{ define "drawer_toggle" }}
   <input

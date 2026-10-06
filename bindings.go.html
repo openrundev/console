@@ -40,8 +40,8 @@
   {{ if .config_keys }}
     <span
       class="text-xs text-base-content/70 font-mono tooltip tooltip-right"
-      data-tip="{{ range .config_keys }}{{ . }}{{ end }}"
-      >{{ len .config_keys }} keys</span
+      data-tip="{{ join ", " .config_keys }}"
+      >{{ template "count" (dict "N" (len .config_keys) "One" "key") }}</span
     >
   {{ else }}
     <span class="text-xs text-base-content/70">-</span>
@@ -137,18 +137,7 @@
     </button>
   </div>
 {{ end }}
-<!DOCTYPE html>
-<html lang="en">
-  {{ template "head" . }}
-
-
-  <body class="min-h-screen bg-base-200">
-    <div class="drawer lg:drawer-open">
-      {{ template "drawer_toggle" }}
-
-
-      <div class="drawer-content">
-        <main hx-history-elt class="p-4 lg:p-6 space-y-4 max-w-6xl">
+{{ template "page_open" (dict "Ctx" . "Main" "space-y-4 max-w-6xl") }}
           <!-- Header -->
           <div
             class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
@@ -156,29 +145,11 @@
             <div>
               {{ template "page_title" "Bindings" }}
               <p class="page-desc text-sm text-base-content/70">
-                {{ .Data.Total }} bindings - connect apps to services
+                {{ template "count" (dict "N" .Data.Total "One" "binding") }} - connect apps to services
               </p>
             </div>
             <div class="page-actions ml-auto flex items-center gap-2">
-              <label
-                class="input input-sm flex-1 min-w-0 sm:flex-none sm:w-48 sm:focus-within:w-60 transition-[width] duration-300 flex">
-                <kbd class="kbd kbd-xs hidden sm:inline-flex" aria-hidden="true"
-                  >⌘K</kbd
-                >
-                <input
-                  id="page-search"
-                  type="search"
-                  name="query"
-                  aria-label="Filter bindings"
-                  value="{{ .Data.Query }}"
-                  placeholder="Filter bindings…"
-                  hx-get="{{ .AppPath }}/bindings"
-                  hx-trigger="input changed delay:300ms, search"
-                  hx-push-url="true"
-                  hx-target="#binding-groups"
-                  hx-swap="innerHTML"
-                  hx-indicator="#page-progress" />
-              </label>
+              {{ template "page_search" (dict "Query" .Data.Query "Label" "Filter bindings" "Placeholder" "Filter bindings…" "Url" (print .AppPath "/bindings") "Target" "#binding-groups") }}
               <a
                 class="btn btn-sm btn-outline transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "service:create") }}
                   btn-disabled tooltip tooltip-bottom
@@ -220,7 +191,7 @@
                   class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
                   <h2 class="text-sm font-medium">Services</h2>
                   <span class="text-xs text-base-content/70"
-                    >{{ len .Data.Services }} services - bindings connect apps
+                    >{{ template "count" (dict "N" (len .Data.Services) "One" "service") }} - bindings connect apps
                     to these</span
                   >
                   {{ if .Data.Services }}
@@ -380,8 +351,8 @@
                               {{ template "binding_config" . }}
                             </td>
                             <td
-                              class="text-xs text-base-content/70 whitespace-nowrap hidden lg:table-cell max-w-32 truncate tooltip tooltip-left"
-                              data-tip="{{ .created_by }}">
+                              class="text-xs text-base-content/70 whitespace-nowrap hidden lg:table-cell max-w-32 truncate{{ if .created_by }} tooltip tooltip-left{{ end }}"
+                              {{ if .created_by }}data-tip="{{ .created_by }}"{{ end }}>
                               {{ if .created_by }}
                                 {{ .created_by }}
                               {{ else }}
@@ -469,8 +440,8 @@
                               {{ template "binding_config" . }}
                             </td>
                             <td
-                              class="text-xs text-base-content/70 whitespace-nowrap hidden lg:table-cell max-w-32 truncate tooltip tooltip-left"
-                              data-tip="{{ .created_by }}">
+                              class="text-xs text-base-content/70 whitespace-nowrap hidden lg:table-cell max-w-32 truncate{{ if .created_by }} tooltip tooltip-left{{ end }}"
+                              {{ if .created_by }}data-tip="{{ .created_by }}"{{ end }}>
                               {{ if .created_by }}
                                 {{ .created_by }}
                               {{ else }}
@@ -585,10 +556,4 @@
             {{ end }}
             <!-- End of "binding_groups" block -->
           </div>
-        </main>
-      </div>
-
-      {{ template "sidebar" . }}
-    </div>
-  </body>
-</html>
+{{ template "page_close" . }}

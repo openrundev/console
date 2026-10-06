@@ -2,16 +2,7 @@
 {{/* SPDX-License-Identifier: Apache-2.0 */}}
 {{/* App create/update form (/apps/create, /apps/update). Create supports a
      Validate (dry run) step and a post-create permission approval step */}}
-<!DOCTYPE html>
-<html lang="en">
-  {{ template "head" . }}
-
-  <body class="min-h-screen bg-base-200">
-    <div class="drawer lg:drawer-open">
-      {{ template "drawer_toggle" }}
-
-      <div class="drawer-content">
-        <main hx-history-elt class="p-4 lg:p-6 space-y-4 max-w-2xl">
+{{ template "page_open" (dict "Ctx" . "Main" "space-y-4 max-w-2xl") }}
           <!-- Header -->
           <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" . }}
@@ -45,7 +36,7 @@
 
 
 {{ block "op_form" . }}
-          <div id="op-form-wrap">
+          <div id="op-form-wrap" class="space-y-4">
           {{ template "error_alert" .Data.Error }}
 
           {{ if eq .Data.Step "approve" }}
@@ -57,7 +48,9 @@
                 <span aria-hidden="true">✓</span>
                 <span
                   ><span class="font-mono break-all">{{ .Data.Values.path }}</span> was
-                  created - it needs the permissions below approved before it
+                  created{{ if .Data.CreatedAuth }} with login
+                    <span class="font-mono" data-created-auth="{{ .Data.CreatedAuth }}">{{ .Data.CreatedAuth }}</span>{{ if eq .Data.CreatedAuth "none" }}
+                    (reachable by anyone){{ end }}{{ end }} - it needs the permissions below approved before it
                   can serve requests</span
                 >
               </div>
@@ -72,7 +65,7 @@
               id="op-form"
               hx-post="{{ .AppPath }}/apps/create"
               hx-target="#op-form-wrap"
-              hx-swap="outerHTML"
+              hx-swap="outerHTML show:top showTarget:#op-form-wrap"
               hx-indicator="#page-progress, #op-form"
               class="flex justify-end gap-2">
               <input type="hidden" name="path" value="{{ .Data.Values.path }}" />
@@ -116,8 +109,11 @@
               <!-- Current app summary -->
               <div class="card bg-base-100 border border-base-300">
                 <div
-                  class="px-4 py-3 grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-1 text-sm">
-                  <div>
+                  class="px-4 py-3 grid grid-cols-3 gap-x-6 gap-y-2 text-sm">
+                  {{/* The source (a long path or git url) takes its own
+                    row: as one of four columns it wrapped every few
+                    characters */}}
+                  <div class="col-span-3">
                     <div class="text-xs text-base-content/70">Source</div>
                     <div
                       class="font-mono text-xs break-all"
@@ -158,7 +154,7 @@
               id="op-form"
               hx-post="{{ .AppPath }}/apps/{{ .Data.Mode }}"
               hx-target="#op-form-wrap"
-              hx-swap="outerHTML"
+              hx-swap="outerHTML show:top showTarget:#op-form-wrap"
               hx-indicator="#page-progress, #op-form"
               class="card bg-base-100 border border-base-300">
               <div class="card-body p-5 gap-5">
@@ -233,24 +229,7 @@
                             {{ if not $gitAuth }}selected{{ end }}>
                             none (public repo)
                           </option>
-                          {{ range .Data.GitAuthOptions }}
-                            <option
-                              value="{{ . }}"
-                              {{ if eq . $gitAuth }}selected{{ end }}>
-                              {{ . }}
-                            </option>
-                          {{ end }}
-                          {{ if $gitAuth }}
-                            {{ $found := false }}
-                            {{ range .Data.GitAuthOptions }}
-                              {{ if eq . $gitAuth }}{{ $found = true }}{{ end }}
-                            {{ end }}
-                            {{ if not $found }}
-                              <option value="{{ $gitAuth }}" selected>
-                                {{ $gitAuth }}
-                              </option>
-                            {{ end }}
-                          {{ end }}
+                          {{ template "select_options" (dict "Options" .Data.GitAuthOptions "Current" $gitAuth) }}
                         </select>
                       </div>
                     </div>
@@ -269,24 +248,7 @@
                         <option value="" {{ if not $spec }}selected{{ end }}>
                           none (source has app.star)
                         </option>
-                        {{ range .Data.Specs }}
-                          <option
-                            value="{{ . }}"
-                            {{ if eq . $spec }}selected{{ end }}>
-                            {{ . }}
-                          </option>
-                        {{ end }}
-                        {{ if $spec }}
-                          {{ $found := false }}
-                          {{ range .Data.Specs }}
-                            {{ if eq . $spec }}{{ $found = true }}{{ end }}
-                          {{ end }}
-                          {{ if not $found }}
-                            <option value="{{ $spec }}" selected>
-                              {{ $spec }}
-                            </option>
-                          {{ end }}
-                        {{ end }}
+                        {{ template "select_options" (dict "Options" .Data.Specs "Current" $spec) }}
                       </select>
                       <p class="text-xs text-base-content/70 mt-1">
                         App spec to use when the source has no app.star, for
@@ -308,27 +270,45 @@
                       name="auth"
                       class="select w-full sm:w-1/2">
                       {{ $current := .Data.Values.auth }}
-                      {{ range .Data.AuthOptions }}
+                      {{ template "select_options" (dict "Options" .Data.AuthOptions "Current" $current) }}
+                    </select>
+                    <p class="text-xs text-base-content/70 mt-1">
+                      default uses the server's app_default_auth setting{{ if .Data.DefaultAuth }}
+                        (<span class="font-mono">{{ .Data.DefaultAuth }}</span> on this server){{ end }}{{ if eq .Data.Mode "create" }};
+                        the app is reachable with that login as soon as it is created{{ end }}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label class="block text-sm font-medium mb-1" for="app-mcp"
+                      >MCP</label
+                    >
+                    {{ $mcp := or .Data.Values.mcp "default" }}
+                    <select
+                      id="app-mcp"
+                      name="mcp"
+                      class="select w-full">
+                      {{ range .Data.McpOptions }}
                         <option
-                          value="{{ . }}"
-                          {{ if eq . $current }}selected{{ end }}>
-                          {{ . }}
+                          value="{{ .value }}"
+                          {{ if eq .value $mcp }}selected{{ end }}>
+                          {{ .label }}
                         </option>
                       {{ end }}
-                      {{ if $current }}
-                        {{ $found := false }}
-                        {{ range .Data.AuthOptions }}
-                          {{ if eq . $current }}{{ $found = true }}{{ end }}
-                        {{ end }}
-                        {{ if not $found }}
-                          <option value="{{ $current }}" selected>
-                            {{ $current }}
-                          </option>
-                        {{ end }}
+                      {{ if eq $mcp "custom" }}
+                        <option value="custom" selected>
+                          custom - keep the MCP document set from the CLI
+                        </option>
                       {{ end }}
                     </select>
                     <p class="text-xs text-base-content/70 mt-1">
-                      default uses the server's app_default_auth setting
+                      An app with actions serves them as MCP tools by default, on
+                      its own <span class="font-mono">/mcp</span> url and through
+                      the server's app actions endpoint. Disable keeps this app out
+                      of every tool list.
+                      {{ if and (index .Data.Perms "feature:config") (index .Data.Perms "config:read") }}
+                        <a href="{{ .AppPath }}/config/mcp" class="link text-primary">MCP settings →</a>
+                      {{ end }}
                     </p>
                   </div>
 
@@ -436,13 +416,7 @@
           {{ end }}
           </div>
           {{ end }}
-        </main>
-      </div>
-
-      {{ template "sidebar" . }}
-    </div>
-  </body>
-</html>
+{{ template "page_close" . }}
 
 {{/* binding_row is one service bindings row: a select over the configured
   services (binding to a service creates an auto binding for the app) and

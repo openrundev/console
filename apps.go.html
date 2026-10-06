@@ -4,18 +4,7 @@
   unmanaged section, count stats double as declarative/imperative filters.
   HTMX partial: block app_groups
 */}}
-<!DOCTYPE html>
-<html lang="en">
-  {{ template "head" . }}
-
-
-  <body class="min-h-screen bg-base-200">
-    <div class="drawer lg:drawer-open">
-      {{ template "drawer_toggle" }}
-
-
-      <div class="drawer-content">
-        <main hx-history-elt class="p-4 lg:p-6 space-y-4 max-w-6xl">
+{{ template "page_open" (dict "Ctx" . "Main" "space-y-4 max-w-6xl") }}
           <!-- Header -->
           <div
             class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
@@ -27,27 +16,7 @@
               </p>
             </div>
             <div class="page-actions ml-auto flex items-center gap-2">
-              <label
-                class="input input-sm flex-1 min-w-0 sm:flex-none sm:w-48 sm:focus-within:w-60 transition-[width] duration-300 flex">
-                <kbd class="kbd kbd-xs hidden sm:inline-flex" aria-hidden="true"
-                  >⌘K</kbd
-                >
-                <input
-                  id="page-search"
-                  type="search"
-                  name="query"
-                  aria-label="Filter apps"
-                  title="Substring search; a leading /, a :, or &quot;all&quot; switches to app path globs like /utils/** or example.com:/**"
-                  value="{{ .Data.Query }}"
-                  placeholder="Filter apps…"
-                  hx-get="{{ .AppPath }}/apps"
-                  hx-trigger="input changed delay:300ms, search"
-                  hx-push-url="true"
-                  hx-target="#app-groups"
-                  hx-swap="innerHTML"
-                  hx-include="#app-filter-value, #app-tab-value"
-                  hx-indicator="#page-progress" />
-              </label>
+              {{ template "page_search" (dict "Query" .Data.Query "Label" "Filter apps" "Placeholder" "Filter apps…" "Url" (print .AppPath "/apps") "Target" "#app-groups" "Include" "#app-filter-value, #app-tab-value" "Title" "Substring search; a leading /, a :, or \"all\" switches to app path globs like /utils/** or example.com:/**") }}
               <a
                 class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "app:create") }}
                   btn-disabled tooltip tooltip-bottom
@@ -80,7 +49,7 @@
                 <div
                   role="group"
                   aria-label="Filter apps by source"
-                  class="stats stats-horizontal bg-base-100 border border-base-300 overflow-x-auto">
+                  class="stats stats-horizontal bg-base-100 border border-base-300 overflow-visible">
                   <button
                     class="stat py-2 px-5 place-items-start cursor-pointer transition-colors duration-150 hover:bg-base-200/60 tooltip tooltip-bottom {{ if eq .Data.Filter "" }}
                       bg-primary/5
@@ -333,8 +302,7 @@
                         >
                       {{ end }}
                       <span class="text-xs text-base-content/70">
-                        {{ len .apps }}
-                        apps{{ if .sync.last_exec }}
+                        {{ template "count" (dict "N" (len .apps) "One" "app") }}{{ if .sync.last_exec }}
                           · synced
                           {{ template "time_ago" .sync.last_exec }}
                         {{ end }}
@@ -440,10 +408,4 @@
             "Include" "#page-search, #app-filter-value, #app-tab-value"
             "Perms" .Data.Perms)
           }}
-        </main>
-      </div>
-
-      {{ template "sidebar" . }}
-    </div>
-  </body>
-</html>
+{{ template "page_close" . }}

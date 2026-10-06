@@ -1,0 +1,438 @@
+{{/* Copyright (c) ClaceIO, LLC */}}
+{{/* SPDX-License-Identifier: Apache-2.0 */}}
+{{/* MCP config sub page (/config/mcp): a status strip, then ONE card per
+  MCP endpoint - the management endpoint (/_openrun/mcp, off by default)
+  and the app actions endpoint (/_openrun/app_mcp, on by default: the
+  actions of every app the user can run, one tool each). A card's header
+  carries the url, the state and an Enable/Disable button (POST
+  /config/mcp/enable, surface=mcp|app_mcp); its body the connect commands
+  for Claude Code and Codex (the app actions builder - login + apps glob -
+  rewrites them client side, console.js updateMcpBuilder), the management
+  prerequisites while it is off, the apps with actions, and the endpoint's
+  settings rows (the CONFIG_PAGES "mcp" group by key, GroupByKey, minus
+  its enable row; they post to /config/mcp/action like the generic sub
+  pages). The urls derive from the console's origin when the server has no
+  external url. HTMX partial: block page_content */}}
+{{ template "page_open" (dict "Ctx" . "Main" "max-w-6xl") }}
+          <div id="page-content" class="space-y-4">
+          {{ block "page_content" . }}
+            {{ $actionPath := printf "%s/config/%s/action" .AppPath .Data.Page }}
+            {{ $canEdit := index .Data.Perms "config:update" }}
+            {{ $ctx := dict "ActionPath" $actionPath "VersionId" .Data.VersionId "CanEdit" $canEdit }}
+            <!-- Header -->
+            <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+              {{ template "hamburger" . }}
+              <div>
+                {{ template "page_title" "Configuration" }}
+                <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0">
+                  <ul>
+                    <li>
+                      <a href="{{ .AppPath }}/config">Configuration</a>
+                    </li>
+                    <li>{{ .Data.PageTitle }}</li>
+                  </ul></nav>
+                <div class="flex items-center gap-2">
+                  <h2 class="text-xl font-semibold">{{ .Data.PageTitle }}</h2>
+                  {{ template "help_link" .Data.HelpUrl }}
+                </div>
+                <p class="page-desc text-sm text-base-content/70">
+                  Connect Claude Code, Codex and other AI clients to this server
+                </p>
+              </div>
+              <div class="page-actions ml-auto flex items-center gap-2">
+                <a
+                  href="{{ .AppPath }}/config/api"
+                  class="btn btn-sm btn-ghost tooltip tooltip-bottom"
+                  data-tip="The external url, token lifetimes and the REST surface"
+                  >Remote Management API</a
+                >
+              </div>
+            </div>
+
+            {{ template "page_progress" }}
+
+            {{ if .Data.Error }}
+              {{ template "error_alert" .Data.Error }}
+            {{ else }}
+            {{ template "flash_alerts" .Data }}
+            {{ if .Data.ApiError }}
+              {{ template "error_alert" .Data.ApiError }}
+            {{ end }}
+            {{ $api := .Data.Api }}
+            {{ $mgmtOn := and $api $api.mcp.enabled }}
+            {{ $appsOn := and $api $api.app_mcp.enabled }}
+            {{ $appsServed := and $api $api.app_mcp.served }}
+
+            <!-- Status strip -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4" data-mcp-status>
+              <a
+                href="#mcp-management"
+                class="card bg-base-100 border border-base-300 hover:border-primary/40"
+                data-mcp-endpoint="mcp">
+                <div class="card-body p-4 gap-1">
+                  <div class="flex items-center gap-2">
+                    <h2 class="text-sm font-medium">Management</h2>
+                    {{ if not $api }}
+                      <span class="badge badge-ghost badge-sm ml-auto" data-mcp-state="unknown">state unknown</span>
+                    {{ else if $mgmtOn }}
+                      <span class="badge badge-success badge-soft badge-sm ml-auto" data-mcp-state="on">on</span>
+                    {{ else }}
+                      <span class="badge badge-ghost badge-sm ml-auto" data-mcp-state="off">off</span>
+                    {{ end }}
+                  </div>
+                  <p class="text-xs text-base-content/70">
+                    Operate OpenRun itself: apps, versions, services, config. Off
+                    by default.
+                  </p>
+                </div>
+              </a>
+              <a
+                href="#mcp-apps"
+                class="card bg-base-100 border border-base-300 hover:border-primary/40"
+                data-mcp-endpoint="app_mcp">
+                <div class="card-body p-4 gap-1">
+                  <div class="flex items-center gap-2">
+                    <h2 class="text-sm font-medium">App actions</h2>
+                    {{ if not $api }}
+                      <span class="badge badge-ghost badge-sm ml-auto" data-mcp-state="unknown">state unknown</span>
+                    {{ else if $appsServed }}
+                      <span class="badge badge-success badge-soft badge-sm ml-auto" data-mcp-state="on">on</span>
+                    {{ else if $appsOn }}
+                      <span class="badge badge-warning badge-soft badge-sm ml-auto" data-mcp-state="not_served">not served</span>
+                    {{ else }}
+                      <span class="badge badge-ghost badge-sm ml-auto" data-mcp-state="off">off</span>
+                    {{ end }}
+                  </div>
+                  <p class="text-xs text-base-content/70">
+                    The actions of every app you can run, one tool each, from
+                    {{ len .Data.Apps }} {{ if eq (len .Data.Apps) 1 }}app{{ else }}apps{{ end }}.
+                    On by default.
+                  </p>
+                </div>
+              </a>
+            </div>
+
+            <!-- Management endpoint -->
+            <section
+              id="mcp-management"
+              class="card bg-base-100 border border-base-300"
+              aria-labelledby="mcp-mgmt-h">
+              <div
+                class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
+                <h2 id="mcp-mgmt-h" class="text-sm font-medium">Management MCP</h2>
+                <span class="text-xs text-base-content/70 font-mono break-all" data-mcp-mgmt-url
+                  >{{ .Data.MgmtUrl }}</span
+                >
+                {{ if $api }}
+                  {{ template "mcp_toggle" (dict "Surface" "mcp" "On" $mgmtOn "CanEdit" $canEdit "AppPath" .AppPath
+                      "Confirm" "Turn off the management MCP endpoint? Connected clients are refused from now on; the change is live immediately.") }}
+                {{ end }}
+              </div>
+              <div class="card-body p-4 gap-4">
+                {{ if not $api }}
+                  <p class="text-sm text-base-content/70" data-mcp-mgmt-unknown>
+                    Whether the endpoint is on needs the
+                    <span class="font-mono">config:basic_read</span> permission.
+                  </p>
+                  {{ template "mcp_commands" (dict "Url" .Data.MgmtUrl "Name" "openrun" "Builder" false) }}
+                {{ else if $mgmtOn }}
+                  <p class="text-sm">
+                    Clients log in through the browser with
+                    {{ range $i, $a := $api.mcp.auth }}{{ if $i }}, {{ end }}<span class="badge badge-ghost badge-xs font-mono">{{ $a }}</span>{{ end }}
+                    and are <strong>read-only</strong> unless write scopes are
+                    granted on the consent page.
+                  </p>
+                  <div
+                    class="flex flex-col gap-4"
+                    data-mcp-builder
+                    data-mcp-base="{{ .Data.MgmtUrl }}"
+                    data-mcp-default-auth=""
+                    data-mcp-name="openrun">
+                    {{ if gt (len $api.mcp.auth) 1 }}
+                      <div>
+                        <label class="block text-xs font-medium mb-1" for="mcp-mgmt-login">Login</label>
+                        <select id="mcp-mgmt-login" name="mcp_login" class="select select-sm font-mono text-xs min-w-40">
+                          <option value="" selected>choose on the login page</option>
+                          {{ range $api.mcp.auth }}
+                            <option value="{{ . }}">{{ . }}</option>
+                          {{ end }}
+                        </select>
+                      </div>
+                    {{ end }}
+                    {{ template "mcp_commands" (dict "Url" .Data.MgmtUrl "Name" "openrun" "Builder" true) }}
+                  </div>
+                  <div class="space-y-2">
+                    <p class="text-xs text-base-content/70">
+                      Headless clients use an API key instead of a login: mint it
+                      on the server (read-only without
+                      <span class="font-mono">--scopes</span>; shown once).
+                    </p>
+                    {{ template "mcp_command_row" (dict "Label" "mint a key" "Key" "apikey"
+                        "Cmd" "openrun apikey create --resource mcp --desc \"claude on laptop\"") }}
+                    {{ template "mcp_command_row" (dict "Label" "Claude Code with the key" "Key" "claude-key"
+                        "Cmd" (printf "claude mcp add --transport http openrun \"%s\" --header \"Authorization: Bearer orun_pat_...\"" .Data.MgmtUrl)) }}
+                  </div>
+                {{ else }}
+                  <p class="text-sm">
+                    Lets an AI client operate OpenRun as you: list and create
+                    apps, promote, manage services and bindings, run syncs.
+                    Enabling needs:
+                  </p>
+                  <ul class="space-y-1.5 text-sm" data-mcp-checks>
+                    {{ range .Data.Checks }}
+                      <li class="flex items-start gap-2" data-mcp-check="{{ .key }}" data-ok="{{ if .ok }}true{{ else }}false{{ end }}">
+                        {{ if .ok }}
+                          <span class="text-success font-medium" aria-label="ok">✓</span>
+                        {{ else }}
+                          <span class="text-warning font-medium" aria-label="missing">✗</span>
+                        {{ end }}
+                        <span>
+                          <span class="font-medium">{{ .label }}</span>
+                          <span class="text-xs text-base-content/70 {{ if and (eq .key "external_url") .ok }}font-mono{{ end }} break-all">- {{ .detail }}</span>
+                        </span>
+                      </li>
+                    {{ end }}
+                  </ul>
+                {{ end }}
+                {{ with index .Data.GroupByKey "mcp" }}
+                  {{ template "mcp_settings" (dict "Group" . "Ctx" $ctx) }}
+                {{ end }}
+              </div>
+            </section>
+
+            <!-- App actions endpoint -->
+            <section
+              id="mcp-apps"
+              class="card bg-base-100 border border-base-300"
+              aria-labelledby="mcp-apps-h">
+              <div
+                class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
+                <h2 id="mcp-apps-h" class="text-sm font-medium">App actions MCP</h2>
+                <span class="text-xs text-base-content/70 font-mono break-all" data-mcp-app-url
+                  >{{ .Data.AppUrl }}</span
+                >
+                {{ if $api }}
+                  {{ template "mcp_toggle" (dict "Surface" "app_mcp" "On" $appsOn "CanEdit" $canEdit "AppPath" .AppPath
+                      "Confirm" "Turn off the app actions MCP endpoint? Connected clients are refused from now on; the change is live immediately.") }}
+                {{ end }}
+              </div>
+              <div class="card-body p-4 gap-4">
+                {{ if and $api $appsOn (not $appsServed) }}
+                  <div role="alert" class="alert alert-warning alert-soft py-2 text-sm" data-mcp-apps-off>
+                    <span aria-hidden="true">!</span>
+                    <span>
+                      Not served while
+                      <span class="font-mono">security.unsafe_disable_rbac</span>
+                      is set: its per app checks need RBAC enforcement. Unset
+                      the flag (static config, restart) to serve it.
+                    </span>
+                  </div>
+                {{ end }}
+                {{ if and .Data.Api (not .Data.AppUrlCanonical) }}
+                  <p class="text-xs text-base-content/70" data-mcp-origin-note>
+                    No external url is configured, so the url above is this
+                    console's origin: it works for clients on this machine (the
+                    endpoint is served over https, or plaintext on loopback). Set
+                    <span class="font-mono">api.external_url</span> for remote
+                    clients.
+                  </p>
+                {{ end }}
+
+                <p class="text-sm">
+                  Pick the login the client connects with and, optionally, an
+                  app path glob to narrow the view. Without a login only apps
+                  with auth <span class="font-mono">none</span> are visible. The
+                  <span class="font-mono">openrun_status</span> tool reports who
+                  is connected and what the view holds.
+                </p>
+
+                <div
+                  class="flex flex-col gap-4"
+                  data-mcp-builder
+                  data-mcp-base="{{ .Data.AppUrl }}"
+                  data-mcp-default-auth="{{ .Data.DefaultAuth }}"
+                  data-mcp-name="openrun-apps">
+                  <div>
+                    <div class="flex flex-wrap gap-4 items-start">
+                      <div>
+                        <label class="block text-xs font-medium mb-1" for="mcp-login">Login</label>
+                        <select id="mcp-login" name="mcp_login" class="select select-sm font-mono text-xs min-w-40">
+                          {{ $default := .Data.DefaultAuth }}
+                          {{ range .Data.Logins }}
+                            <option value="{{ . }}" {{ if eq . $default }}selected{{ end }}>
+                              {{ . }}{{ if eq . $default }} (server default){{ end }}
+                            </option>
+                          {{ end }}
+                        </select>
+                      </div>
+                      <div class="flex-1 min-w-48">
+                        <label class="block text-xs font-medium mb-1" for="mcp-apps-glob">Apps</label>
+                        <input
+                          id="mcp-apps-glob"
+                          name="mcp_apps"
+                          type="text"
+                          class="input input-sm w-full font-mono text-xs"
+                          placeholder="all"
+                          aria-describedby="mcp-apps-glob-help" />
+                      </div>
+                    </div>
+                    <p id="mcp-apps-glob-help" class="text-xs text-base-content/70 mt-1">
+                      Apps: a path glob like <span class="font-mono">/team/**</span>
+                      or <span class="font-mono">example.com:/**</span>; empty means all
+                    </p>
+                  </div>
+                  {{ template "mcp_commands" (dict "Url" .Data.AppUrl "Name" "openrun-apps" "Builder" true) }}
+                </div>
+
+                <!-- Apps with actions -->
+                <div>
+                  <h3 class="text-xs font-medium text-base-content/70 mb-2">
+                    Your apps with actions
+                  </h3>
+                  {{ if .Data.AppsError }}
+                    {{ template "error_alert" .Data.AppsError }}
+                  {{ else if .Data.Apps }}
+                    <div class="overflow-x-auto">
+                      <table class="table table-sm">
+                        <thead>
+                          <tr>
+                            <th scope="col">App</th>
+                            <th scope="col">Actions</th>
+                            <th scope="col" class="hidden sm:table-cell">Own endpoint</th>
+                            <th scope="col" class="text-right"></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {{ range .Data.Apps }}
+                            <tr class="hover:bg-base-200/60" data-mcp-app="{{ .path }}">
+                              <td class="font-mono text-xs break-all">{{ .path }}</td>
+                              <td class="text-xs whitespace-nowrap">{{ .count }} {{ if eq .count 1 }}action{{ else }}actions{{ end }}</td>
+                              <td class="font-mono text-xs break-all hidden sm:table-cell">
+                                {{ if .url }}
+                                  {{ .url }}
+                                  <button
+                                    type="button"
+                                    class="btn btn-ghost btn-xs font-sans"
+                                    onclick="copyText(this, {{ .url }})"
+                                    aria-label="Copy the MCP url of {{ .path }}">
+                                    copy
+                                  </button>
+                                {{ else }}
+                                  <span class="text-base-content/70 font-sans">-</span>
+                                {{ end }}
+                              </td>
+                              <td class="text-right whitespace-nowrap text-xs">
+                                <a href="{{ $.AppPath }}/actions?query={{ .path }}" class="link link-hover">actions</a>
+                                {{ if .can_read }}
+                                  · <a href="{{ $.AppPath }}/apps/detail?path={{ .path }}" class="link link-hover">detail</a>
+                                {{ end }}
+                              </td>
+                            </tr>
+                          {{ end }}
+                        </tbody>
+                      </table>
+                    </div>
+                    <p class="text-xs text-base-content/70 mt-2">
+                      Each app also serves its actions on its own
+                      <span class="font-mono">/mcp</span> url with the app's own
+                      login; setting an app's MCP to
+                      <span class="font-mono">disable</span> (its edit form)
+                      removes it from every tool list.
+                    </p>
+                  {{ else }}
+                    <div class="text-sm text-base-content/70" data-mcp-no-apps>
+                      No app you can use defines an action yet: the tool list
+                      holds only <span class="font-mono">openrun_status</span>.
+                      {{ if index .Data.Perms "app:create" }}
+                        <a href="{{ .AppPath }}/apps/create" class="link text-primary">Deploy an app</a>
+                        with <span class="font-mono">ace.action</span> entries, or
+                      {{ else }}
+                        Deploy an app with <span class="font-mono">ace.action</span> entries, or
+                      {{ end }}
+                      read about
+                      <a href="{{ .Data.ActionsDocs }}" class="link text-primary" target="_blank" rel="noopener">actions</a>.
+                    </div>
+                  {{ end }}
+                </div>
+                {{ with index .Data.GroupByKey "app_mcp" }}
+                  {{ template "mcp_settings" (dict "Group" . "Ctx" $ctx) }}
+                {{ end }}
+              </div>
+            </section>
+            {{ end }}
+          {{ end }}
+          <!-- End of "page_content" block -->
+          </div>
+{{ template "page_close" . }}
+
+{{/* mcp_toggle: the Enable/Disable button of an endpoint card header.
+  Context dict: Surface (mcp|app_mcp), On, CanEdit, AppPath, Confirm (the
+  disable confirmation) */}}
+{{ define "mcp_toggle" }}
+  <button
+    type="button"
+    class="btn btn-xs ml-auto {{ if .On }}btn-outline text-error{{ else }}btn-primary{{ end }} {{ if not .CanEdit }}tooltip tooltip-left{{ end }}"
+    data-mcp-toggle="{{ .Surface }}"
+    {{ if .CanEdit }}
+      hx-post="{{ .AppPath }}/config/mcp/enable"
+      hx-vals='{"surface": "{{ .Surface }}", "action": "{{ if .On }}disable{{ else }}enable{{ end }}"}'
+      {{ if .On }}hx-confirm="{{ .Confirm }}"{{ end }}
+      hx-target="#page-content"
+      hx-swap="innerHTML"
+      hx-disable="this"
+      hx-indicator="#page-progress"
+    {{ else }}
+      disabled data-tip="requires config:update"
+    {{ end }}>
+    {{ if .On }}Disable{{ else }}Enable{{ end }}
+  </button>
+{{ end }}
+
+{{/* mcp_settings: the settings rows of an endpoint card (its config group
+  without the enable row), the advanced ones collapsed. Context dict: Group
+  ({settings, advanced}), Ctx (ActionPath, VersionId, CanEdit) */}}
+{{ define "mcp_settings" }}
+  {{ if or .Group.settings .Group.advanced }}
+    <div class="flex flex-col gap-4 pt-3 border-t border-base-300" data-mcp-settings>
+      {{ range .Group.settings }}
+        {{ template "config_setting_row" (dict "Row" . "ActionPath" $.Ctx.ActionPath "VersionId" $.Ctx.VersionId "CanEdit" $.Ctx.CanEdit) }}
+      {{ end }}
+      {{ template "config_advanced_rows" (dict "Rows" .Group.advanced "ActionPath" $.Ctx.ActionPath "VersionId" $.Ctx.VersionId "CanEdit" $.Ctx.CanEdit) }}
+    </div>
+  {{ end }}
+{{ end }}
+
+{{/* mcp_commands: the connect commands for one endpoint url. Context dict:
+  Url, Name (the MCP server name in the client config), Builder (inside a
+  data-mcp-builder: the rows get data-mcp-cmd so console.js rewrites them
+  from the login/apps controls) */}}
+{{ define "mcp_commands" }}
+  <div class="space-y-2">
+    {{ template "mcp_command_row" (dict "Label" "Claude Code" "Key" "claude" "Builder" .Builder
+        "Cmd" (printf "claude mcp add --transport http %s \"%s\"" .Name .Url)) }}
+    {{ template "mcp_command_row" (dict "Label" "Codex" "Key" "codex" "Builder" .Builder
+        "Cmd" (printf "codex mcp add %s --url \"%s\"" .Name .Url)) }}
+    {{ template "mcp_command_row" (dict "Label" "Any MCP client (streamable HTTP)" "Key" "url" "Builder" .Builder
+        "Cmd" .Url) }}
+  </div>
+{{ end }}
+
+{{/* mcp_command_row: one labelled command with a copy button (the label
+  stacks above the command on a phone, where a side label left the command
+  a few characters wide). Context dict:
+  Label, Key (data-mcp-cmd value), Cmd, Builder */}}
+{{ define "mcp_command_row" }}
+  <div class="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2" data-mcp-command="{{ .Key }}">
+    <div class="sm:w-36 shrink-0 sm:pt-1.5 text-xs font-medium">{{ .Label }}</div>
+    <div class="flex items-start gap-2 flex-1 min-w-0">
+      <pre class="flex-1 min-w-0 p-2 rounded bg-base-200 font-mono text-xs leading-relaxed whitespace-pre-wrap break-all"><code {{ if .Builder }}data-mcp-cmd="{{ .Key }}"{{ end }}>{{ .Cmd }}</code></pre>
+      <button
+        type="button"
+        class="btn btn-ghost btn-xs mt-0.5"
+        onclick="copyCommand(this)"
+        aria-label="Copy the {{ .Label }} command">
+        copy
+      </button>
+    </div>
+  </div>
+{{ end }}

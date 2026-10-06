@@ -4,18 +4,7 @@
   table with infinite scroll. HTMX partial: block audit_rows renders the
   next page of rows
 */}}
-<!DOCTYPE html>
-<html lang="en">
-  {{ template "head" . }}
-
-
-  <body class="min-h-screen bg-base-200">
-    <div class="drawer lg:drawer-open">
-      {{ template "drawer_toggle" }}
-
-
-      <div class="drawer-content">
-        <main hx-history-elt class="p-4 lg:p-6 space-y-4 max-w-6xl">
+{{ template "page_open" (dict "Ctx" . "Main" "space-y-4 max-w-6xl") }}
           <!-- Header -->
           <div
             class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
@@ -56,28 +45,7 @@
                     <option value="" {{ if not $appGlob }}selected{{ end }}>
                       all apps
                     </option>
-                    {{ range .Data.Apps }}
-                      <option
-                        value="{{ . }}"
-                        {{ if eq . $appGlob }}selected{{ end }}>
-                        {{ . }}
-                      </option>
-                    {{ end }}
-                    {{/* A deep-linked glob (or a deleted app's path) is not
-                      in the apps list; keep it as a selected option so the
-                      shared url still filters and displays
-                    */}}
-                    {{ if $appGlob }}
-                      {{ $found := false }}
-                      {{ range .Data.Apps }}
-                        {{ if eq . $appGlob }}{{ $found = true }}{{ end }}
-                      {{ end }}
-                      {{ if not $found }}
-                        <option value="{{ $appGlob }}" selected>
-                          {{ $appGlob }}
-                        </option>
-                      {{ end }}
-                    {{ end }}
+                    {{ template "select_options" (dict "Options" .Data.Apps "Current" $appGlob) }}
                   </select>
                 </div>
 
@@ -118,22 +86,7 @@
                     <option value="" {{ if not $op }}selected{{ end }}>
                       all
                     </option>
-                    {{ range .Data.Operations }}
-                      <option
-                        value="{{ . }}"
-                        {{ if eq . $op }}selected{{ end }}>
-                        {{ . }}
-                      </option>
-                    {{ end }}
-                    {{ if $op }}
-                      {{ $found := false }}
-                      {{ range .Data.Operations }}
-                        {{ if eq . $op }}{{ $found = true }}{{ end }}
-                      {{ end }}
-                      {{ if not $found }}
-                        <option value="{{ $op }}" selected>{{ $op }}</option>
-                      {{ end }}
-                    {{ end }}
+                    {{ template "select_options" (dict "Options" .Data.Operations "Current" $op) }}
                   </select>
                 </div>
 
@@ -296,7 +249,7 @@
                       <span class="sr-only">Trace</span>
                     </th>
                     <th scope="col">Time</th>
-                    <th scope="col">Type</th>
+                    <th scope="col" class="hidden sm:table-cell">Type</th>
                     <th scope="col">Operation</th>
                     <th scope="col">Target</th>
                     <th scope="col" class="hidden md:table-cell">App</th>
@@ -337,9 +290,9 @@
                         </td>
                         <td
                           class="text-xs text-base-content/70 whitespace-nowrap">
-                          {{ template "time_ago" (dict "Time" $e.create_time "Res" 2) }}
+                          {{ template "time_ago" (dict "Time" $e.create_time "Res" 2 "Pos" "right") }}
                         </td>
-                        <td>
+                        <td class="hidden sm:table-cell">
                           {{ if eq $e.event_type "http" }}
                             <span
                               class="badge badge-xs badge-soft badge-primary"
@@ -366,7 +319,7 @@
                         </td>
                         <td>
                           <span
-                            class="font-mono text-xs inline-block min-w-40 max-w-56 break-all align-bottom"
+                            class="font-mono text-xs inline-block min-w-24 sm:min-w-40 max-w-56 break-all align-bottom"
                             title="{{ $e.target }}"
                             >{{ $e.target }}</span
                           >
@@ -374,25 +327,25 @@
                         <td class="hidden md:table-cell">
                           {{ if and $e.app_path (ne $e.app_env "preview") }}
                             <span
-                              class="font-mono text-xs inline-block max-w-40 break-all align-bottom tooltip tooltip-right"
+                              class="font-mono text-xs inline-block max-w-40 break-all align-bottom tooltip tooltip-left"
                               data-tip="{{ $e.app_name }}"
                               >{{ $e.app_path }}</span
                             ><a
                               href="{{ $.AppPath }}/apps/detail?path={{ $e.app_path }}"
                               data-tip="View app details"
                               aria-label="View details for {{ $e.app_path }}"
-                              class="inline-block text-primary text-xs opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-200 ml-0.5"
+                              class="inline-block text-primary text-xs opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-200 ml-0.5 tooltip tooltip-left"
                               ><span aria-hidden="true">↗</span></a
                             >
                           {{ else if $e.app_path }}
                             <span
-                              class="font-mono text-xs text-base-content/70 inline-block max-w-40 break-all align-bottom tooltip tooltip-right"
+                              class="font-mono text-xs text-base-content/70 inline-block max-w-40 break-all align-bottom tooltip tooltip-left"
                               data-tip="{{ $e.app_name }}"
                               >{{ $e.app_path }}</span
                             >
                           {{ else if $e.app_name }}
                             <span
-                              class="font-mono text-xs text-base-content/70 inline-block max-w-40 break-all align-bottom tooltip tooltip-right"
+                              class="font-mono text-xs text-base-content/70 inline-block max-w-40 break-all align-bottom tooltip tooltip-left"
                               data-tip="{{ $e.app_name }}"
                               >{{ $e.app_name }}</span
                             >
@@ -401,8 +354,8 @@
                           {{ end }}
                         </td>
                         <td
-                          class="text-xs text-base-content/70 hidden lg:table-cell max-w-32 truncate tooltip tooltip-left"
-                          data-tip="{{ $e.user_id }}">
+                          class="text-xs text-base-content/70 hidden lg:table-cell max-w-32 truncate{{ if $e.user_id }} tooltip tooltip-left{{ end }}"
+                          {{ if $e.user_id }}data-tip="{{ $e.user_id }}"{{ end }}>
                           {{ $e.user_id }}
                         </td>
                         <td>
@@ -456,10 +409,4 @@
                 class="htmx-indicator loading loading-dots loading-sm text-primary"></span>
             </div>
           </div>
-        </main>
-      </div>
-
-      {{ template "sidebar" . }}
-    </div>
-  </body>
-</html>
+{{ template "page_close" . }}

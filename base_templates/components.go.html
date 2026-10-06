@@ -67,15 +67,18 @@
   single-unit "1 day ago" style - see internal/system/sprig.go), with the
   exact UTC time as a tooltip. Context: the timestamp string, or a dict
   with Time and Res for a wider resolution (audit rows and version tables
-  pass Res 2: "1 hour 5 minutes ago"). Callers with their own tooltip
+  pass Res 2: "1 hour 5 minutes ago") and Pos for the bubble side (left in
+  the rightmost column of a scroll box, default top). Callers with their own tooltip
   (the app table's "· by user") call relTime directly
 */}}
 {{ define "time_ago" }}
   {{- $time := . -}}
   {{- $res := 1 -}}
+  {{- $pos := "" -}}
   {{- if kindIs "map" . -}}
     {{- $time = .Time -}}
-    {{- $res = .Res -}}
+    {{- if .Res }}{{ $res = .Res }}{{ end -}}
+    {{- if .Pos }}{{ $pos = print " tooltip-" .Pos }}{{ end -}}
   {{- end -}}
   {{- /* timestamps are time.Time values; RFC3339 strings (legacy paths)
     are parsed. dateInZone and relTime take the time value directly */ -}}
@@ -84,7 +87,7 @@
     {{- $t = toDate "2006-01-02T15:04:05Z07:00" $time -}}
   {{- end -}}
   <span
-    class="tooltip"
+    class="tooltip{{ $pos }}"
     data-tip="{{ dateInZone "2006-01-02 15:04:05" $t "UTC" }} UTC"
     >{{ relTime $t $res }}</span
   >
@@ -293,3 +296,56 @@
   HX-Redirect (form_redirect in handler.star)
 */}}
 {{ define "op_redirect" }}{{ end }}
+
+{{/* select_options: the <option>s of a select over a list of values, the
+  current one selected. A current value missing from the list (a deleted
+  entry, a deep-linked filter, a CLI-set value) is kept as a selected
+  option so the form round-trips it instead of silently changing it.
+  Context dict: Options, Current, Missing (optional suffix shown on the
+  kept option, like "(not found)") */}}
+{{ define "select_options" }}
+  {{ $current := .Current }}
+  {{ $found := not $current }}
+  {{ range .Options }}
+    {{ if eq . $current }}{{ $found = true }}{{ end }}
+    <option value="{{ . }}" {{ if eq . $current }}selected{{ end }}>{{ . }}</option>
+  {{ end }}
+  {{ if not $found }}
+    <option value="{{ $current }}" selected>{{ $current }}{{ if .Missing }} {{ .Missing }}{{ end }}</option>
+  {{ end }}
+{{ end }}
+
+{{/* page_search: the page-actions filter box (⌘K focuses it, console.js)
+  which re-renders the page's partial as the user types. Context dict:
+  Query (the current value), Label (aria-label), Placeholder, Url (the
+  page url the partial is fetched from), Target (the partial's hx-target),
+  Include (optional hx-include selector), Title (optional tooltip
+  explaining the syntax) */}}
+{{ define "page_search" }}
+  <label
+    class="input input-sm flex-1 min-w-0 sm:flex-none sm:w-48 sm:focus-within:w-60 transition-[width] duration-300 flex">
+    <kbd class="kbd kbd-xs hidden sm:inline-flex" aria-hidden="true"
+      >⌘K</kbd
+    >
+    <input
+      id="page-search"
+      type="search"
+      name="query"
+      aria-label="{{ .Label }}"
+      {{ if .Title }}title="{{ .Title }}"{{ end }}
+      value="{{ .Query }}"
+      placeholder="{{ .Placeholder }}"
+      hx-get="{{ .Url }}"
+      hx-trigger="input changed delay:300ms, search"
+      hx-push-url="true"
+      hx-target="{{ .Target }}"
+      hx-swap="innerHTML"
+      {{ if .Include }}hx-include="{{ .Include }}"{{ end }}
+      hx-indicator="#page-progress" />
+  </label>
+{{ end }}
+
+{{/* count: a number with its noun, singular for 1 ("1 version", "3
+  versions"). Context dict: N (int or float), One (the singular noun), Many
+  (optional plural, default One + "s") */}}
+{{ define "count" }}{{ .N }} {{ if eq (int .N) 1 }}{{ .One }}{{ else }}{{ or .Many (print .One "s") }}{{ end }}{{ end }}

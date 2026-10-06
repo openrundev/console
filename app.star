@@ -303,7 +303,14 @@ def build_routes():
             ace.html("/config/api", full="config_page.go.html", partial="page_content", handler=handler.config_api_data,
                      fragments=[
                          ace.fragment("action", method="POST", handler=handler.config_api_action_handler),
-                     ]),
+                     ] if ENABLE_UPDATES else []),
+            # MCP: the connect guide (endpoint state, client commands, the
+            # one-click management enable) above the MCP settings cards
+            ace.html("/config/mcp", full="config_mcp.go.html", partial="page_content", handler=handler.config_mcp_data,
+                     fragments=[
+                         ace.fragment("action", method="POST", handler=handler.config_mcp_action_handler),
+                         ace.fragment("enable", method="POST", handler=handler.mcp_enable_handler),
+                     ] if ENABLE_UPDATES else []),
             ace.html("/config/builder", full="config_page.go.html", partial="page_content", handler=handler.config_builder_data,
                      fragments=[
                          ace.fragment("action", method="POST", handler=handler.config_builder_action_handler),
@@ -470,6 +477,7 @@ def build_permissions():
             perm("openrun_admin.in", "update_params"),
             perm("openrun_admin.in", "update_auth"),
             perm("openrun_admin.in", "update_bindings"),
+            perm("openrun_admin.in", "update_mcp"),
             perm("openrun_admin.in", "reload_apps"),
             perm("openrun_admin.in", "approve_apps"),
             perm("openrun_admin.in", "switch_version"),

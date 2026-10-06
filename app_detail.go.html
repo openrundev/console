@@ -315,7 +315,7 @@
             Versions
           </h2>
           <span class="text-xs text-base-content/70"
-            >{{ len .Data.Versions }} versions</span
+            >{{ template "count" (dict "N" (len .Data.Versions) "One" "version") }}</span
           >
         </div>
         {{ template "version_table" (dict "Versions" .Data.Versions "Error" .Data.VersionsError "Env" $env "Path" .Data.Path "AppPath" .AppPath "Perms" .Data.Perms) }}
@@ -323,16 +323,6 @@
     {{ end }}
   {{ end }}
 {{ end }}
-{{/* job_status_badge renders a run status as a badge. Context: status string */}}
-{{ define "job_status_badge" }}
-  {{- $s := . -}}
-  <span
-    class="badge badge-xs badge-soft whitespace-nowrap {{ if eq $s "succeeded" }}badge-success{{ else if eq $s "running" }}badge-info{{ else if or (eq $s "failed") (eq $s "timed_out") (eq $s "lost") }}badge-error{{ else if eq $s "canceled" }}badge-warning{{ else }}badge-ghost{{ end }}"
-    data-run-status="{{ $s }}"
-    >{{ if eq $s "running" }}<span class="loading loading-spinner loading-xs mr-1" aria-hidden="true"></span>{{ end }}{{ $s }}</span
-  >
-{{ end }}
-
 {{/* job_trigger_badge renders a trigger type. Context: trigger string */}}
 {{ define "job_trigger_badge" }}
   <span class="badge badge-ghost badge-xs font-mono">{{ . }}</span>
@@ -375,7 +365,7 @@
       <div class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
         <h2 class="text-sm font-medium">Runs</h2>
         <span class="text-xs text-base-content/70"
-          >{{ len $runs.Rows }} runs{{ if $runs.Active }} · refreshing while a run is active{{ end }}</span
+          >{{ template "count" (dict "N" (len $runs.Rows) "One" "run") }}{{ if $runs.Active }} · refreshing while a run is active{{ end }}</span
         >
         <form
           class="ml-auto flex items-center gap-2"
@@ -439,7 +429,7 @@
                   </td>
                   <td>
                     <div class="flex items-center gap-1.5 flex-wrap">
-                      {{ template "job_status_badge" .status }}
+                      {{ template "run_status_badge" .status }}
                       {{ if and .has_exit_code (ne .status "succeeded") }}
                         <span class="font-mono text-xs text-base-content/70">exit {{ .exit_code }}</span>
                       {{ end }}
@@ -528,7 +518,7 @@
         <span class="font-mono text-xs break-all">{{ $logs.RunId }}</span>
         {{ if $logs.Run }}
           {{ template "job_run_chips" $logs.Run }}
-          {{ template "job_status_badge" $logs.Run.status }}
+          {{ template "run_status_badge" $logs.Run.status }}
           {{ if $logs.Run.has_exit_code }}
             <span class="font-mono text-xs text-base-content/70">exit {{ $logs.Run.exit_code }}</span>
           {{ end }}
@@ -596,7 +586,7 @@
     <div class="card bg-base-100 border border-base-300">
       <div class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
         <h2 class="text-sm font-medium">Jobs</h2>
-        <span class="text-xs text-base-content/70">{{ len $jobs.Rows }} jobs</span>
+        <span class="text-xs text-base-content/70">{{ template "count" (dict "N" (len $jobs.Rows) "One" "job") }}</span>
         <span class="text-xs text-base-content/70 ml-auto hidden md:inline"
           >declared in app.star, or set on the app (metadata)</span
         >
@@ -708,7 +698,7 @@
                         hx-target="#job-logs"
                         hx-swap="innerHTML show:top showTarget:#job-logs"
                         hx-indicator="#page-progress">
-                        {{ template "job_status_badge" .last_run.status }}
+                        {{ template "run_status_badge" .last_run.status }}
                         {{ if .last_run.started_at }}
                           <span class="text-base-content/70">{{ template "time_ago" .last_run.started_at }}</span>
                         {{ end }}
@@ -716,7 +706,7 @@
                     {{ else if .last_run }}
                       {{/* status without the output link: app:read only */}}
                       <span class="inline-flex items-center gap-1.5 text-xs">
-                        {{ template "job_status_badge" .last_run.status }}
+                        {{ template "run_status_badge" .last_run.status }}
                         {{ if .last_run.started_at }}
                           <span class="text-base-content/70">{{ template "time_ago" .last_run.started_at }}</span>
                         {{ end }}
@@ -877,18 +867,7 @@
     {{ end }}
   </div>
 {{ end }}
-<!DOCTYPE html>
-<html lang="en">
-  {{ template "head" . }}
-
-  <body class="min-h-screen bg-base-200">
-    <script src="{{ static "vendor/highlight.min.js" }}"></script>
-    <script src="{{ static "builderfiles.js" }}"></script>
-    <div class="drawer lg:drawer-open">
-      {{ template "drawer_toggle" }}
-
-      <div class="drawer-content">
-        <main hx-history-elt class="p-4 lg:p-6 max-w-6xl">
+{{ template "page_open" (dict "Ctx" . "Main" "max-w-6xl" "Scripts" (list (static "vendor/highlight.min.js") (static "builderfiles.js"))) }}
           <div id="detail-content" class="space-y-4">
           {{ block "detail_content" . }}
           <!-- Header -->
@@ -1172,10 +1151,9 @@
                         href="{{ .Data.App.browse_url }}"
                         target="_blank"
                         rel="noopener"
-                        class="tooltip tooltip-top"
+                        class="tooltip tooltip-top inline-block text-primary ml-0.5"
                         data-tip="View source code in a new tab"
                         aria-label="View source of {{ .Data.Path }} in a new tab"
-                        class="inline-block text-primary ml-0.5"
                         ><span aria-hidden="true">↗</span></a
                       >{{ end }}{{ if .Data.App.git_branch }}
                       <span class="badge badge-ghost badge-xs"
@@ -1260,6 +1238,40 @@
                         <span aria-hidden="true">→</span></a
                       >
                     </span>
+                  {{ end }}
+                  {{ if .Data.App.mcp_url }}
+                    <span class="text-xs text-base-content/70 pt-0.5">MCP</span>
+                    <span class="text-xs pt-1 flex items-center gap-1.5 flex-wrap" data-app-mcp="{{ .Data.App.mcp_url }}">
+                      <span class="font-mono break-all">{{ .Data.App.mcp_url }}</span>
+                      <button
+                        type="button"
+                        class="btn btn-ghost btn-xs"
+                        onclick="copyText(this, {{ .Data.App.mcp_url }})"
+                        aria-label="Copy the MCP url">
+                        copy
+                      </button>
+                      {{ if .Data.App.mcp_implicit }}
+                        <span
+                          class="badge badge-ghost badge-xs tooltip tooltip-top"
+                          data-tip="The app's actions are served as MCP tools by default; set MCP to disable on the edit form to turn it off"
+                          >actions</span
+                        >
+                      {{ else }}
+                        <span class="badge badge-ghost badge-xs">{{ .Data.App.mcp_source }}</span>
+                      {{ end }}
+                      {{ if and (index .Data.Perms "feature:config") (index .Data.Perms "config:read") }}
+                        <a href="{{ .AppPath }}/config/mcp" class="link">connect a client →</a>
+                      {{ end }}
+                    </span>
+                  {{ else if .Data.App.mcp_disabled }}
+                    <span class="text-xs text-base-content/70 pt-0.5">MCP</span>
+                    <span class="pt-0.5 flex items-center" data-app-mcp="disabled"
+                      ><span
+                        class="badge badge-ghost badge-xs tooltip tooltip-top"
+                        data-tip="MCP is turned off for this app: no endpoint, left out of every tool list"
+                        >disabled</span
+                      ></span
+                    >
                   {{ end }}
                   {{ if .Data.App.job_count }}
                     <span class="text-xs text-base-content/70 pt-0.5">Jobs</span>
@@ -1411,10 +1423,4 @@
             "Target" "#detail-content"
             "Perms" .Data.Perms)
           }}
-        </main>
-      </div>
-
-      {{ template "sidebar" . }}
-    </div>
-  </body>
-</html>
+{{ template "page_close" . }}

@@ -3,16 +3,7 @@
 {{/* Containers page (/containers): managed containers by type tab (apps,
      sidecars, litestream, jobs, agents, kaniko, all) with the show-stopped
      checkbox and search. HTMX partial: block container_rows */}}
-<!DOCTYPE html>
-<html lang="en">
-  {{ template "head" . }}
-
-  <body class="min-h-screen bg-base-200">
-    <div class="drawer lg:drawer-open">
-      {{ template "drawer_toggle" }}
-
-      <div class="drawer-content">
-        <main hx-history-elt class="p-4 lg:p-6 space-y-4 max-w-6xl">
+{{ template "page_open" (dict "Ctx" . "Main" "space-y-4 max-w-6xl") }}
           <!-- Header -->
           <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" . }}
@@ -51,24 +42,7 @@
                   hx-indicator="#page-progress" />
                 Show stopped
               </label>
-              <label
-                class="input input-sm flex-1 min-w-0 sm:flex-none sm:w-48 sm:focus-within:w-60 transition-[width] duration-300 flex">
-                <kbd class="kbd kbd-xs hidden sm:inline-flex" aria-hidden="true">⌘K</kbd>
-                <input
-                  id="page-search"
-                  type="search"
-                  name="query"
-                  aria-label="Filter containers"
-                  value="{{ .Data.Query }}"
-                  placeholder="Filter containers…"
-                  hx-get="{{ .AppPath }}/containers"
-                  hx-trigger="input changed delay:300ms, search"
-                  hx-include="#app-filter-value, #show-stopped"
-                  hx-push-url="true"
-                  hx-target="#container-rows"
-                  hx-swap="innerHTML"
-                  hx-indicator="#page-progress" />
-              </label>
+              {{ template "page_search" (dict "Query" .Data.Query "Label" "Filter containers" "Placeholder" "Filter containers…" "Url" (print .AppPath "/containers") "Target" "#container-rows" "Include" "#app-filter-value, #show-stopped") }}
             </div>
           </div>
 
@@ -395,7 +369,7 @@
                                     href="{{ $.AppPath }}/apps/detail?path={{ .app_path }}"
                                     data-tip="View app details"
                                     aria-label="View details for {{ .app_path }}"
-                                    class="inline-block text-primary text-xs opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-200 ml-0.5"
+                                    class="inline-block text-primary text-xs opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-200 ml-0.5 tooltip tooltip-right"
                                     ><span aria-hidden="true">↗</span></a
                                   >{{ if and .env (ne .env "prod") }}
                                     <span class="badge badge-ghost badge-xs"
@@ -539,10 +513,4 @@
             {{ end }}
             <!-- End of "container_rows" block -->
           </div>
-        </main>
-      </div>
-
-      {{ template "sidebar" . }}
-    </div>
-  </body>
-</html>
+{{ template "page_close" . }}

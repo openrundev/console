@@ -5,16 +5,7 @@
      sections need no template or backend change. Saving is live immediately
      (no staging). Secret fields are write-only: blank on edit keeps the
      stored value via the redaction placeholder */}}
-<!DOCTYPE html>
-<html lang="en">
-  {{ template "head" . }}
-
-  <body class="min-h-screen bg-base-200">
-    <div class="drawer lg:drawer-open">
-      {{ template "drawer_toggle" }}
-
-      <div class="drawer-content">
-        <main hx-history-elt class="p-4 lg:p-6 space-y-4 max-w-2xl">
+{{ template "page_open" (dict "Ctx" . "Main" "space-y-4 max-w-2xl") }}
           <!-- Header -->
           <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" . }}
@@ -63,7 +54,7 @@
 
 
 {{ block "op_form" . }}
-          <div id="op-form-wrap">
+          <div id="op-form-wrap" class="space-y-4">
           {{ template "error_alert" .Data.Error }}
 
 
@@ -73,7 +64,7 @@
             id="op-form"
             hx-post="{{ .AppPath }}/config/entry"
             hx-target="#op-form-wrap"
-            hx-swap="outerHTML"
+            hx-swap="outerHTML show:top showTarget:#op-form-wrap"
             hx-indicator="#page-progress, #op-form"
             class="card bg-base-100 border border-base-300">
             <div class="card-body p-5 gap-5">
@@ -174,18 +165,7 @@
                       {{ else if not $current }}
                         <option value="" selected disabled>choose...</option>
                       {{ end }}
-                      {{ range $opts }}
-                        <option value="{{ . }}" {{ if eq . $current }}selected{{ end }}>{{ . }}</option>
-                      {{ end }}
-                      {{ if $current }}
-                        {{ $found := false }}
-                        {{ range $opts }}
-                          {{ if eq . $current }}{{ $found = true }}{{ end }}
-                        {{ end }}
-                        {{ if not $found }}
-                          <option value="{{ $current }}" selected>{{ $current }} (not found)</option>
-                        {{ end }}
-                      {{ end }}
+                      {{ template "select_options" (dict "Options" $opts "Current" $current "Missing" "(not found)") }}
                     </select>
                   {{ else if eq $kind "checklist" }}
                     <span class="block text-sm font-medium mb-1">{{ .label }}</span>
@@ -325,10 +305,4 @@
           </form>
           </div>
           {{ end }}
-        </main>
-      </div>
-
-      {{ template "sidebar" . }}
-    </div>
-  </body>
-</html>
+{{ template "page_close" . }}

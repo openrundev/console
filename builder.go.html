@@ -3,18 +3,7 @@
 {{/* Builder sessions list (/builder): draft apps built with the AI agent.
   HTMX partial: block builder_rows
 */}}
-<!DOCTYPE html>
-<html lang="en">
-  {{ template "head" . }}
-
-
-  <body class="min-h-screen bg-base-200">
-    <div class="drawer lg:drawer-open">
-      {{ template "drawer_toggle" }}
-
-
-      <div class="drawer-content">
-        <main hx-history-elt class="p-4 lg:p-6 space-y-4 max-w-6xl">
+{{ template "page_open" (dict "Ctx" . "Main" "space-y-4 max-w-6xl") }}
           <!-- Header -->
           <div
             class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
@@ -26,25 +15,7 @@
               </p>
             </div>
             <div class="page-actions ml-auto flex items-center gap-2">
-              <label
-                class="input input-sm flex-1 min-w-0 sm:flex-none sm:w-48 sm:focus-within:w-60 transition-[width] duration-300 flex">
-                <kbd class="kbd kbd-xs hidden sm:inline-flex" aria-hidden="true"
-                  >⌘K</kbd
-                >
-                <input
-                  id="page-search"
-                  type="search"
-                  name="query"
-                  aria-label="Filter builder sessions"
-                  value="{{ .Data.Query }}"
-                  placeholder="Filter sessions…"
-                  hx-get="{{ .AppPath }}/builder"
-                  hx-trigger="input changed delay:300ms, search"
-                  hx-push-url="true"
-                  hx-target="#builder-rows"
-                  hx-swap="innerHTML"
-                  hx-indicator="#page-progress" />
-              </label>
+              {{ template "page_search" (dict "Query" .Data.Query "Label" "Filter builder sessions" "Placeholder" "Filter sessions…" "Url" (print .AppPath "/builder") "Target" "#builder-rows") }}
               <a
                 class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "builder:create") }}
                   btn-disabled tooltip tooltip-bottom
@@ -112,8 +83,7 @@
                               </a>
                             </td>
                             <td
-                              class="font-medium break-words whitespace-normal"
-                              style="min-width: 11rem; max-width: 18rem">
+                              class="font-medium break-words whitespace-normal sm:min-w-44 max-w-72">
                               {{ .name }}
                               {{ if .edit_app }}
                                 <span
@@ -159,7 +129,7 @@
                               {{ .user_id }}
                             </td>
                             <td class="text-right">
-                              <div class="inline-flex items-center gap-1">
+                              <div class="inline-flex flex-col items-end sm:flex-row sm:items-center gap-1">
                                 {{ $canWrite := index $.Data.Perms "builder:create" }}
                                 {{ if or (eq .status "detached") (eq .status "error") }}
                                   <button
@@ -172,8 +142,7 @@
                                       hx-disable="this"
                                       hx-indicator="#page-progress"
                                     {{ else }}
-                                      disabled data-tip="requires
-                                      builder:create"
+                                      disabled data-tip="requires builder:create"
                                     {{ end }}
                                     aria-label="Resume session {{ .name }}">
                                     Resume
@@ -189,8 +158,7 @@
                                       hx-disable="this"
                                       hx-indicator="#page-progress"
                                     {{ else }}
-                                      disabled data-tip="requires
-                                      builder:create"
+                                      disabled data-tip="requires builder:create"
                                     {{ end }}
                                     aria-label="Stop session {{ .name }}">
                                     Stop
@@ -253,10 +221,4 @@
             {{ end }}
             <!-- End of "builder_rows" block -->
           </div>
-        </main>
-      </div>
-
-      {{ template "sidebar" . }}
-    </div>
-  </body>
-</html>
+{{ template "page_close" . }}

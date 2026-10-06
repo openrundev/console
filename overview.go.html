@@ -15,18 +15,7 @@
   Chart/tile styling is the console-owned .ov-* layer in
   static/css/accessibility.css
 */}}
-<!DOCTYPE html>
-<html lang="en">
-  {{ template "head" . }}
-
-
-  <body class="min-h-screen bg-base-200">
-    <div class="drawer lg:drawer-open">
-      {{ template "drawer_toggle" }}
-
-
-      <div class="drawer-content">
-        <main hx-history-elt class="p-4 lg:p-6 space-y-4 max-w-6xl">
+{{ template "page_open" (dict "Ctx" . "Main" "space-y-4 max-w-6xl") }}
           <!-- Header -->
           <div
             class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
@@ -255,7 +244,7 @@
                                   <td
                                     class="text-xs text-base-content/70 text-right whitespace-nowrap">
                                     {{ if .last_exec }}
-                                      {{ template "time_ago" .last_exec }}
+                                      {{ template "time_ago" (dict "Time" .last_exec "Pos" "left") }}
                                     {{ else }}
                                       -
                                     {{ end }}
@@ -551,7 +540,7 @@
                                 <table class="table table-xs">
                                   <thead>
                                     <tr>
-                                      <th scope="col">User</th>
+                                      <th scope="col" class="hidden sm:table-cell">User</th>
                                       <th scope="col">Operation</th>
                                       <th scope="col">Target</th>
                                       <th scope="col" class="text-right">
@@ -563,7 +552,7 @@
                                     {{ range .Events }}
                                       <tr>
                                         <td
-                                          class="font-mono text-xs whitespace-nowrap">
+                                          class="font-mono text-xs whitespace-nowrap hidden sm:table-cell">
                                           {{ .user }}
                                         </td>
                                         <td
@@ -574,7 +563,7 @@
                                         </td>
                                         <td class="font-mono text-xs">
                                           <span
-                                            class="inline-block truncate max-w-72 align-bottom"
+                                            class="inline-block truncate max-w-40 sm:max-w-72 align-bottom"
                                             title="{{ .target }}"
                                             >{{ .target }}</span
                                           >
@@ -582,7 +571,8 @@
                                         <td
                                           class="text-xs text-base-content/70 text-right whitespace-nowrap">
                                           {{ if .time }}
-                                            {{ template "time_ago" .time }}
+                                            {{/* left: the rightmost column of a scroll box, a top bubble is clipped */}}
+                                            {{ template "time_ago" (dict "Time" .time "Pos" "left") }}
                                           {{ end }}
                                         </td>
                                       </tr>
@@ -611,6 +601,10 @@
 
 
                 <!-- Server identity minis -->
+                {{/* The minis sit in their own auto-fit row: five tiles (four on a
+                  server without the api status) in the page's four column
+                  grid left the last one alone on a row */}}
+                <div class="ov-minis">
                 {{ with .Data.Server }}
                   {{ if .Error }}
                     <section class="ov-tile ov-mini" aria-label="Server">
@@ -629,7 +623,7 @@
                     </section>
                     <section class="ov-tile ov-mini" aria-label="Version">
                       <div class="ov-label">Version</div>
-                      <div class="font-mono text-lg font-medium truncate pt-1" title="{{ .Version }}">
+                      <div class="font-mono text-lg font-medium truncate leading-[1.68rem]" title="{{ .Version }}">
                         {{ .Version }}
                       </div>
                       {{ if .Commit }}
@@ -657,20 +651,36 @@
                       <div class="ov-mini-num">{{ or .Runtime "none" }}</div>
                       <div class="text-xs text-base-content/70">containers</div>
                     </section>
+                    {{ with .Api }}
+                      <!-- MCP: the management endpoint state; the app
+                           actions endpoint is on by default (served while
+                           RBAC is enforced). Links the MCP config page -->
+                      <section class="ov-tile ov-mini" aria-label="MCP">
+                        <div class="ov-label">MCP</div>
+                        <div class="ov-mini-num">
+                          {{ if .mcp.enabled }}on{{ else }}off{{ end }}
+                        </div>
+                        <div class="text-xs text-base-content/70">
+                          {{ $text := printf "management %s · app actions %s" (ternary "on" "off" .mcp.enabled) (ternary "on" "off" .app_mcp.served) }}
+                          {{ if and (index $.Data.Perms "feature:config") (index $.Data.Perms "config:read") }}
+                            <a href="{{ $.AppPath }}/config/mcp" class="link link-hover"
+                              >{{ $text }} <span aria-hidden="true">→</span></a
+                            >
+                          {{ else }}
+                            {{ $text }}
+                          {{ end }}
+                        </div>
+                      </section>
+                    {{ end }}
                   {{ end }}
                 {{ end }}
+                </div>
 
               </div>
             {{ end }}
             <!-- End of "overview_content" block -->
           </div>
-        </main>
-      </div>
-
-      {{ template "sidebar" . }}
-    </div>
-  </body>
-</html>
+{{ template "page_close" . }}
 
 {{/* ---- Page-local pieces ---- */}}
 {{/* The ov_head / ov_area_link tile-header defines live in

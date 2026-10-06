@@ -201,7 +201,7 @@ html[data-signin-dismissed] #signin-strip {
    uses the block's max-content width (its one-line page-desc), which pushed
    the whole block below the hamburger on mobile. flex-basis 0 keeps it on
    the first line and the desc wraps inside instead. */
-.page-header > div:has(> .page-title) {
+.page-header > div:has(.page-title) {
   flex: 1 1 0%;
   min-width: 0;
 }
@@ -212,7 +212,7 @@ html[data-signin-dismissed] #signin-strip {
    re-center against the taller stack floats the logo off the title line
    whenever the page-desc is short. */
 @media (max-width: 63.9375rem) {
-  .page-header > div:has(> .page-title) {
+  .page-header > div:has(.page-title) {
     align-self: flex-start;
     margin-top: 0.25rem;
   }
@@ -559,6 +559,33 @@ builder-chat .bc-tool-title {
   left: 0;
   --tt-trans: 0%;
 }
+/* From the tablet width up: (1) table scroll boxes stop clipping bubbles.
+   .overflow-x-auto makes BOTH axes clip (overflow-y computes to auto), so
+   a left/right bubble taller than its row was cut at the box's top or
+   bottom edge on first/last rows and in short tables (2-5 line tips lost
+   up to a quarter of their height), and top bubbles on the first row lost
+   their top. The wrappers exist for PHONE widths, where a wide table has
+   to scroll inside its card; no table needs to scroll from 48rem up
+   (measured over every page), so the box becomes x-clip (still no spill
+   past the card) and y-visible. Only wrappers marked .ox-fit: console.js
+   (fitTableWrappers) sets the class on a table wrapper whose table fits
+   its width and removes it when the table is wider - that table keeps
+   the scroll box, a clipped one would lose its last columns with no way
+   to reach them. Code and log panes are never marked. (2) page header controls anchor their bottom
+   bubble to the host's RIGHT edge: page-actions sit at the right edge of
+   main, where a centered bubble (wider than its button) ran past the
+   viewport */
+@media (min-width: 48rem) {
+  main .overflow-x-auto.ox-fit {
+    overflow-x: clip;
+    overflow-y: visible;
+  }
+  .page-actions .tooltip.tooltip-bottom[data-tip]::before {
+    left: auto;
+    right: 0;
+    --tt-trans: 0%;
+  }
+}
 /* Belt for the dot bubbles: the tips are tail-truncated server-side, the
    cap keeps any remaining long tip from running off the tile */
 .ov-viz .tooltip:before {
@@ -584,6 +611,28 @@ builder-chat .bc-tool-title {
 }
 .ov-tile:hover::after {
   opacity: 1;
+}
+/* The server identity minis: a row of their own across the grid, the
+   tiles sharing the width equally however many there are */
+.ov-minis {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 1rem;
+}
+/* The containers type filter is six joined buttons: at the default
+   padding the row is a few px wider than a phone */
+@media (max-width: 39.9375rem) {
+  [aria-label="Filter containers by type"] > .btn {
+    padding-inline: 0.5rem;
+  }
+}
+/* On a phone the minis pair up: an odd one out takes the full row instead
+   of sitting beside an empty cell */
+@media (max-width: 39.9375rem) {
+  .ov-minis > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
 }
 /* Hero apps tile: faint brand glow anchored at the number's corner */
 .ov-apps {

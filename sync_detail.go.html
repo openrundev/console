@@ -2,16 +2,7 @@
 {{/* SPDX-License-Identifier: Apache-2.0 */}}
 {{/* Sync detail page (/syncs/detail?id=): settings, status and the stored
      results of the last invocation. HTMX partial: block sync_content */}}
-<!DOCTYPE html>
-<html lang="en">
-  {{ template "head" . }}
-
-  <body class="min-h-screen bg-base-200">
-    <div class="drawer lg:drawer-open">
-      {{ template "drawer_toggle" }}
-
-      <div class="drawer-content">
-        <main hx-history-elt class="p-4 lg:p-6 max-w-6xl">
+{{ template "page_open" (dict "Ctx" . "Main" "max-w-6xl") }}
           <div
             id="sync-content"
             class="space-y-4">
@@ -218,14 +209,7 @@
                       This sync has not run yet
                     </p>
                   {{ else }}
-                    {{ if $s.error }}
-                      <div
-                        role="alert"
-                        class="alert alert-error alert-soft py-2 text-sm">
-                        <span aria-hidden="true">✕</span>
-                        <span class="break-all">{{ $s.error }}</span>
-                      </div>
-                    {{ end }}
+                    {{ template "error_alert" $s.error }}
                     {{ if .Data.LastResult }}
                       {{ $r := .Data.LastResult }}
                       <div class="text-xs text-base-content/70">
@@ -239,17 +223,7 @@
                         {{ end }}
                       </div>
                       {{ if $r.changed }}
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-1">
-                          {{ template "sync_result_row" (dict "Label" "Created" "Items" $r.created) }}
-                          {{ template "sync_result_row" (dict "Label" "Updated" "Items" $r.updated) }}
-                          {{ template "sync_result_row" (dict "Label" "Reloaded" "Items" $r.reloaded) }}
-                          {{ template "sync_result_row" (dict "Label" "Promoted" "Items" $r.promoted) }}
-                          {{ template "sync_result_row" (dict "Label" "Approved" "Items" $r.approved) }}
-                          {{ template "sync_result_row" (dict "Label" "Skipped" "Items" $r.skipped) }}
-                          {{ template "sync_result_row" (dict "Label" "Bindings +" "Items" $r.bindings_created) }}
-                          {{ template "sync_result_row" (dict "Label" "Bindings ~" "Items" $r.bindings_updated) }}
-                          {{ template "sync_result_row" (dict "Label" "Bindings ↑" "Items" $r.bindings_promoted) }}
-                        </div>
+                        {{ template "sync_result_rows" $r }}
                       {{ end }}
                     {{ end }}
                   {{ end }}
@@ -262,7 +236,7 @@
                   class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2">
                   <h2 class="text-sm font-medium">Apps</h2>
                   <span class="text-xs text-base-content/70"
-                    >{{ len .Data.Apps }} apps managed by this sync</span
+                    >{{ template "count" (dict "N" (len .Data.Apps) "One" "app") }} managed by this sync</span
                   >
                   <a
                     href="{{ .AppPath }}/apps"
@@ -286,10 +260,4 @@
           {{ end }}
           <!-- End of "sync_content" block -->
           </div>
-        </main>
-      </div>
-
-      {{ template "sidebar" . }}
-    </div>
-  </body>
-</html>
+{{ template "page_close" . }}

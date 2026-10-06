@@ -5,18 +5,7 @@
   draft exists). Changes are staged and go live on publish, unlike the
   other config sections. HTMX partial: block rbac_content
 */}}
-<!DOCTYPE html>
-<html lang="en">
-  {{ template "head" . }}
-
-
-  <body class="min-h-screen bg-base-200">
-    <div class="drawer lg:drawer-open">
-      {{ template "drawer_toggle" }}
-
-
-      <div class="drawer-content">
-        <main hx-history-elt class="p-4 lg:p-6 max-w-6xl">
+{{ template "page_open" (dict "Ctx" . "Main" "max-w-6xl") }}
           <div id="rbac-content" class="space-y-4">
             {{ block "rbac_content" . }}
               <!-- Header -->
@@ -218,7 +207,7 @@
                     class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
                     <h3 class="text-sm font-medium">Groups</h3>
                         <span class="text-xs text-base-content/70"
-                          >{{ len $view.groups }} groups - user id lists, usable
+                          >{{ template "count" (dict "N" (len $view.groups) "One" "group") }} - user id lists, usable
                           in grants</span
                         >
                         {{ if not $viewLive }}
@@ -243,7 +232,7 @@
                               {{ range $view.groups }}
                                 <tr class="group hover:bg-base-200/60">
                                   <td
-                                    class="font-mono text-xs font-medium w-48 align-top">
+                                    class="font-mono text-xs font-medium w-48">
                                     {{ .name }}
                                   </td>
                                   <td>
@@ -313,7 +302,7 @@
                     class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
                     <h3 class="text-sm font-medium">Roles</h3>
                         <span class="text-xs text-base-content/70"
-                          >{{ len $view.roles }} roles - permission sets; the
+                          >{{ template "count" (dict "N" (len $view.roles) "One" "role") }} - permission sets; the
                           built-in <span class="font-mono">admin</span> role
                           always exists</span
                         >
@@ -339,7 +328,7 @@
                               {{ range $view.roles }}
                                 <tr class="group hover:bg-base-200/60">
                                   <td
-                                    class="font-mono text-xs font-medium w-48 align-top">
+                                    class="font-mono text-xs font-medium w-48">
                                     {{ .name }}
                                   </td>
                                   <td>
@@ -411,7 +400,7 @@
                     class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
                     <h3 class="text-sm font-medium">Grants</h3>
                         <span class="text-xs text-base-content/70"
-                          >{{ len $view.grants }} grants - who gets which roles
+                          >{{ template "count" (dict "N" (len $view.grants) "One" "grant") }} - who gets which roles
                           on which apps, services and bindings</span
                         >
                         {{ if not $viewLive }}
@@ -530,10 +519,4 @@
             {{ end }}
             <!-- End of "rbac_content" block -->
           </div>
-        </main>
-      </div>
-
-      {{ template "sidebar" . }}
-    </div>
-  </body>
-</html>
+{{ template "page_close" . }}

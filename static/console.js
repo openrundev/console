@@ -983,6 +983,94 @@ function copyDiffPane(button) {
 	});
 }
 
+// Copy a text to the clipboard with a "Copied" flash on the button (the
+// app detail MCP url, the MCP page commands)
+function copyText(button, text) {
+	navigator.clipboard.writeText(text).then(() => {
+		const original = button.innerText;
+		button.innerText = 'Copied';
+		setTimeout(() => {
+			button.innerText = original;
+		}, 1200);
+	});
+}
+
+// Copy the command of the nearest MCP page command row
+function copyCommand(button) {
+	const row = button.closest('[data-mcp-command]');
+	const code = row && row.querySelector('code');
+	if (code) {
+		copyText(button, code.textContent);
+	}
+}
+
+// The MCP page connect-command builder: a [data-mcp-builder] holds the
+// endpoint base url, the server's default login and the MCP server name;
+// its login select (name=mcp_login) and apps glob input (name=mcp_apps)
+// rewrite the [data-mcp-cmd] commands. A login equal to the server default
+// and an empty/"all" glob stay off the url: a bare url is what the docs
+// show, the params only when they change the view
+function updateMcpBuilder(builder) {
+	const base = builder.getAttribute('data-mcp-base') || '';
+	const defaultAuth = builder.getAttribute('data-mcp-default-auth') || '';
+	const name = builder.getAttribute('data-mcp-name') || 'openrun';
+	const login = builder.querySelector('[name=mcp_login]');
+	const apps = builder.querySelector('[name=mcp_apps]');
+	const params = [];
+	if (login && login.value && login.value !== defaultAuth) {
+		params.push('auth=' + login.value);
+	}
+	if (apps) {
+		const glob = apps.value.trim();
+		if (glob && glob !== 'all') {
+			params.push('apps=' + glob);
+		}
+	}
+	const url = params.length ? base + '?' + params.join('&') : base;
+	const commands = {
+		claude: 'claude mcp add --transport http ' + name + ' "' + url + '"',
+		codex: 'codex mcp add ' + name + ' --url "' + url + '"',
+		url: url,
+	};
+	builder.querySelectorAll('[data-mcp-cmd]').forEach((code) => {
+		const key = code.getAttribute('data-mcp-cmd');
+		if (commands[key] !== undefined) {
+			code.textContent = commands[key];
+		}
+	});
+}
+
+function wireMcpBuilders(root) {
+	const scope = root && root.querySelectorAll ? root : document;
+	scope.querySelectorAll('[data-mcp-builder]:not([data-wired])').forEach((builder) => {
+		builder.setAttribute('data-wired', 'true');
+		builder.addEventListener('input', () => updateMcpBuilder(builder));
+		builder.addEventListener('change', () => updateMcpBuilder(builder));
+		updateMcpBuilder(builder);
+	});
+}
+document.addEventListener('DOMContentLoaded', () => wireMcpBuilders());
+document.addEventListener('htmx:after:swap', (event) => wireMcpBuilders(event.detail.ctx?.target));
+
+// Table scroll wrappers (.overflow-x-auto around a table) clip tooltip
+// bubbles at their top and bottom edge, because overflow-x:auto makes the
+// box clip on both axes. A wrapper whose table fits does not need to scroll:
+// mark it .ox-fit and accessibility.css drops the vertical clipping (from
+// the tablet width up). A table wider than its wrapper keeps the scroll box.
+// Re-measured after htmx swaps and on resize
+function fitTableWrappers() {
+	document.querySelectorAll('main .overflow-x-auto').forEach((wrap) => {
+		const table = wrap.querySelector(':scope > table');
+		if (!table) {
+			return;
+		}
+		wrap.classList.toggle('ox-fit', table.offsetWidth <= wrap.clientWidth + 1);
+	});
+}
+document.addEventListener('DOMContentLoaded', fitTableWrappers);
+document.addEventListener('htmx:after:swap', () => requestAnimationFrame(fitTableWrappers));
+window.addEventListener('resize', () => requestAnimationFrame(fitTableWrappers));
+
 // Python/starlark syntax highlighting for the config and diff panes on the
 // app detail Config/Compare tabs. The server renders plain text lines;
 // highlight.js (loaded by the detail page for the files explorer) colors

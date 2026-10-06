@@ -2,23 +2,13 @@
 {{/* SPDX-License-Identifier: Apache-2.0 */}}
 {{/* Configuration page (/config): overview of the config areas, one card per
   sub page. RBAC has the staged-update workflow; the other sub pages
-  (authentication, git auth, secrets, system, app builder) hold dynamic
-  entries/settings which take effect immediately on save and override the
-  static openrun.toml values. Ends with the config history with restore.
+  (authentication, remote management API, MCP API, git auth, secrets,
+  system settings, app builder) hold dynamic entries/settings which take
+  effect immediately on save and override the static openrun.toml values;
+  the RBAC card renders second, after Authentication. Ends with the config history with restore.
   HTMX partial: block config_content
 */}}
-<!DOCTYPE html>
-<html lang="en">
-  {{ template "head" . }}
-
-
-  <body class="min-h-screen bg-base-200">
-    <div class="drawer lg:drawer-open">
-      {{ template "drawer_toggle" }}
-
-
-      <div class="drawer-content">
-        <main hx-history-elt class="p-4 lg:p-6 max-w-6xl">
+{{ template "page_open" (dict "Ctx" . "Main" "max-w-6xl") }}
           <div id="config-content" class="space-y-4">
             {{ block "config_content" . }}
               <!-- Header -->
@@ -43,40 +33,6 @@
 
                 <!-- Config areas -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <!-- RBAC summary card -->
-                  <div class="card bg-base-100 border border-base-300">
-                    <div class="card-body p-4 gap-2">
-                      <div class="flex items-center gap-2 flex-wrap">
-                        <h2 class="text-sm font-medium">RBAC</h2>
-                        {{ if not .AppRBACEnabled }}
-                          <span
-                            class="badge badge-warning badge-sm badge-soft tooltip tooltip-top"
-                            data-tip="security.unsafe_disable_rbac is set on this server: grants are not enforced"
-                            >not enforced</span
-                          >
-                        {{ end }}
-                        {{ if .Data.RBAC.has_staged }}
-                          <span
-                            class="badge badge-warning badge-sm badge-soft tooltip tooltip-top"
-                            data-tip="staged changes by {{ .Data.RBAC.staged_by }} pending publish"
-                            >pending</span
-                          >
-                        {{ end }}
-                        <a
-                          href="{{ .AppPath }}/config/rbac"
-                          class="btn btn-xs btn-outline ml-auto">
-                          Manage
-                        </a>
-                      </div>
-                      <p class="text-xs text-base-content/70">
-                        Role based access control - {{ .Data.RBAC.groups }}
-                        groups, {{ .Data.RBAC.roles }} roles,
-                        {{ .Data.RBAC.grants }} grants. Always enforced; changes
-                        are staged and go live on publish
-                      </p>
-                    </div>
-                  </div>
-
                   <!-- Sub page cards -->
                   {{ range .Data.Pages }}
                     <div class="card bg-base-100 border border-base-300">
@@ -85,7 +41,7 @@
                           <h2 class="text-sm font-medium">{{ .title }}</h2>
                           {{ if .has_entries }}
                             <span class="badge badge-ghost badge-sm"
-                              >{{ .entry_count }} entries</span
+                              >{{ template "count" (dict "N" .entry_count "One" "entry" "Many" "entries") }}</span
                             >
                           {{ end }}
                           {{ if .dynamic_count }}
@@ -102,10 +58,15 @@
                           </a>
                         </div>
                         <p class="text-xs text-base-content/70">
-                          {{ .desc }} - changes take effect immediately
+                          {{ .desc }}
                         </p>
                       </div>
                     </div>
+                    {{ if eq .page "auth" }}
+                      {{/* RBAC follows Authentication (the order is the
+                        CONFIG_PAGES order, RBAC is not one of them) */}}
+                      {{ template "config_rbac_card" $ }}
+                    {{ end }}
                   {{ end }}
                 </div>
 
@@ -125,7 +86,7 @@
                         <thead>
                           <tr>
                             <th scope="col">Version</th>
-                            <th scope="col">By</th>
+                            <th scope="col" class="hidden sm:table-cell">By</th>
                             <th scope="col">When</th>
                             <th scope="col" class="text-right">Actions</th>
                           </tr>
@@ -145,7 +106,7 @@
                                   >
                                 {{ end }}
                               </td>
-                              <td class="text-xs text-base-content/70">
+                              <td class="text-xs text-base-content/70 hidden sm:table-cell">
                                 {{ if $h.user_id }}
                                   {{ $h.user_id }}
                                 {{ else }}
@@ -198,10 +159,44 @@
             {{ end }}
             <!-- End of "config_content" block -->
           </div>
-        </main>
-      </div>
+{{ template "page_close" . }}
 
-      {{ template "sidebar" . }}
-    </div>
-  </body>
-</html>
+{{/* config_rbac_card: the RBAC summary card of the config index (RBAC has
+  the staged-update workflow, not a CONFIG_PAGES entry). Page-local define;
+  context is the page context */}}
+{{ define "config_rbac_card" }}
+                  <!-- RBAC summary card -->
+                  <div class="card bg-base-100 border border-base-300">
+                    <div class="card-body p-4 gap-2">
+                      <div class="flex items-center gap-2 flex-wrap">
+                        <h2 class="text-sm font-medium">RBAC</h2>
+                        {{ if not .AppRBACEnabled }}
+                          <span
+                            class="badge badge-warning badge-sm badge-soft tooltip tooltip-top"
+                            data-tip="security.unsafe_disable_rbac is set on this server: grants are not enforced"
+                            >not enforced</span
+                          >
+                        {{ end }}
+                        {{ if .Data.RBAC.has_staged }}
+                          <span
+                            class="badge badge-warning badge-sm badge-soft tooltip tooltip-top"
+                            data-tip="staged changes by {{ .Data.RBAC.staged_by }} pending publish"
+                            >pending</span
+                          >
+                        {{ end }}
+                        <a
+                          href="{{ .AppPath }}/config/rbac"
+                          class="btn btn-xs btn-outline ml-auto">
+                          Manage
+                        </a>
+                      </div>
+                      <p class="text-xs text-base-content/70">
+                        Role based access control - {{ template "count" (dict "N" .Data.RBAC.groups "One" "group") }},
+                        {{ template "count" (dict "N" .Data.RBAC.roles "One" "role") }},
+                        {{ template "count" (dict "N" .Data.RBAC.grants "One" "grant") }}. Always enforced; changes
+                        are staged and go live on publish
+                      </p>
+                    </div>
+                  </div>
+
+{{ end }}

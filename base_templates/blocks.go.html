@@ -21,17 +21,21 @@
   {{ $actions := .ShowActions }}
   {{ $rowAction := .RowAction | default "" }}
   <div class="overflow-x-auto">
-    <table class="table table-sm">
+    {{/* Fixed layout from md up: the page stacks one of these tables per
+      sync group, and auto layout sized each table's columns from its own
+      rows, so the columns did not line up from card to card. Source takes
+      the remaining width */}}
+    <table class="table table-sm md:table-fixed">
       <thead>
         <tr>
-          <th scope="col" class="w-8"><span class="sr-only">Details</span></th>
-          <th scope="col" class="w-1/3">App</th>
-          <th scope="col" class="hidden md:table-cell w-1/3">Source</th>
-          <th scope="col" class="w-28 text-center">Version</th>
-          <th scope="col" class="hidden lg:table-cell">Auth</th>
-          <th scope="col" class="hidden sm:table-cell">Updated</th>
+          <th scope="col" class="w-8 md:w-12"><span class="sr-only">Details</span></th>
+          <th scope="col" class="w-1/3 md:w-[30%]">App</th>
+          <th scope="col" class="hidden md:table-cell">Source</th>
+          <th scope="col" class="w-28 md:w-36 text-center">Version</th>
+          <th scope="col" class="hidden lg:table-cell lg:w-20">Auth</th>
+          <th scope="col" class="hidden sm:table-cell md:w-24">Updated</th>
           {{ if $actions }}
-            <th scope="col" class="text-right">Actions</th>
+            <th scope="col" class="text-right md:w-28">Actions</th>
           {{ end }}
         </tr>
       </thead>
@@ -55,12 +59,17 @@
                 rel="noopener"
                 data-tip="Open app in a new tab"
                 aria-label="Open {{ .path }} in a new tab"
-                class="inline-block text-primary text-xs opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-200 ml-0.5 tooltip tooltip-right"
+                class="inline-block text-primary text-xs opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-200 ml-0.5 -mr-4 tooltip tooltip-right"
                 >{{ template "globe_icon" }}</a
               >
             </td>
             <td class="hidden md:table-cell">
               {{ if .source }}
+                {{/* The hover links carry a negative right margin equal to
+                  their width: they take no inline space, so a source that
+                  exactly fills the column cannot push the (invisible) link
+                  onto a line of its own, which read as a blank line above
+                  the badges */}}
                 <span class="font-mono text-xs break-all">{{ .source }}</span
                 >{{ if and .is_git .source_url }}
                   <a
@@ -69,7 +78,7 @@
                     rel="noopener"
                     data-tip="View source code in a new tab"
                     aria-label="View source of {{ .path }} in a new tab"
-                    class="inline-block text-primary text-xs opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-200 ml-0.5 tooltip tooltip-right"
+                    class="inline-block text-primary text-xs opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-200 ml-0.5 -mr-3 tooltip tooltip-right"
                     ><span aria-hidden="true">↗</span></a
                   >
                 {{ end }}
@@ -459,17 +468,7 @@
         </span>
       </div>
       {{ if .changed }}
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-1">
-          {{ template "sync_result_row" (dict "Label" "Created" "Items" .created) }}
-          {{ template "sync_result_row" (dict "Label" "Updated" "Items" .updated) }}
-          {{ template "sync_result_row" (dict "Label" "Reloaded" "Items" .reloaded) }}
-          {{ template "sync_result_row" (dict "Label" "Promoted" "Items" .promoted) }}
-          {{ template "sync_result_row" (dict "Label" "Approved" "Items" .approved) }}
-          {{ template "sync_result_row" (dict "Label" "Skipped" "Items" .skipped) }}
-          {{ template "sync_result_row" (dict "Label" "Bindings +" "Items" .bindings_created) }}
-          {{ template "sync_result_row" (dict "Label" "Bindings ~" "Items" .bindings_updated) }}
-          {{ template "sync_result_row" (dict "Label" "Bindings ↑" "Items" .bindings_promoted) }}
-        </div>
+        {{ template "sync_result_rows" . }}
       {{ end }}
     </div>
   </div>
@@ -511,8 +510,8 @@
 {{ define "builder_services_checklist" }}
   <div id="services-offer">
     {{ if .Data.ServicesOffer }}
-      <div class="label"><span class="label-text">Services</span></div>
-      <div class="flex flex-col gap-1">
+      <span class="block text-sm font-medium mb-1">Services</span>
+      <div class="flex flex-col gap-1.5">
         {{ $checked := .Data.ServicesChecked }}
         {{ range .Data.ServicesOffer }}
           <label class="flex items-center gap-2 cursor-pointer text-sm">
@@ -532,12 +531,10 @@
           </label>
         {{ end }}
       </div>
-      <div class="label">
-        <span class="label-text-alt text-base-content/70">
-          Each picked service is auto-bound to the app; its credentials arrive
-          as environment variables (one service per type)
-        </span>
-      </div>
+      <p class="text-xs text-base-content/70 mt-1">
+        Each picked service is auto-bound to the app; its credentials arrive
+        as environment variables (one service per type)
+      </p>
     {{ end }}
   </div>
 {{ end }}
@@ -1126,7 +1123,7 @@
           {{ end }}
         </select>
         <span class="text-xs text-base-content/70 tabular-nums"
-          >{{ $ft.Count }} files · {{ $ft.TotalSize }}</span
+          >{{ template "count" (dict "N" $ft.Count "One" "file") }} · {{ $ft.TotalSize }}</span
         >
         <a
           class="btn btn-outline btn-sm ml-auto tooltip tooltip-left"
@@ -1144,64 +1141,7 @@
         space. urlparam: the selected file tracks the ?file= query param
         (replaceState) and a deep link with ?file= opens that file */}}
       <builder-files fill urlparam="file" endpoint="{{ $ft.Endpoint }}">
-        <nav
-          class="bf-tree shrink-0 overflow-y-auto bg-base-200/30 py-2 text-xs"
-          aria-label="Version files">
-          {{ if $ft.Tree }}
-            {{ range $ft.Tree }}
-              {{ if .is_dir }}
-                <div
-                  class="flex items-center gap-1.5 px-3 py-1 text-base-content/70 font-medium"
-                  style="padding-left: calc(0.75rem + {{ .depth }} * 0.75rem)">
-                  <svg
-                    aria-hidden="true"
-                    class="w-3.5 h-3.5 shrink-0"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round">
-                    <path
-                      d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
-                  </svg>
-                  <span class="truncate">{{ .name }}</span>
-                </div>
-              {{ else }}
-                <button
-                  type="button"
-                  data-bf-file="{{ .path }}"
-                  class="flex items-center gap-1.5 w-full text-left px-3 py-1 font-mono hover:bg-base-200 rounded-none"
-                  style="padding-left: calc(0.75rem + {{ .depth }} * 0.75rem)">
-                  <svg
-                    aria-hidden="true"
-                    class="w-3.5 h-3.5 shrink-0 text-base-content/50"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round">
-                    <path
-                      d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
-                    <path d="M14 2v4a2 2 0 0 0 2 2h4" />
-                  </svg>
-                  <span class="truncate">{{ .name }}</span>
-                </button>
-              {{ end }}
-            {{ end }}
-          {{ else }}
-            <p class="px-3 py-2 text-base-content/60">No files in this version</p>
-          {{ end }}
-        </nav>
-        <div class="bf-viewer flex-1 min-w-0 flex flex-col">
-          <div
-            class="bf-name px-4 py-1.5 border-b border-base-300 font-mono text-xs text-base-content/70 truncate"></div>
-          <div class="bf-body flex-1 min-h-0">
-            <div class="bf-gutter" aria-hidden="true"></div>
-            <pre class="bf-code"><code></code></pre>
-          </div>
-        </div>
+        {{ template "file_tree_body" (dict "Tree" $ft.Tree "Label" "Version files" "Empty" "No files in this version") }}
       </builder-files>
       </div>
     {{ end }}
@@ -1375,11 +1315,11 @@
               <th scope="col" class="w-8"><span class="sr-only">Details</span></th>
               <th scope="col">Run</th>
               {{ if not $detail }}
-                <th scope="col">App</th>
+                <th scope="col" class="hidden md:table-cell">App</th>
               {{ end }}
               <th scope="col">Action</th>
               <th scope="col">Status</th>
-              <th scope="col" class="hidden xl:table-cell">Args</th>
+              <th scope="col" class="hidden 2xl:table-cell">Args</th>
               <th scope="col">Started</th>
               <th scope="col" class="hidden md:table-cell">Duration</th>
               <th scope="col" class="hidden lg:table-cell">By</th>
@@ -1434,9 +1374,14 @@
         {{ if ne $row.stage "prod" }}
           <span class="badge badge-ghost badge-xs">{{ $row.stage }}</span>
         {{ end }}
+        {{ if not $detail }}
+          {{/* Phone: the app under the run id (the App column needs md),
+            so run, action and status fit without scrolling */}}
+          <span class="block md:hidden font-mono text-xs text-base-content/70 max-w-36 truncate">{{ $row.main_path }}</span>
+        {{ end }}
       </td>
       {{ if not $detail }}
-        <td class="whitespace-nowrap">
+        <td class="whitespace-nowrap hidden md:table-cell">
           <a
             href="{{ $root }}/apps/detail?path={{ $row.main_path }}"
             class="link link-hover font-mono text-xs break-all"
@@ -1444,7 +1389,7 @@
           >
         </td>
       {{ end }}
-      <td class="whitespace-nowrap">
+      <td class="sm:whitespace-nowrap">
         <a
           href="{{ $root }}/actions/detail?path={{ $row.main_path }}&action={{ $row.action_path }}{{ if $row.stage_flag }}&stage=1{{ end }}"
           class="link link-hover text-xs font-medium"
@@ -1460,16 +1405,16 @@
           {{ end }}
         </div>
         {{ if $row.message }}
-          <p class="text-xs text-base-content/70 break-all max-w-md" title="{{ $row.message }}">
+          <p class="text-xs text-base-content/70 break-words min-w-28 max-w-md hidden sm:block" title="{{ $row.message }}">
             {{ if gt (len $row.message) 120 }}{{ trunc 120 $row.message }}…{{ else }}{{ $row.message }}{{ end }}
           </p>
         {{ else if $row.result_status }}
-          <p class="text-xs text-base-content/70 break-all max-w-md" title="{{ $row.result_status }}">
+          <p class="text-xs text-base-content/70 break-words min-w-28 max-w-md hidden sm:block" title="{{ $row.result_status }}">
             {{ if gt (len $row.result_status) 120 }}{{ trunc 120 $row.result_status }}…{{ else }}{{ $row.result_status }}{{ end }}
           </p>
         {{ end }}
       </td>
-      <td class="hidden xl:table-cell">
+      <td class="hidden 2xl:table-cell">
         {{ if $row.args_summary.chips }}
           <div class="flex items-center gap-1 flex-wrap max-w-xs" title="{{ $row.args_summary.all }}" data-run-args>
             {{ range $row.args_summary.chips }}<span class="badge badge-ghost badge-xs font-mono">{{ . }}</span>{{ end }}
@@ -1485,9 +1430,13 @@
       <td class="text-xs text-base-content/70 whitespace-nowrap tabular-nums hidden md:table-cell">
         {{ if $row.duration }}{{ $row.duration }}{{ else }}-{{ end }}
       </td>
-      <td class="text-xs text-base-content/70 hidden lg:table-cell break-all">
-        {{ $row.actor }}
-        {{ if $row.source }}<span class="badge badge-ghost badge-xs font-mono">{{ $row.source }}</span>{{ end }}
+      {{/* Actor and source wrap as units (never mid-word: break-all once
+        collapsed this column to a few px, stacking the badge's letters) */}}
+      <td class="text-xs text-base-content/70 hidden lg:table-cell">
+        <div class="flex items-center gap-1 flex-wrap">
+          <span>{{ $row.actor }}</span>
+          {{ if $row.source }}<span class="badge badge-ghost badge-xs font-mono">{{ $row.source }}</span>{{ end }}
+        </div>
       </td>
       <td class="text-right whitespace-nowrap">
         <a
@@ -1500,4 +1449,286 @@
       </td>
     </tr>
   {{ end }}
+{{ end }}
+
+{{/* config_setting_row: one settings field form of a config sub page
+  (config_page.go.html, config_mcp.go.html). Context dict: Row (the setting
+  row), ActionPath, VersionId, CanEdit */}}
+{{ define "config_setting_row" }}
+  {{ $row := .Row }}
+  {{ $canEdit := .CanEdit }}
+  <form
+    hx-post="{{ .ActionPath }}"
+    hx-target="#page-content"
+    hx-swap="innerHTML"
+    hx-indicator="#page-progress"
+    class="flex items-start gap-3 flex-wrap">
+    <input type="hidden" name="action" value="set_value" />
+    <input type="hidden" name="section" value="{{ $row.section }}" />
+    <input type="hidden" name="key" value="{{ $row.key }}" />
+    <input type="hidden" name="kind" value="{{ $row.kind }}" />
+    <input type="hidden" name="version_id" value="{{ .VersionId }}" />
+    <input type="hidden" name="is_dynamic" value="{{ if $row.is_dynamic }}true{{ else }}false{{ end }}" />
+    <div class="w-56 pt-1.5">
+      <label class="text-sm font-medium" for="setting-{{ $row.section }}-{{ $row.key }}"
+        >{{ $row.label }}</label
+      >
+      <div class="text-[11px] text-base-content/70 font-mono break-all">
+        {{ $row.section }}.{{ $row.key }}
+      </div>
+    </div>
+    <div class="flex-1 min-w-52">
+      {{ if eq $row.kind "bool" }}
+        <input
+          id="setting-{{ $row.section }}-{{ $row.key }}"
+          type="checkbox"
+          name="value"
+          class="toggle toggle-sm toggle-primary mt-1.5"
+          {{ if $row.value }}checked{{ end }}
+          {{ if not $canEdit }}disabled{{ end }} />
+      {{ else if eq $row.kind "select" }}
+        <select
+          id="setting-{{ $row.section }}-{{ $row.key }}"
+          name="value"
+          class="select select-sm w-full font-mono text-xs min-w-0"
+          {{ if not $canEdit }}disabled{{ end }}>
+          <option value="" {{ if not $row.value }}selected{{ end }}>
+            (not set)
+          </option>
+          {{ $current := $row.value }}
+          {{ template "select_options" (dict "Options" $row.option_list "Current" $current "Missing" "(not found)") }}
+        </select>
+      {{ else if eq $row.kind "checklist" }}
+        {{ $current := $row.value }}
+        <div
+          id="setting-{{ $row.section }}-{{ $row.key }}"
+          role="group"
+          aria-label="{{ $row.label }}"
+          class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-1 pt-1.5">
+          {{ range $row.option_list }}
+            {{ $opt := . }}
+            {{ $checked := false }}
+            {{ range $current }}{{ if eq . $opt }}{{ $checked = true }}{{ end }}{{ end }}
+            <label class="flex items-center gap-2 cursor-pointer text-sm min-w-0">
+              <input
+                type="checkbox"
+                name="value"
+                value="{{ $opt }}"
+                class="checkbox checkbox-xs checkbox-primary"
+                {{ if $checked }}checked{{ end }}
+                {{ if not $canEdit }}disabled{{ end }} />
+              <span class="font-mono text-xs truncate">{{ $opt }}</span>
+            </label>
+          {{ end }}
+          {{ range $current }}
+            {{ $val := . }}
+            {{ $known := false }}
+            {{ range $row.option_list }}{{ if eq . $val }}{{ $known = true }}{{ end }}{{ end }}
+            {{ if not $known }}
+              <label class="flex items-center gap-2 cursor-pointer text-sm min-w-0">
+                <input
+                  type="checkbox"
+                  name="value"
+                  value="{{ $val }}"
+                  class="checkbox checkbox-xs checkbox-primary"
+                  checked
+                  {{ if not $canEdit }}disabled{{ end }} />
+                <span class="font-mono text-xs truncate">{{ $val }} (not found)</span>
+              </label>
+            {{ end }}
+          {{ end }}
+          {{ if and (not $row.option_list) (not $current) }}
+            <span class="text-xs text-base-content/70 pt-0.5">no options available</span>
+          {{ end }}
+        </div>
+      {{ else if eq $row.kind "textarea" }}
+        <textarea
+          id="setting-{{ $row.section }}-{{ $row.key }}"
+          name="value"
+          rows="4"
+          class="textarea w-full font-mono text-xs leading-relaxed"
+          {{ if not $canEdit }}disabled{{ end }}>{{ $row.value }}</textarea>
+      {{ else }}
+        <input
+          id="setting-{{ $row.section }}-{{ $row.key }}"
+          name="value"
+          type="text"
+          value="{{ $row.value }}"
+          class="input input-sm w-full font-mono text-xs"
+          {{ if not $canEdit }}disabled{{ end }} />
+      {{ end }}
+      {{ if $row.help }}
+        <p class="text-xs text-base-content/70 mt-1">
+          {{ $row.help }}
+        </p>
+      {{ end }}
+    </div>
+    <div class="flex items-center gap-1 pt-0.5">
+      {{ if $row.is_dynamic }}
+        <span
+          class="badge badge-soft badge-primary badge-xs tooltip tooltip-left"
+          data-tip="dynamic value, overrides openrun.toml{{ if $row.static_value }} ({{ $row.static_value }}){{ end }}"
+          >dynamic</span
+        >
+      {{ end }}
+      <button
+        type="submit"
+        class="btn btn-xs btn-outline {{ if not $canEdit }}tooltip tooltip-left{{ end }}"
+        {{ if not $canEdit }}disabled data-tip="requires config:update"{{ end }}>
+        Save
+      </button>
+      {{ if $row.is_dynamic }}
+        <button
+          type="button"
+          class="btn btn-xs btn-ghost tooltip tooltip-left"
+          data-tip="remove the dynamic value, revert to openrun.toml"
+          {{ if $canEdit }}
+            hx-post="{{ .ActionPath }}"
+            hx-vals='{"action": "delete_value", "section": "{{ $row.section }}", "key": "{{ $row.key }}", "version_id": "{{ .VersionId }}"}'
+            hx-target="#page-content"
+            hx-swap="innerHTML"
+            hx-indicator="#page-progress"
+          {{ else }}
+            disabled
+          {{ end }}>
+          reset
+        </button>
+      {{ end }}
+    </div>
+  </form>
+{{ end }}
+
+{{/* config_setting_group: one grouped settings card of a config sub page
+  (title, description, rows, collapsed advanced rows).
+  Context dict: Group (a SettingGroups entry), Ctx (dict with ActionPath,
+  VersionId, CanEdit) */}}
+{{ define "config_setting_group" }}
+                <div class="card bg-base-100 border border-base-300">
+                  <div
+                    class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
+                    <h2 class="text-sm font-medium">{{ .Group.title }}</h2>
+                    <span class="text-xs text-base-content/70">{{ .Group.desc }}</span>
+                  </div>
+                  <div class="card-body p-4 gap-4">
+                    {{ range .Group.settings }}
+                      {{ template "config_setting_row" (dict "Row" . "ActionPath" $.Ctx.ActionPath "VersionId" $.Ctx.VersionId "CanEdit" $.Ctx.CanEdit) }}
+                    {{ end }}
+                    {{ template "config_advanced_rows" (dict "Rows" .Group.advanced "ActionPath" $.Ctx.ActionPath "VersionId" $.Ctx.VersionId "CanEdit" $.Ctx.CanEdit) }}
+                  </div>
+                </div>
+              
+{{ end }}
+
+{{/* config_setting_groups: every grouped settings card of a config sub page.
+  Context dict: Groups (SettingGroups), ActionPath, VersionId, CanEdit */}}
+{{ define "config_setting_groups" }}
+  {{ $ctx := dict "ActionPath" .ActionPath "VersionId" .VersionId "CanEdit" .CanEdit }}
+  {{ range .Groups }}
+    {{ template "config_setting_group" (dict "Group" . "Ctx" $ctx) }}
+  {{ end }}
+{{ end }}
+
+{{/* config_advanced_rows: the collapsed "Additional settings" rows of a
+  config card (config_page.go.html, config_setting_group, the MCP cards).
+  Renders nothing without rows. Context dict: Rows (setting rows),
+  ActionPath, VersionId, CanEdit */}}
+{{ define "config_advanced_rows" }}
+  {{ if .Rows }}
+    <details class="group">
+      <summary
+        class="cursor-pointer text-sm font-medium text-base-content/70 hover:text-base-content list-none flex items-center gap-1">
+        <span aria-hidden="true" class="inline-block transition-transform duration-200 group-open:rotate-90">›</span>
+        Additional settings
+      </summary>
+      <div class="flex flex-col gap-4 mt-4 pl-3 border-l border-base-300">
+        {{ range .Rows }}
+          {{ template "config_setting_row" (dict "Row" . "ActionPath" $.ActionPath "VersionId" $.VersionId "CanEdit" $.CanEdit) }}
+        {{ end }}
+      </div>
+    </details>
+  {{ end }}
+{{ end }}
+
+{{/* file_tree_body: the inside of a <builder-files> explorer - the file
+  tree nav (directories as labels, files as data-bf-file buttons indented
+  by depth) and the viewer pane builderfiles.js fills. Shared by the app
+  detail Files tab and the builder session workspace. Context dict: Tree
+  (entries with is_dir, depth, name, path), Label (the nav's aria-label),
+  Empty (text shown without entries) */}}
+{{ define "file_tree_body" }}
+  <nav
+    class="bf-tree shrink-0 overflow-y-auto bg-base-200/30 py-2 text-xs"
+    aria-label="{{ .Label }}">
+    {{ if .Tree }}
+      {{ range .Tree }}
+        {{ if .is_dir }}
+          <div
+            class="flex items-center gap-1.5 px-3 py-1 text-base-content/70 font-medium"
+            style="padding-left: calc(0.75rem + {{ .depth }} * 0.75rem)">
+            <svg
+              aria-hidden="true"
+              class="w-3.5 h-3.5 shrink-0"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round">
+              <path
+                d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+            </svg>
+            <span class="truncate">{{ .name }}</span>
+          </div>
+        {{ else }}
+          <button
+            type="button"
+            data-bf-file="{{ .path }}"
+            class="flex items-center gap-1.5 w-full text-left px-3 py-1 font-mono hover:bg-base-200 rounded-none"
+            style="padding-left: calc(0.75rem + {{ .depth }} * 0.75rem)">
+            <svg
+              aria-hidden="true"
+              class="w-3.5 h-3.5 shrink-0 text-base-content/50"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round">
+              <path
+                d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+              <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+            </svg>
+            <span class="truncate">{{ .name }}</span>
+          </button>
+        {{ end }}
+      {{ end }}
+    {{ else }}
+      <p class="px-3 py-2 text-base-content/60">{{ .Empty }}</p>
+    {{ end }}
+  </nav>
+  <div class="bf-viewer flex-1 min-w-0 flex flex-col">
+    <div
+      class="bf-name px-4 py-1.5 border-b border-base-300 font-mono text-xs text-base-content/70 truncate"></div>
+    <div class="bf-body flex-1 min-h-0">
+      <div class="bf-gutter" aria-hidden="true"></div>
+      <pre class="bf-code"><code></code></pre>
+    </div>
+  </div>
+{{ end }}
+
+{{/* sync_result_rows: the per-category app lists of a sync result (the
+  sync_result card after a run, the sync detail's last result). Context:
+  the result summary (utils.sync_result_summary) */}}
+{{ define "sync_result_rows" }}
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-1">
+    {{ template "sync_result_row" (dict "Label" "Created" "Items" .created) }}
+    {{ template "sync_result_row" (dict "Label" "Updated" "Items" .updated) }}
+    {{ template "sync_result_row" (dict "Label" "Reloaded" "Items" .reloaded) }}
+    {{ template "sync_result_row" (dict "Label" "Promoted" "Items" .promoted) }}
+    {{ template "sync_result_row" (dict "Label" "Approved" "Items" .approved) }}
+    {{ template "sync_result_row" (dict "Label" "Skipped" "Items" .skipped) }}
+    {{ template "sync_result_row" (dict "Label" "Bindings +" "Items" .bindings_created) }}
+    {{ template "sync_result_row" (dict "Label" "Bindings ~" "Items" .bindings_updated) }}
+    {{ template "sync_result_row" (dict "Label" "Bindings ↑" "Items" .bindings_promoted) }}
+  </div>
 {{ end }}

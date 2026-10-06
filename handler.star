@@ -186,6 +186,9 @@ def ov_server_tile(perms):
         "Runtime": info.get("container_runtime") or "",
         "IsLeader": info["is_leader"],
         "MetadataRepl": repl,
+        # The MCP mini tile: the management endpoint and the app actions
+        # endpoint state (api.app_mcp.served is enabled AND RBAC enforced)
+        "Api": info.get("api"),
     }
 
 
@@ -1789,14 +1792,38 @@ def form_values(req):
         "auth": utils.query_param(req, "auth"),
         "git_branch": utils.query_param(req, "git_branch"),
         "git_auth": utils.query_param(req, "git_auth"),
+        "mcp": utils.query_param(req, "mcp"),
         "params_rows": utils.raw_kv_rows(req, "params"),
         "bindings": posted_bindings(req),
         "approve": utils.query_param(req, "approve"),
     }
 
 
+# The app form's MCP setting choices: the stored mcp document in short form
+# (get_app mcp_setting). "custom" (an upstream MCP server or a scoped
+# document, set from the CLI) is kept as-is by the update form
+MCP_OPTIONS = [
+    {"value": "default", "label": "default - actions served as MCP tools at <app>/mcp"},
+    {"value": "actions", "label": "actions - serve the app's actions as MCP tools (explicit)"},
+    {"value": "disable", "label": "disable - no MCP endpoint, left out of every tool list"},
+]
+
+
+def default_app_auth(perms):
+    # security.app_default_auth_type, what an app with auth default resolves
+    # to; shown on the app form. Needs config:basic_read (server_info),
+    # unknown otherwise
+    if not (perms.get("config:basic_read") or perms.get("config:read") or perms.get("admin")):
+        return ""
+    ret = openrun.server_info()
+    if ret.error:
+        return ""
+    return (ret.value.get("api") or {}).get("app_default_auth") or "none"
+
+
 def create_form_data(req, values, error):
     # Page context for the app create form
+    perms = utils.get_perms()
     return {
         "Title": "New app",
         "Nav": "apps",
@@ -1805,10 +1832,12 @@ def create_form_data(req, values, error):
         "Error": error,
         "Specs": openrun.list_specs().value,
         "AuthOptions": auth_options(),
+        "DefaultAuth": default_app_auth(perms),
         "GitAuthOptions": git_auth_options()["entries"],
+        "McpOptions": MCP_OPTIONS,
         "BindingOptions": binding_options(),
         "Values": values,
-        "Perms": utils.get_perms(),
+        "Perms": perms,
     }
 
 
@@ -1855,6 +1884,9 @@ def apps_create_submit_handler(req):
         return create_form_data(req, values, err)
 
     auth = values["auth"] if values["auth"] != "default" else ""
+    # The MCP setting: default leaves the app on the default behavior
+    # (actions served at /mcp when it defines any)
+    mcp = values["mcp"] if values["mcp"] not in ("", "default") else ""
 
     if action == "create":
         # Create the app without approval; if it requests permissions, ask
@@ -1863,11 +1895,15 @@ def apps_create_submit_handler(req):
                                approve=False, auth=auth,
                                spec=values["spec"], git_branch=values["git_branch"],
                                git_auth=values["git_auth"], params=params,
-                               bindings=values["bindings"])
+                               bindings=values["bindings"], mcp=mcp)
         if ret.error:
             return create_form_data(req, values, ret.error)
         if utils.needs_approval(ret.value):
-            return approve_step_data(req, values, utils.review_from_dryrun(ret.value), "")
+            data = approve_step_data(req, values, utils.review_from_dryrun(ret.value), "")
+            # The effective login of the new app: it is reachable at its
+            # url as soon as it is created, "none" means by anyone
+            data["CreatedAuth"] = ret.value.get("auth") or ""
+            return data
         return form_redirect(req, req.AppPath + "/apps")
 
     # Validate: dry run to check the create and gather the requested
@@ -1876,7 +1912,7 @@ def apps_create_submit_handler(req):
                            approve=True, dry_run=True, auth=auth,
                            spec=values["spec"], git_branch=values["git_branch"],
                            git_auth=values["git_auth"], params=params,
-                           bindings=values["bindings"])
+                           bindings=values["bindings"], mcp=mcp)
     if ret.error:
         return create_form_data(req, values, ret.error)
 
@@ -1896,6 +1932,7 @@ def update_form_data(req, app, values, error):
         "Error": error,
         "App": app,
         "AuthOptions": auth_options(),
+        "McpOptions": MCP_OPTIONS,
         "BindingOptions": binding_options(),
         "Values": values,
         "Perms": utils.get_perms(values.get("path", "")),
@@ -1930,6 +1967,7 @@ def apps_update_page_handler(req):
     values = {
         "path": app["path"],
         "auth": app["auth"] or "default",
+        "mcp": source.get("mcp_setting") or "default",
         "params_rows": utils.kv_rows(source["params"]),
         "bindings": app_binding_refs(source),
     }
@@ -1942,6 +1980,7 @@ def apps_update_submit_handler(req):
     values = {
         "path": path,
         "auth": utils.query_param(req, "auth"),
+        "mcp": utils.query_param(req, "mcp"),
         "params_rows": utils.raw_kv_rows(req, "params"),
         "bindings": posted_bindings(req),
     }
@@ -1975,6 +2014,16 @@ def apps_update_submit_handler(req):
         if result.error:
             return update_form_data(req, app, values, result.error)
 
+    # The MCP document is version controlled like params and bindings:
+    # staged, promoted later. "custom" (a document the form does not
+    # edit) and an unchanged choice leave it alone
+    new_mcp = values["mcp"] or "default"
+    mcp_changed = new_mcp != "custom" and new_mcp != (source.get("mcp_setting") or "default")
+    if mcp_changed:
+        result = openrun_admin.update_mcp(path, new_mcp, promote=False)
+        if result.error:
+            return update_form_data(req, app, values, result.error)
+
     new_auth = values["auth"] or "default"
     if new_auth != (app["auth"] or "default"):
         # Auth is an app setting, not version controlled; applies directly
@@ -1982,7 +2031,7 @@ def apps_update_submit_handler(req):
         if result.error:
             return update_form_data(req, app, values, result.error)
 
-    if (params_changed or bindings_changed) and not app.get("is_dev"):
+    if (params_changed or bindings_changed or mcp_changed) and not app.get("is_dev"):
         # Ask about promoting the staged change; dev apps apply directly
         # (they have no staging), so there is nothing to promote
         return form_redirect(req, "%s/apps/detail?path=%s&staged=update" % (req.AppPath, path))
@@ -2866,6 +2915,100 @@ CONFIG_PAGES = [
         ],
     },
     {
+        "page": "api",
+        "title": "Remote Management API",
+        "desc": "the management REST API over HTTPS used by the OpenRun CLI on other machines, and the " +
+                "external url and token lifetimes shared by every API surface",
+        "entry_sections": [],
+        # One card, in the order the page shows: the external url, the REST
+        # surface switch and its logins; the token lifetimes and the REST
+        # operation overrides under Additional settings
+        "settings": [
+            {"section": "api", "key": "external_url", "label": "External URL",
+             "help": "canonical https origin (https://host[:port]) for API tokens and the OAuth metadata; " +
+                     "defaults to security.callback_url. Required by an enabled surface, along with an HTTPS " +
+                     "listener (or security.trusted_proxies) and RBAC enforcement"},
+            {"section": "api", "key": "rest.enable", "label": "Remote management (REST) enabled", "kind": "bool",
+             "help": "serve the management API over HTTPS; needs an HTTPS listener (or trusted proxies), " +
+                     "the external URL and RBAC enforcement"},
+            {"section": "api", "key": "rest.auth", "label": "Login mechanisms", "kind": "checklist",
+             "options": "api_auths",
+             "help": "login mechanisms for openrun login (API keys work regardless); at least one is " +
+                     "required, admin by default"},
+            {"section": "api", "key": "access_token_ttl", "label": "Access token TTL", "advanced": True,
+             "help": "OAuth access token lifetime (Go duration, default 1h)"},
+            {"section": "api", "key": "refresh_token_ttl", "label": "Refresh token TTL", "advanced": True,
+             "help": "OAuth refresh token lifetime per rotation (default 720h)"},
+            {"section": "api", "key": "grant_max_ttl", "label": "Login max lifetime", "advanced": True,
+             "help": "absolute OAuth grant lifetime, after which a new interactive login is required (default 2160h)"},
+            {"section": "api", "key": "federated_identity_ttl", "label": "Federated identity TTL", "advanced": True,
+             "help": "provider-derived group snapshot max age (default 720h)"},
+            {"section": "api", "key": "pat_default_ttl", "label": "API key default expiry", "advanced": True,
+             "help": "default API key lifetime (default 2160h); --expires=never is required for non-expiring keys"},
+            {"section": "api", "key": "rest.enable_apis", "label": "Additional REST APIs to enable", "kind": "checklist",
+             "options": "api_ops_rest_disabled", "advanced": True,
+             "help": "operations disabled for the remote API by default, opted back in (none currently)"},
+            {"section": "api", "key": "rest.disable_apis", "label": "REST APIs to disable", "kind": "checklist",
+             "options": "api_ops", "advanced": True,
+             "help": "operations turned off for remote CLI callers (the local unix socket CLI is never affected)"},
+        ],
+    },
+    {
+        "page": "mcp",
+        "title": "MCP API",
+        "desc": "Model Context Protocol access for AI clients: the app actions endpoint, the management endpoint and how to connect Claude Code, Codex or any MCP client",
+        "entry_sections": [],
+        "settings": [],
+        # Per-endpoint settings cards, each rendered inside its endpoint's
+        # section of the connect guide (config_mcp.go.html, by key): the
+        # enable switch and the login mechanisms up front, the operation
+        # overrides under Additional settings
+        "groups": [
+            {
+                "key": "mcp",
+                "title": "Management MCP",
+                "desc": "the Model Context Protocol endpoint at <external url>/_openrun/mcp: apps, versions, " +
+                        "services, secrets and config for AI clients (off by default)",
+                "settings": [
+                    {"section": "api", "key": "mcp.enable", "label": "Enabled", "kind": "bool",
+                     "help": "serve the MCP endpoint; needs an HTTPS listener (or trusted proxies), the external " +
+                             "URL and RBAC enforcement"},
+                    {"section": "api", "key": "mcp.auth", "label": "Login mechanisms", "kind": "checklist",
+                     "options": "api_auths",
+                     "help": "browser login mechanisms for MCP OAuth clients (API keys minted with --resource mcp " +
+                             "work regardless); at least one is required, admin by default"},
+                    {"section": "api", "key": "mcp.enable_apis", "label": "Additional APIs to enable", "kind": "checklist",
+                     "options": "api_ops_mcp_disabled", "advanced": True,
+                     "help": "dangerous operations disabled for MCP by default, opted back in (logged at startup)"},
+                    {"section": "api", "key": "mcp.disable_apis", "label": "APIs to disable", "kind": "checklist",
+                     "options": "api_ops_mcp", "advanced": True,
+                     "help": "operations turned off for MCP on top of the defaults; secret_create is on by default, " +
+                             "disable it if secret values must never pass through an AI client"},
+                    {"section": "api", "key": "mcp.skip_destructive_confirm", "label": "Skip destructive confirmation",
+                     "kind": "bool", "advanced": True,
+                     "help": "disable the dry-run preview + confirmation prompt on destructive MCP tools (headless automation)"},
+                ],
+            },
+            {
+                "key": "app_mcp",
+                "title": "App actions MCP",
+                "desc": "the actions of every app the user can run as MCP tools, at <external url>/_openrun/app_mcp " +
+                        "(on by default; the login comes from the url's ?auth= param)",
+                "settings": [
+                    {"section": "api", "key": "app_mcp.enable", "label": "Enabled", "kind": "bool",
+                     "help": "serve the app actions endpoint; it is never served while security.unsafe_disable_rbac is set"},
+                    {"section": "api", "key": "app_mcp.allowed_auth", "label": "Allowed logins", "kind": "checklist",
+                     "options": "app_mcp_auths", "advanced": True,
+                     "help": "logins the url's ?auth= param may name; none selected allows every configured login"},
+                    {"section": "api", "key": "app_mcp.max_tools", "label": "Max tools", "kind": "int", "advanced": True,
+                     "help": "the tool list fails above this many tools, asking for a narrower ?apps= glob (default 300)"},
+                    {"section": "api", "key": "app_mcp.list_ttl", "label": "Tool list TTL", "advanced": True,
+                     "help": "freshness hint of the tool list for clients (Go duration, default 3m)"},
+                ],
+            },
+        ],
+    },
+    {
         "page": "git",
         "title": "Git auth",
         "desc": "git credentials for private repos and the default entry",
@@ -2885,7 +3028,7 @@ CONFIG_PAGES = [
     },
     {
         "page": "system",
-        "title": "System",
+        "title": "System Settings",
         "desc": "server level defaults, app config and node config overrides",
         "entry_sections": [],
         "settings": [
@@ -2911,75 +3054,6 @@ CONFIG_PAGES = [
                      "reload - free form keys. Values are parsed as numbers/booleans when " +
                      "possible; use \"quotes\" to force a string",
              "placeholder": "key_name"},
-        ],
-    },
-    {
-        "page": "api",
-        "title": "API Access",
-        "desc": "MCP and remote management API access: login mechanisms per surface and the operations each surface exposes",
-        "entry_sections": [],
-        "settings": [
-            {"section": "api", "key": "external_url", "label": "External URL",
-             "help": "canonical https origin (https://host[:port]) for API tokens and the OAuth metadata; " +
-                     "defaults to security.callback_url. Required by an enabled surface, along with an HTTPS " +
-                     "listener (or security.trusted_proxies) and RBAC enforcement"},
-            {"section": "api", "key": "access_token_ttl", "label": "Access token TTL", "advanced": True,
-             "help": "OAuth access token lifetime (Go duration, default 1h)"},
-            {"section": "api", "key": "refresh_token_ttl", "label": "Refresh token TTL", "advanced": True,
-             "help": "OAuth refresh token lifetime per rotation (default 720h)"},
-            {"section": "api", "key": "grant_max_ttl", "label": "Login max lifetime", "advanced": True,
-             "help": "absolute OAuth grant lifetime, after which a new interactive login is required (default 2160h)"},
-            {"section": "api", "key": "federated_identity_ttl", "label": "Federated identity TTL", "advanced": True,
-             "help": "provider-derived group snapshot max age (default 720h)"},
-            {"section": "api", "key": "pat_default_ttl", "label": "API key default expiry", "advanced": True,
-             "help": "default API key lifetime (default 2160h); --expires=never is required for non-expiring keys"},
-        ],
-        # Per-surface settings render as their own cards: the enable
-        # switch and the login mechanisms up front, the operation
-        # overrides under Additional settings
-        "groups": [
-            {
-                "title": "MCP",
-                "desc": "the Model Context Protocol endpoint at <external url>/_openrun/mcp for AI clients",
-                "settings": [
-                    {"section": "api", "key": "mcp.enable", "label": "Enabled", "kind": "bool",
-                     "help": "serve the MCP endpoint; needs an HTTPS listener (or trusted proxies), the external " +
-                             "URL and RBAC enforcement"},
-                    {"section": "api", "key": "mcp.auth", "label": "Login mechanisms", "kind": "checklist",
-                     "options": "api_auths",
-                     "help": "browser login mechanisms for MCP OAuth clients (API keys minted with --resource mcp " +
-                             "work regardless); at least one is required, admin by default"},
-                    {"section": "api", "key": "mcp.enable_apis", "label": "Additional APIs to enable", "kind": "checklist",
-                     "options": "api_ops_mcp_disabled", "advanced": True,
-                     "help": "dangerous operations disabled for MCP by default, opted back in (logged at startup)"},
-                    {"section": "api", "key": "mcp.disable_apis", "label": "APIs to disable", "kind": "checklist",
-                     "options": "api_ops_mcp", "advanced": True,
-                     "help": "operations turned off for MCP on top of the defaults; secret_create is on by default, " +
-                             "disable it if secret values must never pass through an AI client"},
-                    {"section": "api", "key": "mcp.skip_destructive_confirm", "label": "Skip destructive confirmation",
-                     "kind": "bool", "advanced": True,
-                     "help": "disable the dry-run preview + confirmation prompt on destructive MCP tools (headless automation)"},
-                ],
-            },
-            {
-                "title": "Remote management (REST)",
-                "desc": "the management REST API over HTTPS, used by the OpenRun CLI on other machines",
-                "settings": [
-                    {"section": "api", "key": "rest.enable", "label": "Enabled", "kind": "bool",
-                     "help": "serve the management API over HTTPS; needs an HTTPS listener (or trusted proxies), " +
-                             "the external URL and RBAC enforcement"},
-                    {"section": "api", "key": "rest.auth", "label": "Login mechanisms", "kind": "checklist",
-                     "options": "api_auths",
-                     "help": "login mechanisms for openrun login (API keys work regardless); at least one is " +
-                             "required, admin by default"},
-                    {"section": "api", "key": "rest.enable_apis", "label": "Additional APIs to enable", "kind": "checklist",
-                     "options": "api_ops_rest_disabled", "advanced": True,
-                     "help": "operations disabled for the remote API by default, opted back in (none currently)"},
-                    {"section": "api", "key": "rest.disable_apis", "label": "APIs to disable", "kind": "checklist",
-                     "options": "api_ops", "advanced": True,
-                     "help": "operations turned off for remote CLI callers (the local unix socket CLI is never affected)"},
-                ],
-            },
         ],
     },
     {
@@ -3070,6 +3144,12 @@ def config_setting_options(source):
                     if entry["name"] not in options:
                         options.append(entry["name"])
         return options
+    if source == "app_mcp_auths":
+        # Logins the app actions endpoint's ?auth= param can name: the app
+        # auth types without default and the client cert entries (no browser
+        # login produces those identities)
+        ret = openrun.list_auths()
+        return [a for a in (ret.value if not ret.error else []) if a != "default" and a != "cert" and not a.startswith("cert_")]
     if source in ("api_ops", "api_ops_mcp", "api_ops_mcp_disabled", "api_ops_rest_disabled"):
         # Registry operation names for the enable/disable checklists:
         # api_ops = every operation (rest disable), api_ops_mcp = the ones
@@ -3363,6 +3443,7 @@ def config_page_data(req, page):
             else:
                 rows.append(row)
         data["SettingGroups"].append({
+            "key": group.get("key") or "",
             "title": group["title"],
             "desc": group.get("desc") or "",
             "settings": rows,
@@ -3419,10 +3500,14 @@ def _page_kv_section(meta, section):
     return ""
 
 
-def config_page_action_handler(req, page):
+def config_page_action_handler(req, page, page_data=None):
     # Sub page actions: set/reset a settings field, delete a dynamic entry,
-    # set/delete an app_config key. All take effect immediately
+    # set/delete an app_config key. All take effect immediately. page_data
+    # rebuilds the page context after the action (default the generic sub
+    # page; the MCP page adds its connect guide)
     meta = config_page_meta(page)
+    if not page_data:
+        page_data = lambda: config_page_data(req, page)
     action = utils.query_param(req, "action")
     version_id = utils.query_param(req, "version_id")
     section = utils.query_param(req, "section")
@@ -3446,12 +3531,12 @@ def config_page_action_handler(req, page):
                 ret = openrun_admin.delete_config_value(section, key, version_id)
                 ok = "Reset %s %s to the static config value" % (section, key)
             else:
-                data = config_page_data(req, page)
+                data = page_data()
                 data["FlashError"] = "no value provided for %s %s" % (section, key)
                 return data
         elif kind == "int":
             if not raw.strip().lstrip("-").isdigit():
-                data = config_page_data(req, page)
+                data = page_data()
                 data["FlashError"] = "%s %s must be a number" % (section, key)
                 return data
             ret = openrun_admin.set_config_value(section, key, int(raw.strip()), version_id)
@@ -3470,7 +3555,7 @@ def config_page_action_handler(req, page):
         kv_section = _page_kv_section(meta, utils.query_param(req, "kv_section"))
         kv_key = utils.query_param(req, "key").strip()
         if not kv_section or not kv_key:
-            data = config_page_data(req, page)
+            data = page_data()
             data["FlashError"] = "key cannot be empty" if kv_section else "unknown kv section"
             return data
         value = parse_config_value(utils.query_param(req, "value"))
@@ -3479,18 +3564,18 @@ def config_page_action_handler(req, page):
     elif action == "kv_delete":
         kv_section = _page_kv_section(meta, utils.query_param(req, "kv_section"))
         if not kv_section:
-            data = config_page_data(req, page)
+            data = page_data()
             data["FlashError"] = "unknown kv section"
             return data
         ret = openrun_admin.delete_config_value(kv_section, utils.query_param(req, "key"), version_id)
         ok = "Removed %s %s" % (kv_section, utils.query_param(req, "key"))
     else:
-        data = config_page_data(req, page)
+        data = page_data()
         data["FlashError"] = "unknown action %s" % action
         return data
 
     error = ret.error
-    return utils.flash_result(config_page_data(req, page), error, ok)
+    return utils.flash_result(page_data(), error, ok)
 
 
 def config_auth_data(req):
@@ -3531,6 +3616,28 @@ def config_api_data(req):
 
 def config_api_action_handler(req):
     return config_page_action_handler(req, "api")
+
+
+def config_mcp_data(req):
+    # The MCP sub page: the connect guide (endpoint state, commands, the
+    # management enable) above the MCP settings cards
+    data = config_page_data(req, "mcp")
+    if not data["Error"]:
+        mcp_connect_data(req, data)
+        # Each endpoint is ONE card: its settings rows render inside it,
+        # without the enable row - the card header's Enable/Disable button
+        # (POST enable) is that switch
+        data["GroupByKey"] = {}
+        for group in data["SettingGroups"]:
+            data["GroupByKey"][group["key"]] = {
+                "settings": [r for r in group["settings"] if r["key"] != group["key"] + ".enable"],
+                "advanced": group["advanced"],
+            }
+    return data
+
+
+def config_mcp_action_handler(req):
+    return config_page_action_handler(req, "mcp", lambda: config_mcp_data(req))
 
 
 def config_builder_data(req):
@@ -5232,6 +5339,157 @@ def action_run_cancel_handler(req):
     error = ret.error
     data = action_run_detail_data(req)
     return utils.flash_result(data, error, "Cancel requested for run %s" % run_id, "Cancel failed")
+
+
+# ---------- MCP config sub page: the connect guide ----------
+
+MCP_HELP = "/docs/configuration/remoteaccess/#connect-an-mcp-client"
+
+# Logins the app actions endpoint can be connected with when the server's
+# login list cannot be read (server_info needs config:basic_read)
+MCP_FIXED_LOGINS = ["none", "system", "builtin"]
+
+
+def mcp_endpoint_url(req, api, key, suffix):
+    # The url of a server MCP endpoint: the server's canonical url (built
+    # from the issuer origin) when one applies, else the console's own
+    # origin - a plaintext loopback dev server has no issuer but serves the
+    # app actions endpoint and the MCP apps on loopback all the same
+    server_url = (api or {}).get(key, {}).get("url") or ""
+    if server_url:
+        return server_url, True
+    return url_origin(req.AppUrl) + "/_openrun/" + suffix, False
+
+
+MCP_APPS_LIMIT = 50
+
+
+def mcp_apps_with_actions(perms):
+    # The apps whose actions the console user can run, with their action
+    # counts and their own MCP endpoint url: what the app actions endpoint
+    # lists as tools for this user. list_actions (the plugin, like the CLI)
+    # includes apps with MCP disabled - only the MCP surfaces drop them - so
+    # each app is resolved through get_app for its mcp state and url, and
+    # the disabled ones are left out. One get_app per app with actions,
+    # capped. None when the list could not be read
+    ret = openrun.list_actions(path="all")
+    error = ret.error
+    if error:
+        return None, error
+    groups = {}
+    apps = []
+    for info in ret.value.get("actions") or []:
+        app_path = info["app_path"]
+        if app_path not in groups:
+            groups[app_path] = {"path": app_path, "count": 0, "url": "", "can_read": False}
+            apps.append(groups[app_path])
+        groups[app_path]["count"] += 1
+    listed = []
+    for app in apps[:MCP_APPS_LIMIT]:
+        app_ret = openrun.get_app(app["path"])
+        app_error = app_ret.error
+        if app_error:
+            # No app:read on the app: listed without its endpoint
+            listed.append(app)
+            continue
+        if app_ret.value.get("mcp_disabled"):
+            continue
+        app["url"] = app_ret.value.get("mcp_url") or ""
+        app["can_read"] = True
+        listed.append(app)
+    return listed, ""
+
+
+def mcp_connect_data(req, data):
+    # The connect guide of the MCP config sub page (/config/mcp): the three
+    # kinds of MCP endpoint the server has - the app actions endpoint (on by
+    # default, the actions of every app the user can run), the management
+    # endpoint (off by default, enabled here when its prerequisites hold)
+    # and the per app endpoints - each with its state and the commands which
+    # connect Claude Code, Codex or any MCP client. The endpoint state comes
+    # from server_info; the urls fall back to the console's origin when the
+    # server has no external url
+    perms = data["Perms"]
+    data.update({
+        "HelpUrl": utils.docs_link(MCP_HELP),
+        "ActionsDocs": utils.docs_link("/docs/actions/"),
+        "Api": None,
+        "ApiError": "",
+        "Apps": [],
+        "AppsError": "",
+        "Logins": MCP_FIXED_LOGINS,
+        "DefaultAuth": "none",
+        "Checks": [],
+        "Ready": False,
+        # The management enable toggle is a config:update write (get_perms
+        # masks the permission without the config + updates features)
+        "CanEnable": bool(perms.get("config:update")),
+    })
+    ret = openrun.server_info()
+    error = ret.error
+    if error:
+        data["ApiError"] = error
+    else:
+        api = ret.value.get("api") or {}
+        data["Api"] = api
+        data["DefaultAuth"] = api.get("app_default_auth") or "none"
+        logins = list(api.get("logins") or MCP_FIXED_LOGINS)
+        allowed = list(api.get("app_mcp", {}).get("allowed_auth") or [])
+        if allowed:
+            # [api.app_mcp] allowed_auth restricts what ?auth= may name
+            logins = [l for l in logins if l in allowed]
+        data["Logins"] = logins
+        # The management prerequisites, as validateApiSurfaceConfig checks
+        # them when the surface is enabled
+        transport_ok = bool(api.get("https_listener") or api.get("trusted_proxies"))
+        data["Checks"] = [
+            {"key": "rbac", "ok": bool(api.get("rbac_enforced")),
+             "label": "RBAC enforcement",
+             "detail": "always on" if api.get("rbac_enforced") else
+                       "security.unsafe_disable_rbac is set on this server: unset it (static config, restart)"},
+            {"key": "transport", "ok": transport_ok,
+             "label": "HTTPS listener or a trusted TLS proxy",
+             "detail": ("HTTPS listener on" if api.get("https_listener") else "security.trusted_proxies set") if transport_ok else
+                       "https.port is -1 and security.trusted_proxies is empty (static config, restart)"},
+            {"key": "external_url", "ok": bool(api.get("external_url")),
+             "label": "External URL",
+             "detail": api.get("external_url") or
+                       "set api.external_url (or security.callback_url) to the https origin clients use, " +
+                       "or turn on the HTTPS listener so https://<default domain>:<port> applies"},
+        ]
+        data["Ready"] = all([c["ok"] for c in data["Checks"]])
+    data["AppUrl"], data["AppUrlCanonical"] = mcp_endpoint_url(req, data["Api"], "app_mcp", "app_mcp")
+    data["MgmtUrl"], data["MgmtUrlCanonical"] = mcp_endpoint_url(req, data["Api"], "mcp", "mcp")
+    apps, error = mcp_apps_with_actions(perms)
+    if apps == None:
+        data["AppsError"] = error
+    else:
+        data["Apps"] = apps
+    return data
+
+
+def mcp_enable_handler(req):
+    # POST /config/mcp/enable: turn an MCP endpoint on or off - surface is
+    # mcp (the management endpoint, api.mcp.enable) or app_mcp (the app
+    # actions endpoint, api.app_mcp.enable), action enable or disable. A
+    # dynamic config value, live immediately; the server validates the
+    # management prerequisites on enable and its error names what is missing
+    surface = utils.query_param(req, "surface")
+    if surface not in ("mcp", "app_mcp"):
+        data = config_mcp_data(req)
+        data["FlashError"] = "unknown MCP endpoint %s" % surface
+        return data
+    enable = utils.query_param(req, "action") != "disable"
+    version_id = ""
+    values = openrun.get_config_values(["api"])
+    if not values.error:
+        version_id = values.value.get("version_id") or ""
+    ret = openrun_admin.set_config_value("api", surface + ".enable", enable, version_id)
+    error = ret.error
+    name = "Management MCP" if surface == "mcp" else "App actions MCP"
+    ok = "%s enabled - connect a client with the commands below" % name if enable else \
+         "%s disabled - connected clients are refused from now on" % name
+    return utils.flash_result(config_mcp_data(req), error, ok)
 
 
 def url_split(url):

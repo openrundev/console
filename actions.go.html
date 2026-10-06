@@ -4,18 +4,7 @@
   grouped by app, and a Runs tab with the recent async runs across apps.
   HTMX partial: block action_content
 */}}
-<!DOCTYPE html>
-<html lang="en">
-  {{ template "head" . }}
-
-
-  <body class="min-h-screen bg-base-200">
-    <div class="drawer lg:drawer-open">
-      {{ template "drawer_toggle" }}
-
-
-      <div class="drawer-content">
-        <main hx-history-elt class="p-4 lg:p-6 space-y-4 max-w-6xl">
+{{ template "page_open" (dict "Ctx" . "Main" "space-y-4 max-w-6xl") }}
           <!-- Header -->
           <div
             class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
@@ -31,27 +20,16 @@
               </p>
             </div>
             <div class="page-actions ml-auto flex items-center gap-2">
-              <label
-                class="input input-sm flex-1 min-w-0 sm:flex-none sm:w-48 sm:focus-within:w-60 transition-[width] duration-300 flex">
-                <kbd class="kbd kbd-xs hidden sm:inline-flex" aria-hidden="true"
-                  >⌘K</kbd
+              {{ if and (index .Data.Perms "feature:config") (index .Data.Perms "config:read") }}
+                <a
+                  href="{{ .AppPath }}/config/mcp"
+                  class="btn btn-sm btn-ghost text-primary tooltip tooltip-bottom"
+                  data-tip="Run these actions from Claude Code, Codex or any MCP client"
+                  data-mcp-link
+                  >MCP</a
                 >
-                <input
-                  id="page-search"
-                  type="search"
-                  name="query"
-                  aria-label="Filter actions"
-                  title='Actions: text in the action, app, path and description. Runs: name=value matches an argument, a word any argument value, the result status, the message, the app, the action or the user; all terms must match. A leading /, a :, or "all" switches to app path globs like /utils/** or example.com:/**'
-                  value="{{ .Data.Query }}"
-                  placeholder="Filter actions…"
-                  hx-get="{{ .AppPath }}/actions"
-                  hx-trigger="input changed delay:300ms, search"
-                  hx-push-url="true"
-                  hx-target="#action-content"
-                  hx-swap="innerHTML"
-                  hx-include="#action-tab-value, #action-runs form"
-                  hx-indicator="#page-progress" />
-              </label>
+              {{ end }}
+              {{ template "page_search" (dict "Query" .Data.Query "Label" "Filter actions" "Placeholder" "Filter actions…" "Url" (print .AppPath "/actions") "Target" "#action-content" "Include" "#action-tab-value, #action-runs form" "Title" "Actions: text in the action, app, path and description. Runs: name=value matches an argument, a word any argument value, the result status, the message, the app, the action or the user; all terms must match. A leading /, a :, or \"all\" switches to app path globs like /utils/** or example.com:/**") }}
             </div>
           </div>
 
@@ -193,17 +171,19 @@
                         >
                       </div>
                       <div class="overflow-x-auto">
-                        <table class="table table-sm">
+                        {{/* Fixed layout from md up: one table per app, the
+                          columns have to line up from card to card */}}
+                        <table class="table table-sm md:table-fixed">
                           <thead>
                             <tr>
-                              <th scope="col" class="w-8">
+                              <th scope="col" class="w-8 md:w-12">
                                 <span class="sr-only">Details</span>
                               </th>
                               <th scope="col">Action</th>
-                              <th scope="col" class="hidden md:table-cell">
+                              <th scope="col" class="hidden md:table-cell md:w-52">
                                 Tool
                               </th>
-                              <th scope="col" class="hidden lg:table-cell">
+                              <th scope="col" class="hidden lg:table-cell lg:w-44">
                                 Traits
                               </th>
                               <th scope="col" class="text-right">Actions</th>
@@ -300,10 +280,4 @@
             {{ end }}
             <!-- End of "action_content" block -->
           </div>
-        </main>
-      </div>
-
-      {{ template "sidebar" . }}
-    </div>
-  </body>
-</html>
+{{ template "page_close" . }}

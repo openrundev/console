@@ -3,18 +3,7 @@
 {{/* Syncs page (/syncs): sync entries table with run/delete actions.
   HTMX partial: block sync_rows
 */}}
-<!DOCTYPE html>
-<html lang="en">
-  {{ template "head" . }}
-
-
-  <body class="min-h-screen bg-base-200">
-    <div class="drawer lg:drawer-open">
-      {{ template "drawer_toggle" }}
-
-
-      <div class="drawer-content">
-        <main hx-history-elt class="p-4 lg:p-6 space-y-4 max-w-6xl">
+{{ template "page_open" (dict "Ctx" . "Main" "space-y-4 max-w-6xl") }}
           <!-- Header -->
           <div
             class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
@@ -26,25 +15,7 @@
               </p>
             </div>
             <div class="page-actions ml-auto flex items-center gap-2">
-              <label
-                class="input input-sm flex-1 min-w-0 sm:flex-none sm:w-48 sm:focus-within:w-60 transition-[width] duration-300 flex">
-                <kbd class="kbd kbd-xs hidden sm:inline-flex" aria-hidden="true"
-                  >⌘K</kbd
-                >
-                <input
-                  id="page-search"
-                  type="search"
-                  name="query"
-                  aria-label="Filter syncs"
-                  value="{{ .Data.Query }}"
-                  placeholder="Filter syncs…"
-                  hx-get="{{ .AppPath }}/syncs"
-                  hx-trigger="input changed delay:300ms, search"
-                  hx-push-url="true"
-                  hx-target="#sync-rows"
-                  hx-swap="innerHTML"
-                  hx-indicator="#page-progress" />
-              </label>
+              {{ template "page_search" (dict "Query" .Data.Query "Label" "Filter syncs" "Placeholder" "Filter syncs…" "Url" (print .AppPath "/syncs") "Target" "#sync-rows") }}
               <a
                 class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "sync:create") }}
                   btn-disabled tooltip tooltip-bottom
@@ -110,13 +81,13 @@
                             <td class="whitespace-nowrap">
                               {{ if eq .state "Failing" }}
                                 <span class="status status-error"></span>
-                                <span class="text-xs text-error">failing</span>
+                                <span class="text-xs text-error max-sm:sr-only">failing</span>
                               {{ else if eq .state "Disabled" }}
                                 <span class="status status-warning"></span>
-                                <span class="text-xs">disabled</span>
+                                <span class="text-xs max-sm:sr-only">disabled</span>
                               {{ else }}
                                 <span class="status status-success"></span>
-                                <span class="text-xs">healthy</span>
+                                <span class="text-xs max-sm:sr-only">healthy</span>
                               {{ end }}
                             </td>
                             <td>
@@ -125,7 +96,7 @@
                                 one-character slivers on mobile
                               */}}
                               <span
-                                class="font-mono text-xs font-medium break-all inline-block min-w-40 align-bottom"
+                                class="font-mono text-xs font-medium break-all inline-block min-w-28 sm:min-w-40 align-bottom"
                                 >{{ .repo }}</span
                               >
                               {{ if .branch }}
@@ -164,8 +135,8 @@
                               {{ end }}
                             </td>
                             <td
-                              class="text-xs text-base-content/70 hidden lg:table-cell whitespace-nowrap max-w-32 truncate tooltip tooltip-left"
-                              data-tip="{{ .user }}">
+                              class="text-xs text-base-content/70 hidden lg:table-cell whitespace-nowrap max-w-32 truncate{{ if .user }} tooltip tooltip-left{{ end }}"
+                              {{ if .user }}data-tip="{{ .user }}"{{ end }}>
                               {{ if .user }}
                                 {{ .user }}
                               {{ else }}
@@ -190,7 +161,9 @@
                               {{ end }}
                             </td>
                             <td class="text-right whitespace-nowrap">
-                              <div class="inline-flex items-center gap-0.5">
+                              {{/* Stacked on a phone: side by side the two
+                                buttons ran past the card's right edge */}}
+                              <div class="inline-flex flex-col items-end sm:flex-row sm:items-center gap-0.5">
                                 <button
                                   class="btn btn-xs btn-ghost text-primary tooltip tooltip-left"
                                   aria-label="Run sync {{ .repo }} now"
@@ -275,10 +248,4 @@
             {{ end }}
             <!-- End of "sync_rows" block -->
           </div>
-        </main>
-      </div>
-
-      {{ template "sidebar" . }}
-    </div>
-  </body>
-</html>
+{{ template "page_close" . }}

@@ -5,16 +5,7 @@
      (hx-trigger load + 15s refresh) and logs stream through the
      <log-tail> element (the server's shared logtail.js, /containers/logs_stream).
      HTMX partial: block container_content */}}
-<!DOCTYPE html>
-<html lang="en">
-  {{ template "head" . }}
-
-  <body class="min-h-screen bg-base-200">
-    <div class="drawer lg:drawer-open">
-      {{ template "drawer_toggle" }}
-
-      <div class="drawer-content">
-        <main hx-history-elt class="p-4 lg:p-6 max-w-6xl">
+{{ template "page_open" (dict "Ctx" . "Main" "max-w-6xl") }}
           <div id="container-content" class="space-y-4">
           {{ block "container_content" . }}
             <!-- Header -->
@@ -251,12 +242,7 @@
                           Kubernetes status
                         </h2>
                         {{ if .Data.K8sError }}
-                          <div
-                            role="alert"
-                            class="alert alert-error alert-soft py-2 text-sm">
-                            <span aria-hidden="true">✕</span>
-                            <span class="break-all">{{ .Data.K8sError }}</span>
-                          </div>
+                          {{ template "error_alert" .Data.K8sError }}
                         {{ else if .Data.K8s }}
                           <div class="flex items-center gap-2 text-xs flex-wrap">
                             <span

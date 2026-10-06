@@ -2,16 +2,7 @@
 {{/* SPDX-License-Identifier: Apache-2.0 */}}
 {{/* Config history snapshot viewer (/config/history?version=): one dynamic
      config version rendered as formatted json */}}
-<!DOCTYPE html>
-<html lang="en">
-  {{ template "head" . }}
-
-  <body class="min-h-screen bg-base-200">
-    <div class="drawer lg:drawer-open">
-      {{ template "drawer_toggle" }}
-
-      <div class="drawer-content">
-        <main hx-history-elt class="p-4 lg:p-6 space-y-4 max-w-6xl">
+{{ template "page_open" (dict "Ctx" . "Main" "space-y-4 max-w-6xl") }}
           <!-- Header -->
           <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" . }}
@@ -46,10 +37,4 @@
               </div>
             </div>
           {{ end }}
-        </main>
-      </div>
-
-      {{ template "sidebar" . }}
-    </div>
-  </body>
-</html>
+{{ template "page_close" . }}

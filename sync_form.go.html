@@ -1,18 +1,7 @@
 {{/* Copyright (c) ClaceIO, LLC */}}
 {{/* SPDX-License-Identifier: Apache-2.0 */}}
 {{/* Sync create form (/syncs/create) with a Validate (dry run) option */}}
-<!DOCTYPE html>
-<html lang="en">
-  {{ template "head" . }}
-
-
-  <body class="min-h-screen bg-base-200">
-    <div class="drawer lg:drawer-open">
-      {{ template "drawer_toggle" }}
-
-
-      <div class="drawer-content">
-        <main hx-history-elt class="p-4 lg:p-6 space-y-4 max-w-2xl">
+{{ template "page_open" (dict "Ctx" . "Main" "space-y-4 max-w-2xl") }}
           <!-- Header -->
           <div
             class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
@@ -23,7 +12,7 @@
                 aria-label="Breadcrumb"
                 class="breadcrumbs text-xs text-base-content/70 p-0">
                 <ul>
-                  <li><a href="{{ .AppPath }}/syncs">Sync</a></li>
+                  <li><a href="{{ .AppPath }}/syncs">Syncs</a></li>
                   <li>new source</li>
                 </ul>
               </nav>
@@ -39,7 +28,7 @@
 
 
 {{ block "op_form" . }}
-          <div id="op-form-wrap">
+          <div id="op-form-wrap" class="space-y-4">
           {{ template "error_alert" .Data.Error }}
 
           {{ template "validation_alert" (dict
@@ -56,7 +45,7 @@
             id="op-form"
             hx-post="{{ .AppPath }}/syncs/create"
             hx-target="#op-form-wrap"
-            hx-swap="outerHTML"
+            hx-swap="outerHTML show:top showTarget:#op-form-wrap"
             hx-indicator="#page-progress, #op-form"
             class="card bg-base-100 border border-base-300">
             <div class="card-body p-5 gap-5">
@@ -79,7 +68,7 @@
                   </p>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-[1fr_1.6fr_1fr] gap-4">
                   <div>
                     <label
                       class="block text-sm font-medium mb-1"
@@ -108,24 +97,7 @@
                       <option value="" {{ if not $gitAuth }}selected{{ end }}>
                         none (public repo)
                       </option>
-                      {{ range .Data.GitAuthOptions }}
-                        <option
-                          value="{{ . }}"
-                          {{ if eq . $gitAuth }}selected{{ end }}>
-                          {{ . }}
-                        </option>
-                      {{ end }}
-                      {{ if $gitAuth }}
-                        {{ $found := false }}
-                        {{ range .Data.GitAuthOptions }}
-                          {{ if eq . $gitAuth }}{{ $found = true }}{{ end }}
-                        {{ end }}
-                        {{ if not $found }}
-                          <option value="{{ $gitAuth }}" selected>
-                            {{ $gitAuth }}
-                          </option>
-                        {{ end }}
-                      {{ end }}
+                      {{ template "select_options" (dict "Options" .Data.GitAuthOptions "Current" $gitAuth) }}
                     </select>
                   </div>
                   <div>
@@ -270,10 +242,4 @@
           </form>
           </div>
           {{ end }}
-        </main>
-      </div>
-
-      {{ template "sidebar" . }}
-    </div>
-  </body>
-</html>
+{{ template "page_close" . }}

@@ -6,21 +6,7 @@
   /builder/events JSON-line stream; this page render is the durable
   transcript from the activity log
 */}}
-<!DOCTYPE html>
-<html lang="en">
-  {{ template "head" . }}
-
-
-  <body class="min-h-screen bg-base-200">
-    <script src="{{ static "builderchat.js" }}"></script>
-    <script src="{{ static "vendor/highlight.min.js" }}"></script>
-    <script src="{{ static "builderfiles.js" }}"></script>
-    <div class="drawer lg:drawer-open">
-      {{ template "drawer_toggle" }}
-
-
-      <div class="drawer-content">
-        <main hx-history-elt class="p-4 lg:p-6 space-y-4">
+{{ template "page_open" (dict "Ctx" . "Main" "space-y-4" "Scripts" (list (static "builderchat.js") (static "vendor/highlight.min.js") (static "builderfiles.js"))) }}
           <!-- Header -->
           <div
             class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
@@ -108,6 +94,9 @@
                         {{ end }}"
                         {{ if or (index .Data.Perms "app:approve") (index .Data.Perms "admin") }}
                           hx-post="{{ .AppPath }}/builder/detail/approve?id={{ $s.id }}"
+                          hx-target="#session-content"
+                          hx-swap="innerHTML"
+                          hx-indicator="#page-progress"
                           hx-disable="this"
                         {{ else }}
                           disabled data-tip="requires the app:approve
@@ -126,6 +115,9 @@
                         class="btn btn-ghost btn-sm"
                         {{ if $canWrite }}
                           hx-post="{{ .AppPath }}/builder/detail/resume?id={{ $s.id }}"
+                          hx-target="#session-content"
+                          hx-swap="innerHTML"
+                          hx-indicator="#page-progress"
                           hx-disable="this"
                         {{ else }}
                           disabled data-tip="requires builder:create"
@@ -137,6 +129,9 @@
                         class="btn btn-ghost btn-sm"
                         {{ if $canWrite }}
                           hx-post="{{ .AppPath }}/builder/detail/stop?id={{ $s.id }}"
+                          hx-target="#session-content"
+                          hx-swap="innerHTML"
+                          hx-indicator="#page-progress"
                           hx-disable="this"
                         {{ else }}
                           disabled data-tip="requires builder:create"
@@ -148,6 +143,9 @@
                       class="btn btn-ghost btn-sm text-error"
                       {{ if $canWrite }}
                         hx-post="{{ .AppPath }}/builder/detail/delete?id={{ $s.id }}"
+                        hx-target="#session-content"
+                        hx-swap="innerHTML"
+                        hx-indicator="#page-progress"
                         hx-confirm="Delete draft {{ $s.name }}? The workspace
                         and preview app are
                         removed.{{ if $s.publish_path }}
@@ -244,6 +242,9 @@
                         class="btn btn-ghost btn-xs text-error ml-2"
                         {{ if $canPublish }}
                           hx-post="{{ .AppPath }}/builder/detail/unpublish?id={{ $s.id }}"
+                          hx-target="#session-content"
+                          hx-swap="innerHTML"
+                          hx-indicator="#page-progress"
                           hx-confirm="Unpublish {{ $s.publish_path }}?
                           {{ if eq .Data.PublishMode "git" }}
                             The removal is committed to the repo; the prod sync
@@ -428,11 +429,7 @@
                             name="message"
                             rows="2"
                             class="textarea textarea-bordered flex-1 text-sm resize-y min-h-16 max-h-48 focus:textarea-primary"
-                            placeholder="{{ if .Data.IsLive }}
-                              Ask for a change…
-                            {{ else }}
-                              Sandbox is stopped - resume to continue
-                            {{ end }}"
+                            placeholder="{{ if .Data.IsLive }}Ask for a change…{{ else }}Sandbox is stopped - resume to continue{{ end }}"
                             aria-label="Message to the agent"
                             {{ if not .Data.IsLive }}
                               disabled
@@ -440,7 +437,7 @@
                           <button
                             type="submit"
                             class="btn btn-primary btn-sm btn-circle transition-transform duration-150 active:scale-95 {{ if not (and $canWrite .Data.IsLive) }}
-                              tooltip tooltip-top
+                              tooltip tooltip-left
                             {{ end }}"
                             aria-label="Send message"
                             {{ if not (and $canWrite .Data.IsLive) }}
@@ -524,7 +521,7 @@
                           <a
                             href="{{ $.AppPath }}/builder/download?id={{ .Data.Id }}"
                             download
-                            class="btn btn-ghost btn-xs btn-circle tooltip tooltip-left"
+                            class="btn btn-ghost btn-xs btn-circle tooltip tooltip-bottom"
                             data-tip="Download the source files as a zip"
                             aria-label="Download the source files as a zip">
                             <svg
@@ -660,66 +657,7 @@
                         endpoint="{{ .AppPath }}/builder/file?id={{ $s.id }}"
                         data-bf-panel="files"
                         hidden>
-                        <nav
-                          class="bf-tree shrink-0 overflow-y-auto bg-base-200/30 py-2 text-xs"
-                          aria-label="Workspace files">
-                          {{ if .Data.FileTree }}
-                            {{ range .Data.FileTree }}
-                              {{ if .is_dir }}
-                                <div
-                                  class="flex items-center gap-1.5 px-3 py-1 text-base-content/70 font-medium"
-                                  style="padding-left: calc(0.75rem + {{ .depth }} * 0.75rem)">
-                                  <svg
-                                    aria-hidden="true"
-                                    class="w-3.5 h-3.5 shrink-0"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="2"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round">
-                                    <path
-                                      d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
-                                  </svg>
-                                  <span class="truncate">{{ .name }}</span>
-                                </div>
-                              {{ else }}
-                                <button
-                                  type="button"
-                                  data-bf-file="{{ .path }}"
-                                  class="flex items-center gap-1.5 w-full text-left px-3 py-1 font-mono hover:bg-base-200 rounded-none"
-                                  style="padding-left: calc(0.75rem + {{ .depth }} * 0.75rem)">
-                                  <svg
-                                    aria-hidden="true"
-                                    class="w-3.5 h-3.5 shrink-0 text-base-content/50"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="2"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round">
-                                    <path
-                                      d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
-                                    <path d="M14 2v4a2 2 0 0 0 2 2h4" />
-                                  </svg>
-                                  <span class="truncate">{{ .name }}</span>
-                                </button>
-                              {{ end }}
-                            {{ end }}
-                          {{ else }}
-                            <p class="px-3 py-2 text-base-content/60">
-                              No files yet
-                            </p>
-                          {{ end }}
-                        </nav>
-                        <div class="bf-viewer flex-1 min-w-0 flex flex-col">
-                          <div
-                            class="bf-name px-4 py-1.5 border-b border-base-300 font-mono text-xs text-base-content/70 truncate"></div>
-                          <div class="bf-body flex-1 min-h-0">
-                            <div class="bf-gutter" aria-hidden="true"></div>
-                            <pre class="bf-code"><code></code></pre>
-                          </div>
-                        </div>
+                        {{ template "file_tree_body" (dict "Tree" .Data.FileTree "Label" "Workspace files" "Empty" "No files yet") }}
                       </builder-files>
                     </div>
                   </div>
@@ -728,10 +666,4 @@
               <!-- End of "session_content" block -->
             </div>
           {{ end }}
-        </main>
-      </div>
-
-      {{ template "sidebar" . }}
-    </div>
-  </body>
-</html>
+{{ template "page_close" . }}

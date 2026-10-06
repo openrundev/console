@@ -2,16 +2,7 @@
 {{/* SPDX-License-Identifier: Apache-2.0 */}}
 {{/* RBAC group/role/grant form (/config/rbac/*): one shared form, sections
      switch on .Data.Kind. Submissions edit the staged config draft */}}
-<!DOCTYPE html>
-<html lang="en">
-  {{ template "head" . }}
-
-  <body class="min-h-screen bg-base-200">
-    <div class="drawer lg:drawer-open">
-      {{ template "drawer_toggle" }}
-
-      <div class="drawer-content">
-        <main hx-history-elt class="p-4 lg:p-6 space-y-4 max-w-2xl">
+{{ template "page_open" (dict "Ctx" . "Main" "space-y-4 max-w-2xl") }}
           <!-- Header -->
           <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" . }}
@@ -49,7 +40,7 @@
 
 
 {{ block "op_form" . }}
-          <div id="op-form-wrap">
+          <div id="op-form-wrap" class="space-y-4">
           {{ template "error_alert" .Data.Error }}
 
 
@@ -59,7 +50,7 @@
             id="op-form"
             hx-post="{{ .AppPath }}/config/rbac/{{ .Data.Kind }}{{ if and (eq .Data.Kind "grant") .Data.Values.is_edit }}?index={{ .Data.Values.index }}{{ end }}"
             hx-target="#op-form-wrap"
-            hx-swap="outerHTML"
+            hx-swap="outerHTML show:top showTarget:#op-form-wrap"
             hx-indicator="#page-progress, #op-form"
             class="card bg-base-100 border border-base-300">
             <div class="card-body p-5 gap-5">
@@ -289,10 +280,4 @@
           </form>
           </div>
           {{ end }}
-        </main>
-      </div>
-
-      {{ template "sidebar" . }}
-    </div>
-  </body>
-</html>
+{{ template "page_close" . }}
