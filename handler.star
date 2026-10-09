@@ -1939,20 +1939,34 @@ def update_form_data(req, app, values, error):
     }
 
 
+def app_form_auth(app):
+    # The app's auth setting as the form edits it: "default" for an app on
+    # the server's default auth (get_app reports the resolved type in auth,
+    # which would read as a change on every submit)
+    if app.get("auth_uses_default"):
+        return "default"
+    return app["auth"] or "default"
+
+
 def update_form_source(app):
     # Edits are staged, so the update form prefills from and compares
     # against the STAGING app when one exists: prod values would silently
     # drop already-staged changes on the next submit (and make a staged
-    # change impossible to revert from the form). Auth stays on the main
-    # app - it is a setting, not staged
+    # change impossible to revert from the form). Auth is staged too (app
+    # metadata, promoted with the rest of the staged version). Returns
+    # (source, error): a staging app that cannot be read is an error, never
+    # a fallback to prod - the form would show and diff against prod values,
+    # hiding the staged changes and making them impossible to revert (a
+    # staged auth the console user cannot log in with does that)
     if app["is_dev"] or not app.get("stage_path"):
-        return app
+        return app, None
     # Staging apps are internal; get_app skips them without the flag
     ret = openrun.get_app(app["stage_path"], include_internal=True)
-    error = ret.error
-    if error:
-        return app
-    return ret.value
+    if ret.error:
+        return None, ("cannot read the staging app %s, which holds the staged changes this form edits: %s. " +
+                      "Promote the staged changes, or switch staging back to an earlier version, from the " +
+                      "app's detail page") % (app["stage_path"], ret.error)
+    return ret.value, None
 
 
 def apps_update_page_handler(req):
@@ -1963,10 +1977,12 @@ def apps_update_page_handler(req):
         return update_form_data(req, None, {}, ret.error)
 
     app = ret.value
-    source = update_form_source(app)
+    source, err = update_form_source(app)
+    if err:
+        return update_form_data(req, app, {"path": app["path"]}, err)
     values = {
         "path": app["path"],
-        "auth": app["auth"] or "default",
+        "auth": app_form_auth(source),
         "mcp": source.get("mcp_setting") or "default",
         "params_rows": utils.kv_rows(source["params"]),
         "bindings": app_binding_refs(source),
@@ -1975,7 +1991,8 @@ def apps_update_page_handler(req):
 
 
 def apps_update_submit_handler(req):
-    # POST: apply param/binding (staged) and auth (direct) changes
+    # POST: stage the param/binding/auth changes, promotion is asked on the
+    # detail page
     path = utils.query_param(req, "path")
     values = {
         "path": path,
@@ -1991,7 +2008,9 @@ def apps_update_submit_handler(req):
     app = ret.value
     # Changed-detection runs against the staging app, the same source the
     # form prefilled from - updates land on staging
-    source = update_form_source(app)
+    source, err = update_form_source(app)
+    if err:
+        return update_form_data(req, app, values, err)
 
     params, err = utils.parse_kv_rows(req, "params")
     if err:
@@ -2024,14 +2043,16 @@ def apps_update_submit_handler(req):
         if result.error:
             return update_form_data(req, app, values, result.error)
 
+    # Auth is app metadata, staged like params: promoting it here would
+    # also promote every other staged change of the app
     new_auth = values["auth"] or "default"
-    if new_auth != (app["auth"] or "default"):
-        # Auth is an app setting, not version controlled; applies directly
-        result = openrun_admin.update_auth(path, new_auth)
+    auth_changed = new_auth != app_form_auth(source)
+    if auth_changed:
+        result = openrun_admin.update_auth(path, new_auth, promote=False)
         if result.error:
             return update_form_data(req, app, values, result.error)
 
-    if (params_changed or bindings_changed or mcp_changed) and not app.get("is_dev"):
+    if (params_changed or bindings_changed or mcp_changed or auth_changed) and not app.get("is_dev"):
         # Ask about promoting the staged change; dev apps apply directly
         # (they have no staging), so there is nothing to promote
         return form_redirect(req, "%s/apps/detail?path=%s&staged=update" % (req.AppPath, path))
