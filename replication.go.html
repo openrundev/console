@@ -11,7 +11,7 @@
             class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" . }}
             <div>
-              {{ template "page_title" "Replication" }}
+              {{ template "page_title" (dict "Title" "Replication" "Help" .Data.HelpUrl) }}
               <p class="page-desc text-sm text-base-content/70">
                 SQLite replication status
               </p>
@@ -86,23 +86,12 @@
                               {{ end }}
                             </td>
                             <td class="whitespace-nowrap">
-                              {{ if .unhealthy }}
-                                <span class="status status-error"></span>
-                                <span
-                                  class="text-xs text-error"
-                                  {{ if .error }}title="{{ .error }}"{{ end }}
-                                  >{{ .state }}</span
-                                >
-                              {{ else if eq .state "syncing" }}
-                                <span class="status status-warning"></span>
-                                <span class="text-xs">{{ .state }}</span>
-                              {{ else if eq .state "pending" }}
-                                <span class="status"></span>
-                                <span class="text-xs">{{ .state }}</span>
-                              {{ else }}
-                                <span class="status status-success"></span>
-                                <span class="text-xs">{{ .state }}</span>
-                              {{ end }}
+                              {{ template "repl_state_dot" (dict "State" .state) }}
+                              <span
+                                class="text-xs {{ if .unhealthy }}text-error{{ end }}"
+                                {{ if .error }}title="{{ .error }}"{{ end }}
+                                >{{ .state }}</span
+                              >
                             </td>
                             <td>
                               {{/* break-all needs a min-width floor: table
@@ -195,21 +184,9 @@
                   <div
                     class="flex flex-col items-center gap-2 text-center text-sm text-base-content/70">
                     {{ if .Data.Query }}
-                      <span class="text-xl" aria-hidden="true">🔍</span>
                       <p>No prod apps match "{{ .Data.Query }}"</p>
-                      <button
-                        class="btn btn-xs btn-outline transition-transform duration-150 active:scale-95"
-                        onclick="const s = document.getElementById('page-search'); if (s) s.value = ''"
-                        hx-get="{{ .AppPath }}/replication"
-                        hx-vals='{"query": ""}'
-                        hx-target="#repl-rows"
-                        hx-swap="innerHTML"
-                        hx-push-url="true"
-                        hx-indicator="#page-progress">
-                        Clear search
-                      </button>
+                      {{ template "clear_search" (dict "Url" (print .AppPath "/replication") "Vals" `{"query": ""}` "Target" "#repl-rows") }}
                     {{ else }}
-                      <span class="text-xl" aria-hidden="true">💾</span>
                       <p>No replicated sqlite bindings</p>
                       <p class="text-xs text-base-content/70">
                         Prod apps with a replicated sqlite binding report their

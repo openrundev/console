@@ -7,7 +7,7 @@
           <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" . }}
             <div>
-              {{ template "page_title" "Bindings" }}
+              {{ template "page_title" (dict "Title" "Bindings" "Help" .Data.HelpUrl) }}
               <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0"><ul><li><a href="{{ .AppPath }}/bindings">Bindings</a></li><li>{{ if eq .Data.Mode "create" }}new{{ else }}edit{{ end }}</li></ul></nav>
               <h2 class="text-xl font-semibold">
                 {{ if eq .Data.Mode "create" }}
@@ -43,7 +43,6 @@
             <div class="card bg-base-100 border border-base-300 py-10">
               <div
                 class="flex flex-col items-center gap-2 text-center text-sm text-base-content/70">
-                <span class="text-xl" aria-hidden="true">🔍</span>
                 <p>The binding could not be loaded</p>
                 <a class="btn btn-xs btn-outline" href="{{ .AppPath }}/bindings"
                   >Back to bindings</a
@@ -190,46 +189,11 @@
                   {{ end }}
                 </div>
 
-                <div class="card-actions justify-end pt-2">
-                  <a
-                    href="{{ .AppPath }}/bindings"
-                    class="btn btn-ghost btn-sm"
-                    >Cancel</a
-                  >
-                  {{ if eq .Data.Mode "create" }}
-                    <button
-                      type="submit"
-                      name="action"
-                      value="validate"
-                      {{ if index .Data.Perms "binding:create" }}
-                        data-tip="Dry run: check the binding without creating it"
-                      {{ else }}
-                        disabled data-tip="requires binding:create"
-                      {{ end }}
-                      class="btn btn-outline btn-sm transition-transform duration-150 active:scale-95 tooltip tooltip-top">
-                      Validate
-                    </button>
-                    <button
-                      type="submit"
-                      name="action"
-                      value="create"
-                      {{ if not (index .Data.Perms "binding:create") }}
-                        disabled data-tip="requires binding:create"
-                      {{ end }}
-                      class="btn btn-primary btn-sm transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "binding:create") }}tooltip tooltip-top{{ end }}">
-                      Create binding
-                    </button>
-                  {{ else }}
-                    <button
-                      type="submit"
-                      {{ if not (index .Data.Perms "binding:update") }}
-                        disabled data-tip="requires binding:update"
-                      {{ end }}
-                      class="btn btn-primary btn-sm transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "binding:update") }}tooltip tooltip-top{{ end }}">
-                      Save changes
-                    </button>
-                  {{ end }}
-                </div>
+                {{ if eq .Data.Mode "create" }}
+                  {{ template "form_actions" (dict "Cancel" (print .AppPath "/bindings") "Allowed" (index .Data.Perms "binding:create") "DeniedTip" "requires binding:create" "ValidateTip" "Dry run: check the binding without creating it" "Value" "create" "Submit" "Create binding") }}
+                {{ else }}
+                  {{ template "form_actions" (dict "Cancel" (print .AppPath "/bindings") "Allowed" (index .Data.Perms "binding:update") "DeniedTip" "requires binding:update" "Submit" "Save changes") }}
+                {{ end }}
               </div>
             </form>
           {{ end }}

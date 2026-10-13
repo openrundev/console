@@ -300,9 +300,12 @@ def build_routes():
                      fragments=[
                          ace.fragment("action", method="POST", handler=handler.config_system_action_handler),
                      ] if ENABLE_UPDATES else []),
-            ace.html("/config/api", full="config_page.go.html", partial="page_content", handler=handler.config_api_data,
+            # Remote Management API: the REST surface card (one-click
+            # Enable/Disable, CLI commands) above the shared API settings
+            ace.html("/config/api", full="config_api.go.html", partial="page_content", handler=handler.config_api_data,
                      fragments=[
                          ace.fragment("action", method="POST", handler=handler.config_api_action_handler),
+                         ace.fragment("enable", method="POST", handler=handler.api_enable_handler),
                      ] if ENABLE_UPDATES else []),
             # MCP: the connect guide (endpoint state, client commands, the
             # one-click management enable) above the MCP settings cards

@@ -10,8 +10,8 @@
           <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" . }}
             <div>
-              {{ template "page_title" "Configuration" }}
-              <div class="flex items-center gap-2"><nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0">
+              {{ template "page_title" (dict "Title" "Configuration" "Help" .Data.HelpUrl) }}
+              <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0">
                 <ul>
                   <li>
                     <a href="{{ .AppPath }}/config">Configuration</a>
@@ -29,7 +29,7 @@
                     {{ end }}
                     {{ .Data.Meta.title }}
                   </li>
-                </ul></nav>{{ template "help_link" .Data.HelpUrl }}</div>
+                </ul></nav>
               <h2 class="text-xl font-semibold">
                 {{ if .Data.IsEdit }}
                   Edit
@@ -288,19 +288,7 @@
                 </div>
               {{ end }}
 
-              <div class="card-actions justify-end pt-2">
-                <a href="{{ .AppPath }}{{ .Data.ReturnPath }}" class="btn btn-ghost btn-sm"
-                  >Cancel</a
-                >
-                <button
-                  type="submit"
-                  {{ if not (index .Data.Perms "config:update") }}
-                    disabled data-tip="requires config:update"
-                  {{ end }}
-                  class="btn btn-primary btn-sm transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "config:update") }}tooltip tooltip-top{{ end }}">
-                  Save - takes effect immediately
-                </button>
-              </div>
+              {{ template "form_actions" (dict "Cancel" (print .AppPath .Data.ReturnPath) "Allowed" (index .Data.Perms "config:update") "DeniedTip" "requires config:update" "Submit" "Save - takes effect immediately") }}
             </div>
           </form>
           </div>

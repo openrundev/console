@@ -7,7 +7,7 @@
           <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" . }}
             <div>
-              {{ template "page_title" "Configuration" }}
+              {{ template "page_title" (dict "Title" "Configuration" "Help" .Data.HelpUrl) }}
               <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0">
                 <ul>
                   <li>
@@ -259,23 +259,7 @@
                 </div>
               {{ end }}
 
-              <div class="card-actions justify-end pt-2">
-                <a href="{{ .AppPath }}/config/rbac" class="btn btn-ghost btn-sm"
-                  >Cancel</a
-                >
-                <button
-                  type="submit"
-                  {{ if not (index .Data.Perms "config:update") }}
-                    disabled data-tip="requires config:update"
-                  {{ end }}
-                  class="btn btn-primary btn-sm transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "config:update") }}tooltip tooltip-top{{ end }}">
-                  {{ if .Data.Values.is_edit }}
-                    Save to staged config
-                  {{ else }}
-                    Add to staged config
-                  {{ end }}
-                </button>
-              </div>
+              {{ template "form_actions" (dict "Cancel" (print .AppPath "/config/rbac") "Allowed" (index .Data.Perms "config:update") "DeniedTip" "requires config:update" "Submit" (ternary "Save to staged config" "Add to staged config" (not (not .Data.Values.is_edit)))) }}
             </div>
           </form>
           </div>

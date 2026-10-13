@@ -11,12 +11,12 @@
             <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
               {{ template "hamburger" . }}
               <div>
-                {{ template "page_title" "Syncs" }}
-                <div class="flex items-center gap-2"><nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0">
+                {{ template "page_title" (dict "Title" "Syncs" "Help" .Data.HelpUrl) }}
+                <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0">
                   <ul>
                     <li><a href="{{ .AppPath }}/syncs">Syncs</a></li>
                     <li class="font-mono">{{ .Data.Id }}</li>
-                  </ul></nav>{{ template "help_link" .Data.HelpUrl }}</div>
+                  </ul></nav>
                 <h2 class="text-xl font-medium font-mono break-all">
                   {{ if .Data.Sync }}{{ .Data.Sync.repo }}{{ else }}{{ .Data.Id }}{{ end }}
                 </h2>

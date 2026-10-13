@@ -249,6 +249,7 @@ def overview_data(req):
     data = {
         "Title": "Overview",
         "Nav": "overview",
+        "HelpUrl": utils.docs_link("/docs/"),
         "Perms": perms,
         "Apps": ov_apps_tile(perms),
         "Syncs": ov_syncs_tile(perms),
@@ -425,6 +426,7 @@ def replication_data(req):
     data = {
         "Title": "Replication",
         "Nav": "overview",
+        "HelpUrl": utils.docs_link("/docs/applications/litestream/#monitoring"),
         "Query": query,
         "Perms": perms,
         "Total": 0,
@@ -640,6 +642,7 @@ def apps_data(req):
     data = {
         "Title": "Apps",
         "Nav": "apps",
+        "HelpUrl": utils.docs_link("/docs/applications/overview/#app-listing"),
         "Query": query,
         "Filter": filter,
         "Tab": tab,
@@ -1827,6 +1830,7 @@ def create_form_data(req, values, error):
     return {
         "Title": "New app",
         "Nav": "apps",
+        "HelpUrl": utils.docs_link("/docs/applications/overview/#app-management"),
         "Mode": "create",
         "Step": "edit",
         "Error": error,
@@ -1927,6 +1931,7 @@ def update_form_data(req, app, values, error):
     return {
         "Title": "Update app",
         "Nav": "apps",
+        "HelpUrl": utils.docs_link("/docs/applications/overview/#app-management"),
         "Mode": "update",
         "Step": "edit",
         "Error": error,
@@ -2149,6 +2154,7 @@ def bindings_data(req):
     return {
         "Title": "Bindings",
         "Nav": "bindings",
+        "HelpUrl": utils.docs_link("/docs/applications/servicebindings/"),
         "Query": query,
         "Total": total,
         "Perms": utils.get_perms(),
@@ -2244,6 +2250,7 @@ def binding_form_data(req, mode, values, error):
     return {
         "Title": "New binding" if mode == "create" else "Update binding",
         "Nav": "bindings",
+        "HelpUrl": utils.docs_link("/docs/applications/servicebindings/#create-base-bindings"),
         "Mode": mode,
         "Error": error,
         "Values": values,
@@ -2357,6 +2364,7 @@ def service_form_data(req, values, error):
     return {
         "Title": "New service",
         "Nav": "bindings",
+        "HelpUrl": utils.docs_link("/docs/applications/servicebindings/#create-services"),
         "Error": error,
         "Values": values,
         "Validated": False,
@@ -2449,6 +2457,7 @@ def containers_data(req):
     data = {
         "Title": "Containers",
         "Nav": "containers",
+        "HelpUrl": utils.docs_link("/docs/container/overview/"),
         "Query": query,
         "Filter": filter,
         "ShowStopped": show_stopped,
@@ -2698,6 +2707,7 @@ def audit_data(req):
     data = {
         "Title": "Audit Logs",
         "Nav": "audit",
+        "HelpUrl": utils.docs_link("/docs/applications/audit/"),
         "Filters": filters,
         "Events": [],
         "Apps": [],
@@ -2941,21 +2951,15 @@ CONFIG_PAGES = [
         "desc": "the management REST API over HTTPS used by the OpenRun CLI on other machines, and the " +
                 "external url and token lifetimes shared by every API surface",
         "entry_sections": [],
-        # One card, in the order the page shows: the external url, the REST
-        # surface switch and its logins; the token lifetimes and the REST
-        # operation overrides under Additional settings
+        # The REST surface card (config_api.go.html, by key: the enable row
+        # is the header's Enable/Disable button) above the settings every
+        # API surface shares; the token lifetimes and the REST operation
+        # overrides under Additional settings
         "settings": [
             {"section": "api", "key": "external_url", "label": "External URL",
              "help": "canonical https origin (https://host[:port]) for API tokens and the OAuth metadata; " +
                      "defaults to security.callback_url. Required by an enabled surface, along with an HTTPS " +
                      "listener (or security.trusted_proxies) and RBAC enforcement"},
-            {"section": "api", "key": "rest.enable", "label": "Remote management (REST) enabled", "kind": "bool",
-             "help": "serve the management API over HTTPS; needs an HTTPS listener (or trusted proxies), " +
-                     "the external URL and RBAC enforcement"},
-            {"section": "api", "key": "rest.auth", "label": "Login mechanisms", "kind": "checklist",
-             "options": "api_auths",
-             "help": "login mechanisms for openrun login (API keys work regardless); at least one is " +
-                     "required, admin by default"},
             {"section": "api", "key": "access_token_ttl", "label": "Access token TTL", "advanced": True,
              "help": "OAuth access token lifetime (Go duration, default 1h)"},
             {"section": "api", "key": "refresh_token_ttl", "label": "Refresh token TTL", "advanced": True,
@@ -2966,12 +2970,28 @@ CONFIG_PAGES = [
              "help": "provider-derived group snapshot max age (default 720h)"},
             {"section": "api", "key": "pat_default_ttl", "label": "API key default expiry", "advanced": True,
              "help": "default API key lifetime (default 2160h); --expires=never is required for non-expiring keys"},
-            {"section": "api", "key": "rest.enable_apis", "label": "Additional REST APIs to enable", "kind": "checklist",
-             "options": "api_ops_rest_disabled", "advanced": True,
-             "help": "operations disabled for the remote API by default, opted back in (none currently)"},
-            {"section": "api", "key": "rest.disable_apis", "label": "REST APIs to disable", "kind": "checklist",
-             "options": "api_ops", "advanced": True,
-             "help": "operations turned off for remote CLI callers (the local unix socket CLI is never affected)"},
+        ],
+        "groups": [
+            {
+                "key": "rest",
+                "title": "Remote management (REST)",
+                "desc": "the management API over HTTPS for the OpenRun CLI on other machines (off by default)",
+                "settings": [
+                    {"section": "api", "key": "rest.enable", "label": "Enabled", "kind": "bool",
+                     "help": "serve the management API over HTTPS; needs an HTTPS listener (or trusted proxies), " +
+                             "the external URL and RBAC enforcement"},
+                    {"section": "api", "key": "rest.auth", "label": "Login mechanisms", "kind": "checklist",
+                     "options": "api_auths",
+                     "help": "login mechanisms for openrun login (API keys work regardless); at least one is " +
+                             "required, admin by default"},
+                    {"section": "api", "key": "rest.enable_apis", "label": "Additional REST APIs to enable", "kind": "checklist",
+                     "options": "api_ops_rest_disabled", "advanced": True,
+                     "help": "operations disabled for the remote API by default, opted back in (none currently)"},
+                    {"section": "api", "key": "rest.disable_apis", "label": "REST APIs to disable", "kind": "checklist",
+                     "options": "api_ops", "advanced": True,
+                     "help": "operations turned off for remote CLI callers (the local unix socket CLI is never affected)"},
+                ],
+            },
         ],
     },
     {
@@ -3281,6 +3301,7 @@ def config_data(req):
     data = {
         "Title": "Configuration",
         "Nav": "config",
+        "HelpUrl": utils.docs_link("/docs/configuration/overview/#dynamic-config"),
         "Error": "",
         "Perms": utils.get_perms(),
         "History": [],
@@ -3402,6 +3423,7 @@ def config_page_data(req, page):
         "Page": meta["page"],
         "PageTitle": meta["title"],
         "PageDesc": meta["desc"],
+        "HelpUrl": utils.docs_link(CONFIG_PAGE_DOCS.get(meta["page"], "/docs/configuration/overview/#dynamic-config")),
         "Settings": [],
         "AdvancedSettings": [],
         "SettingGroups": [],
@@ -3632,11 +3654,43 @@ def config_system_action_handler(req):
 
 
 def config_api_data(req):
-    return config_page_data(req, "api")
+    # The Remote Management API sub page: the REST surface card (state,
+    # Enable/Disable, the prerequisites while off, the CLI commands while
+    # on, its settings rows minus the enable row) above the settings shared
+    # by every API surface (external url, token lifetimes)
+    data = config_page_data(req, "api")
+    if data["Error"]:
+        return data
+    data.update({"Api": None, "ApiError": "", "Checks": []})
+    ret = openrun.server_info()
+    if ret.error:
+        data["ApiError"] = ret.error
+    else:
+        api = ret.value.get("api") or {}
+        data["Api"] = api
+        data["Checks"] = api_surface_checks(api)
+    # The url the CLI logs in to: the canonical external url, else the
+    # console's origin (a plaintext loopback dev server has no issuer)
+    external = (data["Api"] or {}).get("external_url") or ""
+    data["ServerUrl"] = external or url_origin(req.AppUrl)
+    data["ServerUrlCanonical"] = bool(external)
+    data["GroupByKey"] = {}
+    for group in data["SettingGroups"]:
+        data["GroupByKey"][group["key"]] = {
+            "settings": [r for r in group["settings"] if r["key"] != group["key"] + ".enable"],
+            "advanced": group["advanced"],
+        }
+    return data
 
 
 def config_api_action_handler(req):
-    return config_page_action_handler(req, "api")
+    return config_page_action_handler(req, "api", lambda: config_api_data(req))
+
+
+def api_enable_handler(req):
+    # POST /config/api/enable: turn the management REST surface on or off
+    return api_surface_toggle("rest", "Remote management", utils.query_param(req, "action") != "disable",
+                              lambda: config_api_data(req))
 
 
 def config_mcp_data(req):
@@ -3675,6 +3729,7 @@ def config_rbac_data(req):
     data = {
         "Title": "RBAC configuration",
         "Nav": "config",
+        "HelpUrl": utils.docs_link("/docs/configuration/rbac/"),
         "Error": "",
         "Perms": utils.get_perms(),
     }
@@ -3739,10 +3794,23 @@ def config_rbac_action_handler(req):
 # Documentation page per config section, for the entry form help link;
 # sections without an entry link the configuration overview
 CONFIG_SECTION_DOCS = {
-    "auth": "/docs/configuration/authentication/",
-    "saml": "/docs/configuration/authentication/",
-    "git_auth": "/docs/configuration/security/",
+    "auth": "/docs/configuration/authentication/#oauth-authentication",
+    "saml": "/docs/configuration/authentication/#saml",
+    "git_auth": "/docs/configuration/security/#private-repository-access",
     "secret": "/docs/configuration/secrets/",
+    "builder_agent": "/docs/appbuilder/#agents-and-profiles",
+    "builder_profile": "/docs/appbuilder/#agents-and-profiles",
+    "builder_git": "/docs/appbuilder/#preview-and-publish",
+}
+
+# Documentation page per config sub page (config_page_data); pages without
+# an entry link the dynamic config overview
+CONFIG_PAGE_DOCS = {
+    "auth": "/docs/configuration/authentication/",
+    "api": "/docs/configuration/remoteaccess/#server-setup",
+    "git": "/docs/configuration/security/#private-repository-access",
+    "secrets": "/docs/configuration/secrets/",
+    "builder": "/docs/appbuilder/#enable-the-builder",
 }
 
 
@@ -3902,6 +3970,7 @@ def config_form_data(req, kind, values, error, cfg=None):
     return {
         "Title": "Configuration",
         "Nav": "config",
+        "HelpUrl": utils.docs_link("/docs/configuration/rbac/#rbac-configuration"),
         "Kind": kind,
         "Error": error,
         "Values": values,
@@ -4028,6 +4097,7 @@ def config_version_handler(req):
     data = {
         "Title": "Config version",
         "Nav": "config",
+        "HelpUrl": utils.docs_link("/docs/configuration/overview/#dynamic-config"),
         "Version": version,
         "Error": "",
         "Json": "",
@@ -4051,6 +4121,7 @@ def syncs_data(req):
     data = {
         "Title": "Syncs",
         "Nav": "syncs",
+        "HelpUrl": utils.docs_link("/docs/applications/overview/#automated-sync"),
         "Query": query,
         "Total": 0,
         "Perms": utils.get_perms(),
@@ -4124,6 +4195,7 @@ def sync_form_data(req, values, error):
     return {
         "Title": "Add sync source",
         "Nav": "syncs",
+        "HelpUrl": utils.docs_link("/docs/applications/overview/#automated-sync"),
         "Mode": "create",
         "Error": error,
         "Values": values,
@@ -4186,7 +4258,7 @@ def syncs_detail_data(req):
         "Error": "",
         "Sync": None,
         "Perms": utils.get_perms(),
-        "HelpUrl": utils.docs_link("/docs/applications/overview/"),
+        "HelpUrl": utils.docs_link("/docs/applications/overview/#automated-sync"),
     }
 
     ret = openrun.list_sync()
@@ -4486,7 +4558,8 @@ def builder_data(req):
     perms = utils.get_perms()
     query = utils.query_param(req, "query").strip().lower()
     data = {"Title": "Builder", "Nav": "builder", "Perms": perms, "Query": utils.query_param(req, "query"),
-            "Sessions": [], "Enabled": False, "Flash": "", "FlashError": ""}
+            "Sessions": [], "Enabled": False, "Flash": "", "FlashError": "",
+            "HelpUrl": utils.docs_link("/docs/appbuilder/")}
 
     if perms.get("feature:system_blocked"):
         # The build plugin rejects anonymous callers with a hard error (not
@@ -4553,7 +4626,8 @@ def builder_create_page_handler(req):
     # (source only, no declaration change)
     data = {"Title": "Builder", "Nav": "builder", "Perms": utils.get_perms(),
             "Profiles": [], "Values": {},
-            "EditApp": utils.query_param(req, "edit").strip()}
+            "EditApp": utils.query_param(req, "edit").strip(),
+            "HelpUrl": utils.docs_link("/docs/appbuilder/#agents-and-profiles")}
     config, error = builder_publish_config()
     if error:
         data["Error"] = error
@@ -4619,6 +4693,15 @@ def builder_create_submit_handler(req):
     return form_redirect(req, "%s/builder/detail?id=%s" % (req.AppPath, ret.value["id"]))
 
 
+# Transcript text class per ACP stop reason of a turn that did not end
+# naturally: a refusal reads as an error, the limits as warnings
+BUILDER_STOP_TONES = {
+    "refusal": "text-error",
+    "max_tokens": "text-warning",
+    "max_turn_requests": "text-warning",
+}
+
+
 def builder_detail_data(req):
     # Session workspace (/builder/detail?id=...): transcript, preview and
     # publish state. The chat pane live-updates over the event stream; this
@@ -4628,8 +4711,7 @@ def builder_detail_data(req):
             "Flash": "", "FlashError": "", "PublishResult": None,
             # Publish dialog re-render state (set by builder_publish_form_error)
             "PublishError": "", "PublishInput": "", "PublishCommitMsg": "",
-            # No dedicated builder docs page yet, link the docs root
-            "HelpUrl": utils.docs_link("/docs/")}
+            "HelpUrl": utils.docs_link("/docs/appbuilder/#preview-and-publish")}
     if not id:
         data["Error"] = "session id is required"
         return data
@@ -4671,6 +4753,15 @@ def builder_detail_data(req):
     # so tool bursts and restart churn do not pad the transcript
     merged = []
     for msg in ret.value["messages"]:
+        # A turn that did not end naturally (stop_reason metadata, see the
+        # builder's stopReasonNote) renders on its own line in its tone
+        stop_reason = (msg.get("metadata") or {}).get("stop_reason")
+        if msg["kind"] == "lifecycle" and stop_reason:
+            msg = dict(msg)
+            msg["kind"] = "stop"
+            msg["tone"] = BUILDER_STOP_TONES.get(stop_reason, "text-base-content/50")
+            merged.append(msg)
+            continue
         if msg["kind"] in ("tool_call", "lifecycle") and merged and merged[-1]["kind"] == msg["kind"]:
             parts = merged[-1]["parts"]
             if parts[-1]["text"] == msg["content"]:
@@ -4933,7 +5024,7 @@ def builder_events_handler(req):
 
 ACTION_RUN_LIMIT = 500  # runs per page of the runs lists (the newest first; infinite scroll loads the next page)
 ACTION_RUN_STATUSES = ["running", "succeeded", "failed", "timed_out", "canceled", "lost"]
-ACTIONS_HELP = "/docs/actions/overview/"
+ACTIONS_HELP = "/docs/actions/"
 STAGE_SUFFIX = "_cl_stage"
 
 
@@ -5333,7 +5424,7 @@ def action_run_detail_data(req):
         "Tool": "",
         "Perms": utils.get_perms(),
         "UserId": req.UserId,
-        "HelpUrl": utils.docs_link(ACTIONS_HELP),
+        "HelpUrl": utils.docs_link(ACTIONS_HELP + "#async-actions"),
     }
     if not run_id:
         data["Error"] = "run id is required"
@@ -5460,24 +5551,7 @@ def mcp_connect_data(req, data):
             # [api.app_mcp] allowed_auth restricts what ?auth= may name
             logins = [l for l in logins if l in allowed]
         data["Logins"] = logins
-        # The management prerequisites, as validateApiSurfaceConfig checks
-        # them when the surface is enabled
-        transport_ok = bool(api.get("https_listener") or api.get("trusted_proxies"))
-        data["Checks"] = [
-            {"key": "rbac", "ok": bool(api.get("rbac_enforced")),
-             "label": "RBAC enforcement",
-             "detail": "always on" if api.get("rbac_enforced") else
-                       "security.unsafe_disable_rbac is set on this server: unset it (static config, restart)"},
-            {"key": "transport", "ok": transport_ok,
-             "label": "HTTPS listener or a trusted TLS proxy",
-             "detail": ("HTTPS listener on" if api.get("https_listener") else "security.trusted_proxies set") if transport_ok else
-                       "https.port is -1 and security.trusted_proxies is empty (static config, restart)"},
-            {"key": "external_url", "ok": bool(api.get("external_url")),
-             "label": "External URL",
-             "detail": api.get("external_url") or
-                       "set api.external_url (or security.callback_url) to the https origin clients use, " +
-                       "or turn on the HTTPS listener so https://<default domain>:<port> applies"},
-        ]
+        data["Checks"] = api_surface_checks(api)
         data["Ready"] = all([c["ok"] for c in data["Checks"]])
     data["AppUrl"], data["AppUrlCanonical"] = mcp_endpoint_url(req, data["Api"], "app_mcp", "app_mcp")
     data["MgmtUrl"], data["MgmtUrlCanonical"] = mcp_endpoint_url(req, data["Api"], "mcp", "mcp")
@@ -5489,28 +5563,57 @@ def mcp_connect_data(req, data):
     return data
 
 
-def mcp_enable_handler(req):
-    # POST /config/mcp/enable: turn an MCP endpoint on or off - surface is
-    # mcp (the management endpoint, api.mcp.enable) or app_mcp (the app
-    # actions endpoint, api.app_mcp.enable), action enable or disable. A
-    # dynamic config value, live immediately; the server validates the
-    # management prerequisites on enable and its error names what is missing
-    surface = utils.query_param(req, "surface")
-    if surface not in ("mcp", "app_mcp"):
-        data = config_mcp_data(req)
-        data["FlashError"] = "unknown MCP endpoint %s" % surface
-        return data
-    enable = utils.query_param(req, "action") != "disable"
+def api_surface_checks(api):
+    # The prerequisites of a management surface (REST, management MCP), as
+    # validateApiSurfaceConfig checks them when the surface is enabled
+    transport_ok = bool(api.get("https_listener") or api.get("trusted_proxies"))
+    return [
+        {"key": "rbac", "ok": bool(api.get("rbac_enforced")),
+         "label": "RBAC enforcement",
+         "detail": "always on" if api.get("rbac_enforced") else
+                   "security.unsafe_disable_rbac is set on this server: unset it (static config, restart)"},
+        {"key": "transport", "ok": transport_ok,
+         "label": "HTTPS listener or a trusted TLS proxy",
+         "detail": ("HTTPS listener on" if api.get("https_listener") else "security.trusted_proxies set") if transport_ok else
+                   "https.port is -1 and security.trusted_proxies is empty (static config, restart)"},
+        {"key": "external_url", "ok": bool(api.get("external_url")),
+         "label": "External URL",
+         "detail": api.get("external_url") or
+                   "set api.external_url (or security.callback_url) to the https origin clients use, " +
+                   "or turn on the HTTPS listener so https://<default domain>:<port> applies"},
+    ]
+
+
+def api_surface_toggle(surface, name, enable, page_data):
+    # Turn a remote API surface on or off: api.<surface>.enable, a dynamic
+    # config value live immediately; the server validates the prerequisites
+    # on enable and its error names what is missing
     version_id = ""
     values = openrun.get_config_values(["api"])
     if not values.error:
         version_id = values.value.get("version_id") or ""
     ret = openrun_admin.set_config_value("api", surface + ".enable", enable, version_id)
+    # Read the error before page_data's plugin calls: an unchecked plugin
+    # error fails the next call ("previous plugin call failed")
     error = ret.error
-    name = "Management MCP" if surface == "mcp" else "App actions MCP"
     ok = "%s enabled - connect a client with the commands below" % name if enable else \
          "%s disabled - connected clients are refused from now on" % name
-    return utils.flash_result(config_mcp_data(req), error, ok)
+    return utils.flash_result(page_data(), error, ok)
+
+
+def mcp_enable_handler(req):
+    # POST /config/mcp/enable: turn an MCP endpoint on or off - surface is
+    # mcp (the management endpoint, api.mcp.enable) or app_mcp (the app
+    # actions endpoint, api.app_mcp.enable), action enable or disable. A
+    # dynamic config value (api_surface_toggle)
+    surface = utils.query_param(req, "surface")
+    if surface not in ("mcp", "app_mcp"):
+        data = config_mcp_data(req)
+        data["FlashError"] = "unknown MCP endpoint %s" % surface
+        return data
+    name = "Management MCP" if surface == "mcp" else "App actions MCP"
+    return api_surface_toggle(surface, name, utils.query_param(req, "action") != "disable",
+                              lambda: config_mcp_data(req))
 
 
 def url_split(url):

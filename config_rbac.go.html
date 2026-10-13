@@ -13,7 +13,7 @@
                 class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
                 {{ template "hamburger" . }}
                 <div>
-                  {{ template "page_title" "Configuration" }}
+                  {{ template "page_title" (dict "Title" "Configuration" "Help" .Data.HelpUrl) }}
                   <nav
                     aria-label="Breadcrumb"
                     class="breadcrumbs text-xs text-base-content/70 p-0">
@@ -116,7 +116,7 @@
                         </button>
                       {{ end }}
                       <button
-                        class="btn btn-xs btn-ghost"
+                        class="btn btn-xs btn-ghost {{ if not (index .Data.Perms "config:update") }}tooltip{{ end }}"
                         {{ if index .Data.Perms "config:update" }}
                           hx-post="{{ .AppPath }}/config/rbac/action"
                           hx-vals='{"action": "discard", "draft_version":
@@ -133,7 +133,7 @@
                         Discard
                       </button>
                       <button
-                        class="btn btn-xs btn-primary"
+                        class="btn btn-xs btn-primary {{ if not (index .Data.Perms "config:update") }}tooltip{{ end }}"
                         {{ if index .Data.Perms "config:update" }}
                           hx-post="{{ .AppPath }}/config/rbac/action"
                           hx-vals='{"action": "publish", "draft_version":
@@ -168,10 +168,13 @@
                 <!-- RBAC status card; the groups/roles/grants tables render
                   as their own cards below (the bindings-page per-group card
                   pattern) so the sections read as distinct tables -->
+                {{/* Rendered only when it has a state to show; the page
+                  heading already describes RBAC */}}
+                {{ if or (not .AppRBACEnabled) .Data.HasStaged }}
                 <div class="card bg-base-100 border border-base-300">
                   <div
                     class="px-4 py-2.5 flex items-center gap-2 flex-wrap">
-                    <h2 class="text-sm font-medium">RBAC</h2>
+                    <h2 class="text-sm font-medium">RBAC status</h2>
                     {{ if not .AppRBACEnabled }}
                       <span
                         class="badge badge-warning badge-sm badge-soft tooltip tooltip-top"
@@ -194,12 +197,9 @@
                         >
                       {{ end }}
                     {{ end }}
-                    <span class="text-xs text-base-content/70">
-                      role based access control for apps and the management
-                      APIs - always enforced, grants decide who can do what
-                    </span>
                   </div>
                 </div>
+                {{ end }}
 
                 <!-- Groups card -->
                 <div class="card bg-base-100 border border-base-300">
@@ -211,18 +211,7 @@
                           in grants</span
                         >
                         {{ if not $viewLive }}
-                          <a
-                            class="btn btn-xs btn-outline ml-auto {{ if not $canEdit }}
-                              btn-disabled tooltip tooltip-left
-                            {{ end }}"
-                            {{ if $canEdit }}
-                              href="{{ .AppPath }}/config/rbac/group"
-                            {{ else }}
-                              data-tip="{{ $editTitle }}" aria-disabled="true"
-                              tabindex="-1"
-                            {{ end }}
-                            >+ Add group</a
-                          >
+                          {{ template "perm_link" (dict "Allowed" $canEdit "Href" (print .AppPath "/config/rbac/group") "Label" "+ Add group" "Class" "btn-xs btn-outline ml-auto" "DeniedTip" $editTitle "Pos" "tooltip-left") }}
                         {{ end }}
                       </div>
                       {{ if $view.groups }}
@@ -248,21 +237,9 @@
                                       class="text-right whitespace-nowrap w-32">
                                       <div
                                         class="inline-flex items-center gap-0.5">
-                                        <a
-                                          class="btn btn-xs btn-ghost tooltip tooltip-left {{ if not $canEdit }}
-                                            btn-disabled
-                                          {{ end }}"
-                                          {{ if $canEdit }}
-                                            href="{{ $.AppPath }}/config/rbac/group?name={{ .name }}"
-                                          {{ else }}
-                                            data-tip="{{ $editTitle }}"
-                                            aria-disabled="true" tabindex="-1"
-                                          {{ end }}
-                                          aria-label="Edit group {{ .name }}"
-                                          >edit</a
-                                        >
+                                        {{ template "perm_link" (dict "Allowed" $canEdit "Href" (print $.AppPath "/config/rbac/group") "QueryKey" "name" "QueryValue" .name "Label" "edit" "Class" "btn-xs btn-ghost" "DeniedTip" $editTitle "Pos" "tooltip-left" "AriaLabel" (print "Edit group " .name)) }}
                                         <button
-                                          class="btn btn-xs btn-ghost text-error"
+                                          class="btn btn-xs btn-ghost text-error {{ if not ($canEdit) }}tooltip tooltip-left{{ end }}"
                                           {{ if $canEdit }}
                                             hx-post="{{ $.AppPath }}/config/rbac/action"
                                             aria-label="Delete group {{ .name }}" hx-vals='{"action":
@@ -307,18 +284,7 @@
                           always exists</span
                         >
                         {{ if not $viewLive }}
-                          <a
-                            class="btn btn-xs btn-outline ml-auto {{ if not $canEdit }}
-                              btn-disabled tooltip tooltip-left
-                            {{ end }}"
-                            {{ if $canEdit }}
-                              href="{{ .AppPath }}/config/rbac/role"
-                            {{ else }}
-                              data-tip="{{ $editTitle }}" aria-disabled="true"
-                              tabindex="-1"
-                            {{ end }}
-                            >+ Add role</a
-                          >
+                          {{ template "perm_link" (dict "Allowed" $canEdit "Href" (print .AppPath "/config/rbac/role") "Label" "+ Add role" "Class" "btn-xs btn-outline ml-auto" "DeniedTip" $editTitle "Pos" "tooltip-left") }}
                         {{ end }}
                       </div>
                       {{ if $view.roles }}
@@ -344,21 +310,9 @@
                                       class="text-right whitespace-nowrap w-32">
                                       <div
                                         class="inline-flex items-center gap-0.5">
-                                        <a
-                                          class="btn btn-xs btn-ghost tooltip tooltip-left {{ if not $canEdit }}
-                                            btn-disabled
-                                          {{ end }}"
-                                          {{ if $canEdit }}
-                                            href="{{ $.AppPath }}/config/rbac/role?name={{ .name }}"
-                                          {{ else }}
-                                            data-tip="{{ $editTitle }}"
-                                            aria-disabled="true" tabindex="-1"
-                                          {{ end }}
-                                          aria-label="Edit role {{ .name }}"
-                                          >edit</a
-                                        >
+                                        {{ template "perm_link" (dict "Allowed" $canEdit "Href" (print $.AppPath "/config/rbac/role") "QueryKey" "name" "QueryValue" .name "Label" "edit" "Class" "btn-xs btn-ghost" "DeniedTip" $editTitle "Pos" "tooltip-left" "AriaLabel" (print "Edit role " .name)) }}
                                         <button
-                                          class="btn btn-xs btn-ghost text-error"
+                                          class="btn btn-xs btn-ghost text-error {{ if not ($canEdit) }}tooltip tooltip-left{{ end }}"
                                           {{ if $canEdit }}
                                             hx-post="{{ $.AppPath }}/config/rbac/action"
                                             aria-label="Delete role {{ .name }}"
@@ -404,18 +358,7 @@
                           on which apps, services and bindings</span
                         >
                         {{ if not $viewLive }}
-                          <a
-                            class="btn btn-xs btn-outline ml-auto {{ if not $canEdit }}
-                              btn-disabled tooltip tooltip-left
-                            {{ end }}"
-                            {{ if $canEdit }}
-                              href="{{ .AppPath }}/config/rbac/grant"
-                            {{ else }}
-                              data-tip="{{ $editTitle }}" aria-disabled="true"
-                              tabindex="-1"
-                            {{ end }}
-                            >+ Add grant</a
-                          >
+                          {{ template "perm_link" (dict "Allowed" $canEdit "Href" (print .AppPath "/config/rbac/grant") "Label" "+ Add grant" "Class" "btn-xs btn-outline ml-auto" "DeniedTip" $editTitle "Pos" "tooltip-left") }}
                         {{ end }}
                       </div>
                       {{ if $view.grants }}
@@ -466,21 +409,9 @@
                                       class="text-right whitespace-nowrap w-32">
                                       <div
                                         class="inline-flex items-center gap-0.5">
-                                        <a
-                                          class="btn btn-xs btn-ghost tooltip tooltip-left {{ if not $canEdit }}
-                                            btn-disabled
-                                          {{ end }}"
-                                          {{ if $canEdit }}
-                                            href="{{ $.AppPath }}/config/rbac/grant?index={{ .index }}"
-                                          {{ else }}
-                                            data-tip="{{ $editTitle }}"
-                                            aria-disabled="true" tabindex="-1"
-                                          {{ end }}
-                                          aria-label="Edit grant {{ .description }}"
-                                          >edit</a
-                                        >
+                                        {{ template "perm_link" (dict "Allowed" $canEdit "Href" (print $.AppPath "/config/rbac/grant") "QueryKey" "index" "QueryValue" .index "Label" "edit" "Class" "btn-xs btn-ghost" "DeniedTip" $editTitle "Pos" "tooltip-left" "AriaLabel" (print "Edit grant " .description)) }}
                                         <button
-                                          class="btn btn-xs btn-ghost text-error"
+                                          class="btn btn-xs btn-ghost text-error {{ if not ($canEdit) }}tooltip tooltip-left{{ end }}"
                                           {{ if $canEdit }}
                                             hx-post="{{ $.AppPath }}/config/rbac/action"
                                             aria-label="Delete grant {{ .description }}"

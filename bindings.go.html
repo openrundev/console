@@ -75,34 +75,7 @@
 {{ define "binding_actions" }}
   <div class="inline-flex items-center gap-0.5">
     {{ if .Editable }}
-      <a
-        class="btn btn-xs btn-ghost btn-square tooltip tooltip-left {{ if not (index .Perms "binding:update") }}
-          btn-disabled
-        {{ end }}"
-        {{ if index .Perms "binding:update" }}
-          href="{{ .AppPath }}/bindings/update?path={{ .Path }}"
-        {{ else }}
-          aria-disabled="true" tabindex="-1"
-        {{ end }}
-        aria-label="Edit grants of {{ .Path }}"
-        data-tip="{{ if index .Perms "binding:update" }}
-          Edit grants
-        {{ else }}
-          requires binding:update
-        {{ end }}">
-        <svg
-          aria-hidden="true"
-          focusable="false"
-          class="w-3.5 h-3.5"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round">
-          <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-        </svg>
-      </a>
+      {{ template "perm_link" (dict "Allowed" (index .Perms "binding:update") "Href" (print .AppPath "/bindings/update") "QueryKey" "path" "QueryValue" .Path "Icon" "pencil" "Class" "btn-xs btn-ghost btn-square" "Tip" "Edit grants" "DeniedTip" "requires binding:update" "Pos" "tooltip-left" "AriaLabel" (print "Edit grants of " .Path)) }}
     {{ end }}
     <button
       class="btn btn-xs btn-ghost btn-square text-error tooltip tooltip-left"
@@ -118,22 +91,7 @@
       {{ else }}
         disabled data-tip="requires binding:delete"
       {{ end }}>
-      <svg
-        aria-hidden="true"
-        focusable="false"
-        class="w-3.5 h-3.5"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round">
-        <path d="M3 6h18" />
-        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-        <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-        <path d="M10 11v6" />
-        <path d="M14 11v6" />
-      </svg>
+      {{ template "icon" (dict "Name" "trash" "Class" "w-3.5 h-3.5") }}
     </button>
   </div>
 {{ end }}
@@ -143,37 +101,15 @@
             class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" . }}
             <div>
-              {{ template "page_title" "Bindings" }}
+              {{ template "page_title" (dict "Title" "Bindings" "Help" .Data.HelpUrl) }}
               <p class="page-desc text-sm text-base-content/70">
                 {{ template "count" (dict "N" .Data.Total "One" "binding") }} - connect apps to services
               </p>
             </div>
             <div class="page-actions ml-auto flex items-center gap-2">
               {{ template "page_search" (dict "Query" .Data.Query "Label" "Filter bindings" "Placeholder" "Filter bindings…" "Url" (print .AppPath "/bindings") "Target" "#binding-groups") }}
-              <a
-                class="btn btn-sm btn-outline transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "service:create") }}
-                  btn-disabled tooltip tooltip-bottom
-                {{ end }}"
-                {{ if index .Data.Perms "service:create" }}
-                  href="{{ .AppPath }}/bindings/services/create"
-                {{ else }}
-                  data-tip="requires service:create" aria-disabled="true"
-                  tabindex="-1"
-                {{ end }}>
-                + New service
-              </a>
-              <a
-                class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "binding:create") }}
-                  btn-disabled tooltip tooltip-bottom
-                {{ end }}"
-                {{ if index .Data.Perms "binding:create" }}
-                  href="{{ .AppPath }}/bindings/create"
-                {{ else }}
-                  data-tip="requires binding:create" aria-disabled="true"
-                  tabindex="-1"
-                {{ end }}>
-                + New binding
-              </a>
+              {{ template "perm_link" (dict "Allowed" (index .Data.Perms "service:create") "Href" (print .AppPath "/bindings/services/create") "Label" "+ New service" "Class" "btn-sm btn-outline transition-transform duration-150 active:scale-95" "DeniedTip" "requires service:create") }}
+              {{ template "perm_link" (dict "Allowed" (index .Data.Perms "binding:create") "Href" (print .AppPath "/bindings/create") "Label" "+ New binding" "Class" "btn-sm btn-primary transition-transform duration-150 active:scale-95" "DeniedTip" "requires binding:create") }}
             </div>
           </div>
 
@@ -296,17 +232,7 @@
                   <div
                     class="px-4 py-4 text-sm text-base-content/70 flex items-center gap-3 flex-wrap">
                     <span>No services configured yet</span>
-                    <a
-                      class="btn btn-xs btn-outline transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "service:create") }}
-                        btn-disabled tooltip tooltip-top
-                      {{ end }}"
-                      {{ if index .Data.Perms "service:create" }}
-                        href="{{ .AppPath }}/bindings/services/create"
-                      {{ else }}
-                        data-tip="requires service:create"
-                      {{ end }}
-                      >+ New service</a
-                    >
+                    {{ template "perm_link" (dict "Allowed" (index .Data.Perms "service:create") "Href" (print .AppPath "/bindings/services/create") "Label" "+ New service" "Class" "btn-xs btn-outline transition-transform duration-150 active:scale-95" "DeniedTip" "requires service:create" "Pos" "tooltip-top") }}
                   </div>
                 {{ end }}
               </div>
@@ -522,33 +448,11 @@
                   <div
                     class="flex flex-col items-center gap-2 text-center text-sm text-base-content/70">
                     {{ if .Data.Query }}
-                      <span class="text-xl" aria-hidden="true">🔍</span>
                       <p>No bindings match "{{ .Data.Query }}"</p>
-                      <button
-                        class="btn btn-xs btn-outline transition-transform duration-150 active:scale-95"
-                        onclick="const s = document.getElementById('page-search'); if (s) s.value = ''"
-                        hx-get="{{ .AppPath }}/bindings"
-                        hx-vals='{"query": ""}'
-                        hx-target="#binding-groups"
-                        hx-swap="innerHTML"
-                        hx-push-url="true"
-                        hx-indicator="#page-progress">
-                        Clear search
-                      </button>
+                      {{ template "clear_search" (dict "Url" (print .AppPath "/bindings") "Vals" `{"query": ""}` "Target" "#binding-groups") }}
                     {{ else }}
-                      <span class="text-xl" aria-hidden="true">🔗</span>
                       <p>No bindings configured yet</p>
-                      <a
-                        class="btn btn-xs btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "binding:create") }}
-                          btn-disabled tooltip tooltip-top
-                        {{ end }}"
-                        {{ if index .Data.Perms "binding:create" }}
-                          href="{{ .AppPath }}/bindings/create"
-                        {{ else }}
-                          data-tip="requires binding:create"
-                        {{ end }}
-                        >+ New binding</a
-                      >
+                      {{ template "perm_link" (dict "Allowed" (index .Data.Perms "binding:create") "Href" (print .AppPath "/bindings/create") "Label" "+ New binding" "Class" "btn-xs btn-primary transition-transform duration-150 active:scale-95" "DeniedTip" "requires binding:create" "Pos" "tooltip-top") }}
                     {{ end }}
                   </div>
                 </div>

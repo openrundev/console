@@ -7,7 +7,7 @@
             class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" . }}
             <div>
-              {{ template "page_title" "Syncs" }}
+              {{ template "page_title" (dict "Title" "Syncs" "Help" .Data.HelpUrl) }}
               <nav
                 aria-label="Breadcrumb"
                 class="breadcrumbs text-xs text-base-content/70 p-0">
@@ -146,98 +146,11 @@
                       </span>
                     </span>
                   </label>
-                  {{ $canPromote := index .Data.Perms "app:promote" }}
-                  {{ $mode := .Data.Values.promote_mode }}
-                  <fieldset
-                    class="border border-base-300 rounded-box px-4 pb-3 pt-1">
-                    <legend class="text-sm font-medium px-1">Promotion</legend>
-                    <div
-                      class="flex flex-col gap-2 {{ if not $canPromote }}tooltip tooltip-top{{ end }}"
-                      {{ if not $canPromote }}
-                        data-tip="requires app:promote"
-                      {{ end }}>
-                      <label
-                        class="flex items-center gap-3 {{ if $canPromote }}cursor-pointer{{ end }}">
-                        <input
-                          type="radio"
-                          name="promote_mode"
-                          value="none"
-                          class="radio radio-sm radio-primary"
-                          {{ if or (eq $mode "none") (not $mode) }}checked{{ end }}
-                          {{ if not $canPromote }}disabled{{ end }} />
-                        <span class="text-sm">
-                          No promotion
-                          <span class="block text-xs text-base-content/70">
-                            Changes stay in staging for manual promotion
-                          </span>
-                        </span>
-                      </label>
-                      <label
-                        class="flex items-center gap-3 {{ if $canPromote }}cursor-pointer{{ end }}">
-                        <input
-                          type="radio"
-                          name="promote_mode"
-                          value="noverify"
-                          class="radio radio-sm radio-primary"
-                          {{ if eq $mode "noverify" }}checked{{ end }}
-                          {{ if not $canPromote }}disabled{{ end }} />
-                        <span class="text-sm">
-                          Promote without verification
-                          <span class="block text-xs text-base-content/70">
-                            Push changes from staging to prod on each sync run
-                          </span>
-                        </span>
-                      </label>
-                      <label
-                        class="flex items-center gap-3 {{ if $canPromote }}cursor-pointer{{ end }}">
-                        <input
-                          type="radio"
-                          name="promote_mode"
-                          value="verify"
-                          class="radio radio-sm radio-primary"
-                          {{ if eq $mode "verify" }}checked{{ end }}
-                          {{ if not $canPromote }}disabled{{ end }} />
-                        <span class="text-sm">
-                          Promote with verification
-                          <span class="block text-xs text-base-content/70">
-                            Reload app containers to verify staging before
-                            promoting; a failed verification is rolled back
-                          </span>
-                        </span>
-                      </label>
-                    </div>
-                  </fieldset>
+                  {{ template "promote_choices" (dict "CanPromote" (index .Data.Perms "app:promote") "Mode" .Data.Values.promote_mode "NoVerifyDesc" "Push changes from staging to prod on each sync run") }}
                 </div>
               </div>
 
-              <div class="card-actions justify-end pt-2">
-                <a href="{{ .AppPath }}/syncs" class="btn btn-ghost btn-sm"
-                  >Cancel</a
-                >
-                <button
-                  type="submit"
-                  name="action"
-                  value="validate"
-                  {{ if index .Data.Perms "sync:create" }}
-                    data-tip="Dry run: apply the source without committing any
-                    changes"
-                  {{ else }}
-                    disabled data-tip="requires sync:create"
-                  {{ end }}
-                  class="btn btn-outline btn-sm transition-transform duration-150 active:scale-95 tooltip tooltip-top">
-                  Validate
-                </button>
-                <button
-                  type="submit"
-                  name="action"
-                  value="create"
-                  {{ if not (index .Data.Perms "sync:create") }}
-                    disabled data-tip="requires sync:create"
-                  {{ end }}
-                  class="btn btn-primary btn-sm transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "sync:create") }}tooltip tooltip-top{{ end }}">
-                  Add sync source
-                </button>
-              </div>
+              {{ template "form_actions" (dict "Cancel" (print .AppPath "/syncs") "Allowed" (index .Data.Perms "sync:create") "DeniedTip" "requires sync:create" "ValidateTip" "Dry run: apply the source without committing any changes" "Value" "create" "Submit" "Add sync source") }}
             </div>
           </form>
           </div>

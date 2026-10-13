@@ -176,33 +176,8 @@
             Dev
           </span>
         {{ else }}
-          <button
-            class="tab font-medium transition-colors duration-150 {{ if eq $env "prod" }}tab-active bg-primary text-primary-content font-semibold{{ end }}"
-            data-env="prod"
-            aria-pressed="{{ if eq $env "prod" }}true{{ else }}false{{ end }}"
-            title="Parameters, permissions, containers and versions of the production app"
-            hx-get="{{ .AppPath }}/apps/detail/envpanel?path={{ .Data.Path }}&env=prod"
-            hx-target="#env-panel"
-            hx-swap="innerHTML"
-            hx-push-url="{{ .AppPath }}/apps/detail?path={{ .Data.Path }}&env=prod"
-            hx-indicator="#page-progress">
-            Production
-          </button>
-          <button
-            class="tab font-medium transition-colors duration-150 {{ if eq $env "stage" }}tab-active bg-primary text-primary-content font-semibold{{ end }}"
-            data-env="stage"
-            aria-pressed="{{ if eq $env "stage" }}true{{ else }}false{{ end }}"
-            title="Parameters, permissions, containers and versions of the staging app{{ if .Data.App.staged_changes }} - staging has changes not promoted to prod{{ end }}"
-            hx-get="{{ .AppPath }}/apps/detail/envpanel?path={{ .Data.Path }}&env=stage"
-            hx-target="#env-panel"
-            hx-swap="innerHTML"
-            hx-push-url="{{ .AppPath }}/apps/detail?path={{ .Data.Path }}&env=stage"
-            hx-indicator="#page-progress">
-            Staging
-            {{ if .Data.App.staged_changes }}
-              <span class="status status-warning ml-1" aria-hidden="true"></span>
-            {{ end }}
-          </button>
+          {{ template "tab_button" (dict "Style" "box" "Kind" "env" "Value" "prod" "Label" "Production" "Active" (eq $env "prod") "Title" "Parameters, permissions, containers and versions of the production app" "Url" (print .AppPath "/apps/detail/envpanel?path=" .Data.Path "&env=prod") "Target" "#env-panel" "PushUrl" (print .AppPath "/apps/detail?path=" .Data.Path "&env=prod")) }}
+          {{ template "tab_button" (dict "Style" "box" "Kind" "env" "Value" "stage" "Label" "Staging" "Active" (eq $env "stage") "Title" (print "Parameters, permissions, containers and versions of the staging app" (ternary " - staging has changes not promoted to prod" "" (not (not .Data.App.staged_changes)))) "Url" (print .AppPath "/apps/detail/envpanel?path=" .Data.Path "&env=stage") "Target" "#env-panel" "PushUrl" (print .AppPath "/apps/detail?path=" .Data.Path "&env=stage") "Dot" (ternary "status-warning" "" (not (not .Data.App.staged_changes)))) }}
         {{ end }}
       </div>
       <!-- Which environment the cards below describe -->
@@ -239,7 +214,7 @@
           it cannot serve requests until they are approved</span
         >
         <button
-          class="btn btn-xs btn-warning ml-auto transition-transform duration-150 active:scale-95"
+          class="btn btn-xs btn-warning ml-auto transition-transform duration-150 active:scale-95 {{ if not (or (index .Data.Perms "app:approve") (index .Data.Perms "admin")) }}tooltip tooltip-left{{ end }}"
           {{ if or (index .Data.Perms "app:approve") (index .Data.Perms "admin") }}
             hx-post="{{ .AppPath }}/apps/detail/approve"
             hx-vals='{"path": "{{ .Data.Path }}"}'
@@ -307,7 +282,7 @@
           class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2">
           <h2
             class="text-sm font-medium {{ if and (eq $env "stage") .Data.App.staged_changes }}
-              text-warning
+              text-warning tooltip tooltip-right
             {{ end }}"
             {{ if and (eq $env "stage") .Data.App.staged_changes }}
               data-tip="staging is not promoted to prod yet"
@@ -874,14 +849,16 @@
           <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" . }}
             <div>
-              {{ template "page_title" "Apps" }}
-              <div class="flex items-center gap-2"><nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0"><ul class="flex-wrap whitespace-normal"><li><a href="{{ .AppPath }}/apps">Apps</a></li><li class="font-mono break-all">{{ .Data.Path }}</li></ul></nav>{{ template "help_link" .Data.HelpUrl }}</div>
+              {{ template "page_title" (dict "Title" "Apps" "Help" .Data.HelpUrl) }}
+              <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0"><ul class="flex-wrap whitespace-normal"><li><a href="{{ .AppPath }}/apps">Apps</a></li><li class="font-mono break-all">{{ .Data.Path }}</li></ul></nav>
               <h2 class="text-xl font-medium font-mono break-all">{{ .Data.Path }}</h2>
               <p class="page-desc text-sm text-base-content/70">
                 {{ if .Data.App }}
                   {{ .Data.App.name }}
                   {{ if .Data.App.is_dev }}
-                    <span class="badge badge-warning badge-xs badge-soft"
+                    <span
+                      class="badge badge-info badge-xs badge-soft tooltip tooltip-bottom"
+                      data-tip="development mode app, served from the local source directory"
                       >dev</span
                     >
                   {{ end }}
@@ -897,24 +874,13 @@
             </div>
             <div class="page-actions ml-auto flex items-center gap-2">
               {{ if .Data.App }}
-                <a
-                  class="btn btn-sm btn-outline transition-transform duration-150 active:scale-95 tooltip tooltip-bottom {{ if not (index .Data.Perms "app:update") }}
-                    btn-disabled
-                  {{ end }}"
-                  {{ if index .Data.Perms "app:update" }}
-                    href="{{ .AppPath }}/apps/update?path={{ .Data.Path }}"
-                    data-tip="Edit auth and parameters"
-                  {{ else }}
-                    aria-disabled="true" tabindex="-1" data-tip="requires app:update"
-                  {{ end }}>
-                  Edit app
-                </a>
+                {{ template "perm_link" (dict "Allowed" (index .Data.Perms "app:update") "Href" (print .AppPath "/apps/update") "QueryKey" "path" "QueryValue" .Data.Path "Label" "Edit app" "Class" "btn-sm btn-outline transition-transform duration-150 active:scale-95" "Tip" "Edit auth and parameters" "DeniedTip" "requires app:update") }}
                 <details class="dropdown dropdown-end">
                   <summary
                     class="btn btn-sm btn-outline transition-transform duration-150 active:scale-95"
                     aria-label="App actions">
                     Actions
-                    <svg aria-hidden="true" focusable="false" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                    {{ template "icon" (dict "Name" "chevron-down" "Class" "w-3.5 h-3.5") }}
                   </summary>
                   <ul
                     class="dropdown-content menu bg-base-100 border border-base-300 rounded-box shadow-lg z-10 w-60 p-1"
@@ -928,7 +894,7 @@
                         {{ else }}
                           disabled data-tip="requires app:reload"
                         {{ end }}>
-                        <svg aria-hidden="true" focusable="false" class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><path d="M8 16H3v5" /></svg>
+                        {{ template "icon" (dict "Name" "refresh" "Class" "w-4 h-4 text-primary") }}
                         Reload
                       </button>
                     </li>
@@ -947,7 +913,7 @@
                           {{ else }}
                             disabled data-tip="requires app:promote"
                           {{ end }}>
-                          <svg aria-hidden="true" focusable="false" class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 7-7 7 7" /><path d="M12 19V5" /></svg>
+                          {{ template "icon" (dict "Name" "arrow-up" "Class" "w-4 h-4 text-primary") }}
                           Promote
                         </button>
                       </li>
@@ -964,7 +930,7 @@
                           {{ else }}
                             data-tip="Edit a copy with the AI agent; publish creates a new app"
                           {{ end }}>
-                          <svg aria-hidden="true" focusable="false" class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" /><path d="M20 3v4" /><path d="M22 5h-4" /><path d="M4 17v2" /><path d="M5 18H3" /></svg>
+                          {{ template "icon" (dict "Name" "sparkles" "Class" "w-4 h-4 text-primary") }}
                           {{ if .Data.App.builder_published }}Update with Agent{{ else }}Rebuild with Agent{{ end }}
                         </a>
                       </li>
@@ -978,7 +944,7 @@
                         {{ else }}
                           data-tip="Edit the app settings and params"
                         {{ end }}>
-                        <svg aria-hidden="true" focusable="false" class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" /></svg>
+                        {{ template "icon" (dict "Name" "pencil" "Class" "w-4 h-4 text-primary") }}
                         Edit
                       </a>
                     </li>
@@ -996,7 +962,7 @@
                         {{ else }}
                           disabled data-tip="requires app:delete"
                         {{ end }}>
-                        <svg aria-hidden="true" focusable="false" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
+                        {{ template "icon" (dict "Name" "trash" "Class" "w-4 h-4") }}
                         Delete
                       </button>
                     </li>
@@ -1038,89 +1004,25 @@
                  ?tab= keeps every view shareable -->
             {{ $tab := .Data.Tab }}
             <div role="group" aria-label="App detail views" class="tabs tabs-box w-fit mb-1">
-              <button
-                class="tab font-medium transition-colors duration-150 {{ if eq $tab "overview" }}tab-active bg-primary text-primary-content font-semibold{{ end }}"
-                data-tab="overview"
-                aria-pressed="{{ if eq $tab "overview" }}true{{ else }}false{{ end }}"
-                hx-get="{{ .AppPath }}/apps/detail?path={{ .Data.Path }}&tab=overview"
-                hx-target="#detail-content"
-                hx-swap="innerHTML"
-                hx-push-url="true"
-                hx-indicator="#page-progress">
-                Overview
-              </button>
+              {{ template "tab_button" (dict "Style" "box" "Value" "overview" "Label" "Overview" "Active" (eq $tab "overview") "Url" (print .AppPath "/apps/detail?path=" .Data.Path "&tab=overview") "Target" "#detail-content") }}
               {{/* Config, Compare and Files show the app's configuration,
                 versions and source: app:read_detail only (app:read gets the
                 Overview and, for apps with jobs, the Jobs list) */}}
               {{ if index .Data.Perms "app:read_detail" }}
-              <button
-                class="tab font-medium transition-colors duration-150 {{ if eq $tab "config" }}tab-active bg-primary text-primary-content font-semibold{{ end }}"
-                data-tab="config"
-                aria-pressed="{{ if eq $tab "config" }}true{{ else }}false{{ end }}"
-                title="The app's declarative config; shows the staging changes when staging differs"
-                hx-get="{{ .AppPath }}/apps/detail?path={{ .Data.Path }}&tab=config"
-                hx-target="#detail-content"
-                hx-swap="innerHTML"
-                hx-push-url="true"
-                hx-indicator="#page-progress">
-                Config
-              </button>
-              {{ if .Data.App.is_dev }}
-                <button
-                  class="tab font-medium tab-disabled"
-                  disabled
-                  title="dev apps serve from source - versions are not tracked">
-                  Compare
-                </button>
-                <button
-                  class="tab font-medium tab-disabled"
-                  disabled
-                  title="dev apps serve from source - versions are not tracked">
-                  Files
-                </button>
-              {{ else }}
-                <button
-                  class="tab font-medium transition-colors duration-150 {{ if eq $tab "compare" }}tab-active bg-primary text-primary-content font-semibold{{ end }}"
-                  data-tab="compare"
-                  aria-pressed="{{ if eq $tab "compare" }}true{{ else }}false{{ end }}"
-                  title="Compare any two versions as config diffs"
-                  hx-get="{{ .AppPath }}/apps/detail?path={{ .Data.Path }}&tab=compare"
-                  hx-target="#detail-content"
-                  hx-swap="innerHTML"
-                  hx-push-url="true"
-                  hx-indicator="#page-progress">
-                  Compare
-                </button>
-                <button
-                  class="tab font-medium transition-colors duration-150 {{ if eq $tab "files" }}tab-active bg-primary text-primary-content font-semibold{{ end }}"
-                  data-tab="files"
-                  aria-pressed="{{ if eq $tab "files" }}true{{ else }}false{{ end }}"
-                  title="Browse the files of any version"
-                  hx-get="{{ .AppPath }}/apps/detail?path={{ .Data.Path }}&tab=files"
-                  hx-target="#detail-content"
-                  hx-swap="innerHTML"
-                  hx-push-url="true"
-                  hx-indicator="#page-progress">
-                  Files
-                </button>
-              {{ end }}
+                {{ template "tab_button" (dict "Style" "box" "Value" "config" "Label" "Config" "Active" (eq $tab "config") "Title" "The app's declarative config; shows the staging changes when staging differs" "Url" (print .AppPath "/apps/detail?path=" .Data.Path "&tab=config") "Target" "#detail-content") }}
+                {{ if .Data.App.is_dev }}
+                  {{ template "tab_button" (dict "Style" "box" "Label" "Compare" "Disabled" true "Title" "dev apps serve from source - versions are not tracked") }}
+                  {{ template "tab_button" (dict "Style" "box" "Label" "Files" "Disabled" true "Title" "dev apps serve from source - versions are not tracked") }}
+                {{ else }}
+                  {{ template "tab_button" (dict "Style" "box" "Value" "compare" "Label" "Compare" "Active" (eq $tab "compare") "Title" "Compare any two versions as config diffs" "Url" (print .AppPath "/apps/detail?path=" .Data.Path "&tab=compare") "Target" "#detail-content") }}
+                  {{ template "tab_button" (dict "Style" "box" "Value" "files" "Label" "Files" "Active" (eq $tab "files") "Title" "Browse the files of any version" "Url" (print .AppPath "/apps/detail?path=" .Data.Path "&tab=files") "Target" "#detail-content") }}
+                {{ end }}
               {{ end }}
               {{/* Jobs: only for apps that have jobs (the tab stays while
                 it is the active view, e.g. a run link of an app whose
                 jobs were since removed - the run history outlives them) */}}
               {{ if or .Data.App.job_count (eq $tab "jobs") }}
-                <button
-                  class="tab font-medium transition-colors duration-150 {{ if eq $tab "jobs" }}tab-active bg-primary text-primary-content font-semibold{{ end }}"
-                  data-tab="jobs"
-                  aria-pressed="{{ if eq $tab "jobs" }}true{{ else }}false{{ end }}"
-                  title="The app's jobs (scheduled, manual and deploy gates), their runs and output"
-                  hx-get="{{ .AppPath }}/apps/detail?path={{ .Data.Path }}&tab=jobs"
-                  hx-target="#detail-content"
-                  hx-swap="innerHTML"
-                  hx-push-url="true"
-                  hx-indicator="#page-progress">
-                  Jobs
-                </button>
+                {{ template "tab_button" (dict "Style" "box" "Value" "jobs" "Label" "Jobs" "Active" (eq $tab "jobs") "Title" "The app's jobs (scheduled, manual and deploy gates), their runs and output" "Url" (print .AppPath "/apps/detail?path=" .Data.Path "&tab=jobs") "Target" "#detail-content") }}
               {{ end }}
             </div>
 
@@ -1313,18 +1215,12 @@
                         <span class="pt-1 flex items-center gap-3 flex-wrap">
                           {{ range .Data.Rows }}
                             {{ $s := .state }}
-                            {{ $dot := "status-error" }}
-                            {{ if or (eq $s "healthy") (eq $s "idle") }}
-                              {{ $dot = "status-success" }}
-                            {{ else if or (eq $s "syncing") (eq $s "pending") }}
-                              {{ $dot = "status-warning" }}
-                            {{ end }}
                             {{ if .container_id }}
                               <a
                                 href="{{ $.AppPath }}/containers/detail?id={{ .container_id }}"
                                 class="link link-hover inline-flex items-center gap-1.5 text-xs"
                                 title="litestream sidecar - stats and logs{{ if .error }} · {{ .error }}{{ end }}">
-                                <span class="status {{ $dot }}"></span>
+                                {{ template "repl_state_dot" (dict "State" $s) }}
                                 <span class="font-mono"
                                   >{{ .env }} · {{ $s }}</span
                                 >
@@ -1339,7 +1235,7 @@
                               <span
                                 class="inline-flex items-center gap-1.5 text-xs"
                                 {{ if .error }}title="{{ .error }}"{{ end }}>
-                                <span class="status {{ $dot }}"></span>
+                                {{ template "repl_state_dot" (dict "State" $s) }}
                                 <span class="font-mono"
                                   >{{ .env }} · {{ $s }}</span
                                 >

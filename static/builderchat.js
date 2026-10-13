@@ -359,6 +359,19 @@
 			}
 		}
 
+		// A stopped turn leaves its unfinished tool calls cancelled (ACP:
+		// the client marks them, the agent may not send final updates):
+		// their chips are muted in place
+		markToolsCancelled() {
+			for (const id in this.toolChips) {
+				const entry = this.toolChips[id];
+				if (entry.done || !entry.el || !entry.el.isConnected) continue;
+				entry.el.classList.add('opacity-50', 'line-through');
+				entry.el.title = entry.label + ' (cancelled)';
+				entry.done = true;
+			}
+		}
+
 		// Typing indicator: a small bouncing-dots bubble shown while the
 		// agent works between visible outputs
 		showTyping() {
@@ -420,6 +433,10 @@
 					break;
 				case 'tool_call_update':
 					if (event.tool_status === 'failed') this.markToolFailed(event);
+					if (event.tool_status === 'completed' || event.tool_status === 'failed') {
+						const entry = this.toolChips[event.tool_call_id];
+						if (entry) entry.done = true;
+					}
 					break;
 				case 'turn_started':
 					this.turnActive = true;
@@ -432,9 +449,11 @@
 					// Non-natural endings deserve a visible mark: without one a
 					// stopped/limited turn just goes quiet mid-thought
 					if (event.stop_reason === 'cancelled') {
+						this.markToolsCancelled();
 						this.appendChip('Turn stopped', 'text-base-content/50 text-xs');
 					} else if (event.stop_reason === 'refusal') {
-						this.appendChip('The agent declined to continue', 'text-error text-xs');
+						// the agent drops the refused prompt from its context
+						this.appendChip('The agent declined to continue; the last message is not part of its context - rephrase it', 'text-error text-xs');
 					} else if (event.stop_reason === 'max_tokens' || event.stop_reason === 'max_turn_requests') {
 						this.appendChip('The turn hit the agent’s ' +
 							(event.stop_reason === 'max_tokens' ? 'token' : 'request') +

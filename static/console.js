@@ -995,9 +995,9 @@ function copyText(button, text) {
 	});
 }
 
-// Copy the command of the nearest MCP page command row
+// Copy the command of the nearest command row (command_row define)
 function copyCommand(button) {
-	const row = button.closest('[data-mcp-command]');
+	const row = button.closest('[data-command]');
 	const code = row && row.querySelector('code');
 	if (code) {
 		copyText(button, code.textContent);

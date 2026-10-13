@@ -16,7 +16,7 @@
                 class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
                 {{ template "hamburger" . }}
                 <div>
-                  {{ template "page_title" "Configuration" }}
+                  {{ template "page_title" (dict "Title" "Configuration" "Help" .Data.HelpUrl) }}
                   <p class="page-desc text-sm text-base-content/70">
                     Server configuration - changes are live immediately
                   </p>
@@ -125,7 +125,7 @@
                                 </a>
                                 {{ if ne $h.version_id $.Data.VersionId }}
                                   <button
-                                    class="btn btn-xs btn-ghost text-primary"
+                                    class="btn btn-xs btn-ghost text-primary {{ if not (index $.Data.Perms "config:update") }}tooltip tooltip-left{{ end }}"
                                     {{ if index $.Data.Perms "config:update" }}
                                       hx-post="{{ $.AppPath }}/config/action"
                                       hx-vals='{"action": "restore",

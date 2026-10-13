@@ -9,7 +9,7 @@
             class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" . }}
             <div>
-              {{ template "page_title" "Bindings" }}
+              {{ template "page_title" (dict "Title" "Bindings" "Help" .Data.HelpUrl) }}
               <nav
                 aria-label="Breadcrumb"
                 class="breadcrumbs text-xs text-base-content/70 p-0">
@@ -122,38 +122,7 @@
                     </div>
                   </div>
 
-                  <div class="card-actions justify-end pt-2">
-                    <a
-                      href="{{ .AppPath }}/bindings"
-                      class="btn btn-ghost btn-sm"
-                      >Cancel</a
-                    >
-                    <button
-                      type="submit"
-                      name="action"
-                      value="validate"
-                      {{ if index .Data.Perms "service:create" }}
-                        data-tip="Dry run: check the service without creating
-                        it"
-                      {{ else }}
-                        disabled data-tip="requires service:create"
-                      {{ end }}
-                      class="btn btn-outline btn-sm transition-transform duration-150 active:scale-95 tooltip tooltip-top">
-                      Validate
-                    </button>
-                    <button
-                      type="submit"
-                      name="action"
-                      value="create"
-                      {{ if not (index .Data.Perms "service:create") }}
-                        disabled data-tip="requires service:create"
-                      {{ end }}
-                      class="btn btn-primary btn-sm transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "service:create") }}
-                        tooltip tooltip-top
-                      {{ end }}">
-                      Create service
-                    </button>
-                  </div>
+                  {{ template "form_actions" (dict "Cancel" (print .AppPath "/bindings") "Allowed" (index .Data.Perms "service:create") "DeniedTip" "requires service:create" "ValidateTip" "Dry run: check the service without creating it" "Value" "create" "Submit" "Create service") }}
                 </div>
               </form>
             </div>

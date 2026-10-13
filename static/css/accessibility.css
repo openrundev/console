@@ -75,8 +75,9 @@ tr:focus-within [class*="group-hover:opacity-100"] {
    up top-aligned with the heading's). Line-height changes cannot fix this -
    under box centering the baseline position depends only on the font size -
    so the small caption next to a heading is nudged down to optically center
-   its glyph band within the heading's. */
-:is(h1, h2, h3) ~ span.text-xs {
+   its glyph band within the heading's (a skipped_apps details caption
+   too, next to the runs count). */
+:is(h1, h2, h3) ~ :is(span, details).text-xs {
   position: relative;
   top: 0.11em;
 }
@@ -524,11 +525,6 @@ builder-chat .bc-tool-title {
   border: 1px solid var(--color-base-300);
   border-radius: var(--radius-box);
   padding: 1rem;
-  transition: border-color 150ms ease, box-shadow 150ms ease;
-}
-.ov-tile:hover {
-  border-color: color-mix(in srgb, var(--color-primary) 40%, var(--color-base-300));
-  box-shadow: 0 4px 16px color-mix(in srgb, var(--color-primary) 10%, transparent);
 }
 /* Tiles are positioned siblings painting in DOM order, so a dot tooltip
    bubble reaching into a LATER tile's area was painted under it (wide
@@ -558,6 +554,16 @@ builder-chat .bc-tool-title {
 .tooltip-anchor-start.tooltip-bottom[data-tip]::before {
   left: 0;
   --tt-trans: 0%;
+}
+/* The same, only while the sidebar is docked (lg:drawer-open): the page
+   title's docs link. On phones the sidebar is a hidden drawer and a long
+   title pushes the link to the right edge, where a left-anchored bubble
+   would run past the viewport, so it stays centered there */
+@media (min-width: 64rem) {
+  .tooltip-anchor-start-lg.tooltip-bottom[data-tip]::before {
+    left: 0;
+    --tt-trans: 0%;
+  }
 }
 /* From the tablet width up: (1) table scroll boxes stop clipping bubbles.
    .overflow-x-auto makes BOTH axes clip (overflow-y computes to auto), so
@@ -592,7 +598,7 @@ builder-chat .bc-tool-title {
   max-width: 18rem;
 }
 /* Brand hairline riding each tile's top edge, covering half the tile
-   width; brightens on hover for pop */
+   width */
 .ov-tile::after {
   content: "";
   position: absolute;
@@ -607,10 +613,6 @@ builder-chat .bc-tool-title {
     color-mix(in oklch, var(--color-secondary) 5%, transparent)
   );
   opacity: 0.55;
-  transition: opacity 150ms ease;
-}
-.ov-tile:hover::after {
-  opacity: 1;
 }
 /* The server identity minis: a row of their own across the grid, the
    tiles sharing the width equally however many there are */
@@ -619,6 +621,11 @@ builder-chat .bc-tool-title {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
   gap: 1rem;
+}
+/* The Remote API mini lists three named surfaces with their state: one
+   track truncated "Management MCP", it takes two */
+.ov-mini-wide {
+  grid-column: span 2;
 }
 /* The containers type filter is six joined buttons: at the default
    padding the row is a few px wider than a phone */
@@ -634,15 +641,10 @@ builder-chat .bc-tool-title {
     grid-column: 1 / -1;
   }
 }
-/* Hero apps tile: faint brand glow anchored at the number's corner */
+/* Hero apps tile: the page's one oversized element */
 .ov-apps {
   grid-column: span 2;
   grid-row: span 2;
-  background: radial-gradient(
-    120% 90% at 0% 0%,
-    color-mix(in srgb, var(--color-primary) 7%, var(--color-base-100)),
-    var(--color-base-100) 62%
-  );
 }
 .ov-syncs,
 .ov-repl {
@@ -743,36 +745,6 @@ builder-chat .bc-tool-title {
 .ov-dot-off {
   background: color-mix(in srgb, var(--color-base-content) 30%, transparent);
 }
-/* Replication heartbeat: expanding ring on the live state dot */
-.ov-pulse {
-  position: relative;
-}
-.ov-pulse::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 9999px;
-  background: inherit;
-  animation: ov-ping 2.2s cubic-bezier(0, 0, 0.2, 1) infinite;
-}
-@keyframes ov-ping {
-  0% {
-    transform: scale(1);
-    opacity: 0.55;
-  }
-  70%,
-  100% {
-    transform: scale(2.1);
-    opacity: 0;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .ov-pulse::after {
-    animation: none;
-    opacity: 0;
-  }
-}
-
 /* The activity ticker box shows the header plus ~10 table rows, the rest
    scroll; the header stays pinned while scrolling (it needs an opaque
    surface or rows show through) */

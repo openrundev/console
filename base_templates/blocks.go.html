@@ -29,11 +29,11 @@
       <thead>
         <tr>
           <th scope="col" class="w-8 md:w-12"><span class="sr-only">Details</span></th>
-          <th scope="col" class="w-1/3 md:w-[30%]">App</th>
+          <th scope="col" class="w-1/3 md:w-[26%] lg:w-[24%]">App</th>
           <th scope="col" class="hidden md:table-cell">Source</th>
-          <th scope="col" class="w-28 md:w-36 text-center">Version</th>
-          <th scope="col" class="hidden lg:table-cell lg:w-20">Auth</th>
-          <th scope="col" class="hidden sm:table-cell md:w-24">Updated</th>
+          <th scope="col" class="w-20 sm:w-28 md:w-32 text-center">Version</th>
+          <th scope="col" class="hidden xl:table-cell xl:w-20">Auth</th>
+          <th scope="col" class="hidden sm:table-cell md:w-20">Updated</th>
           {{ if $actions }}
             <th scope="col" class="text-right md:w-28">Actions</th>
           {{ end }}
@@ -66,19 +66,24 @@
             <td class="hidden md:table-cell">
               {{ if .source }}
                 {{/* The hover links carry a negative right margin equal to
-                  their width: they take no inline space, so a source that
+                  their width plus left margin, and no whitespace before
+                  them: they take no inline space, so a source that
                   exactly fills the column cannot push the (invisible) link
                   onto a line of its own, which read as a blank line above
                   the badges */}}
-                <span class="font-mono text-xs break-all">{{ .source }}</span
-                >{{ if and .is_git .source_url }}
+                {{/* Line breaks go after a "/" (wbr), keeping path
+                  segments whole; break-words splits a segment only when
+                  it alone is wider than the column */}}
+                <span class="font-mono text-xs break-words"
+                  >{{ range $i, $part := splitList "/" .source }}{{ if $i }}/<wbr />{{ end }}{{ $part }}{{ end }}</span
+                >{{ if and .is_git .source_url -}}
                   <a
                     href="{{ .source_url }}"
                     target="_blank"
                     rel="noopener"
                     data-tip="View source code in a new tab"
                     aria-label="View source of {{ .path }} in a new tab"
-                    class="inline-block text-primary text-xs opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-200 ml-0.5 -mr-3 tooltip tooltip-right"
+                    class="inline-block text-primary text-xs opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-200 w-3 ml-0.5 -mr-3.5 tooltip tooltip-right"
                     ><span aria-hidden="true">↗</span></a
                   >
                 {{ end }}
@@ -108,8 +113,9 @@
                 class="font-mono text-xs tabular-nums whitespace-nowrap"
                 title="{{ .git_message }}"
                 >v{{ .version }}{{ if .git_sha }}
-                  ·
-                  {{ .git_sha }}
+                  {{/* the sha is dropped on phones: the app path column
+                    needs the width (paths broke mid-word) */}}
+                  <span class="hidden sm:inline">· {{ .git_sha }}</span>
                 {{ end }}</span
               >
               {{ if or .staging .is_dev .needs_approval }}
@@ -125,7 +131,7 @@
                   {{ end }}
                   {{ if .is_dev }}
                     <span
-                      class="badge badge-success badge-xs badge-soft tooltip tooltip-left"
+                      class="badge badge-info badge-xs badge-soft tooltip tooltip-left"
                       data-tip="development mode app, served from the local source directory"
                       >dev</span
                     >
@@ -146,7 +152,7 @@
                 </div>
               {{ end }}
             </td>
-            <td class="hidden lg:table-cell">
+            <td class="hidden xl:table-cell">
               <span class="badge badge-ghost badge-xs">{{ .auth }}</span>
             </td>
             <td
@@ -172,35 +178,7 @@
                     action; edit/delete stay on the default list
                   */}}
                   {{ if eq $rowAction "" }}
-                    <a
-                      class="btn btn-xs btn-ghost btn-square tooltip tooltip-left {{ if not (index $perms "app:update") }}
-                        btn-disabled
-                      {{ end }}"
-                      {{ if index $perms "app:update" }}
-                        href="{{ $root }}/apps/update?path={{ .path }}"
-                      {{ else }}
-                        aria-disabled="true" tabindex="-1"
-                      {{ end }}
-                      aria-label="Edit {{ .path }}"
-                      data-tip="{{ if index $perms "app:update" }}
-                        Edit auth and parameters
-                      {{ else }}
-                        requires app:update
-                      {{ end }}">
-                      <svg
-                        aria-hidden="true"
-                        focusable="false"
-                        class="w-3.5 h-3.5"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round">
-                        <path
-                          d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                      </svg>
-                    </a>
+                    {{ template "perm_link" (dict "Allowed" (index $perms "app:update") "Href" (print $root "/apps/update") "QueryKey" "path" "QueryValue" .path "Icon" "pencil" "Class" "btn-xs btn-ghost btn-square" "Tip" "Edit auth and parameters" "DeniedTip" "requires app:update" "Pos" "tooltip-left" "AriaLabel" (print "Edit " .path)) }}
                   {{ end }}
                   {{ if eq $rowAction "promote" }}
                     <button
@@ -252,19 +230,7 @@
                       {{ else }}
                         disabled data-tip="requires app:reload"
                       {{ end }}>
-                      <svg
-                        aria-hidden="true"
-                        focusable="false"
-                        class="w-3.5 h-3.5"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round">
-                        <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-                        <path d="M21 3v6h-6" />
-                      </svg>
+                      {{ template "icon" (dict "Name" "rotate-cw" "Class" "w-3.5 h-3.5") }}
                     </button>
                   {{ end }}
                   {{ if eq $rowAction "" }}
@@ -284,22 +250,7 @@
                       {{ else }}
                         disabled data-tip="requires app:delete"
                       {{ end }}>
-                      <svg
-                        aria-hidden="true"
-                        focusable="false"
-                        class="w-3.5 h-3.5"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round">
-                        <path d="M3 6h18" />
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-                        <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                        <path d="M10 11v6" />
-                        <path d="M14 11v6" />
-                      </svg>
+                      {{ template "icon" (dict "Name" "trash" "Class" "w-3.5 h-3.5") }}
                     </button>
                   {{ end }}
                 </div>
@@ -475,7 +426,7 @@
 {{ end }}
 
 {{/* builder_status_badge renders a builder session status as a colored
-  badge with a pulse dot on the in-flight states. Context: the status string
+  badge with a status dot. Context: the status string
 */}}
 {{ define "builder_status_badge" }}
   <span
@@ -492,11 +443,7 @@
     {{ else }}
       badge-success badge-soft
     {{ end }}">
-    <span
-      aria-hidden="true"
-      class="w-1.5 h-1.5 rounded-full bg-current {{ if or (eq . "running") (eq . "starting") }}
-        animate-pulse
-      {{ end }}"></span>
+    <span aria-hidden="true" class="w-1.5 h-1.5 rounded-full bg-current"></span>
     {{ . }}
   </span>
 {{ end }}
@@ -812,65 +759,7 @@
               </span>
             </span>
           </label>
-          <fieldset
-            id="reload-promote-group"
-            class="border border-base-300 rounded-box px-4 pb-3 pt-1">
-            <legend class="text-sm font-medium px-1">Promotion</legend>
-            {{ $canPromote := index .Perms "app:promote" }}
-            <div
-              class="flex flex-col gap-2 {{ if not $canPromote }}tooltip tooltip-top{{ end }}"
-              {{ if not $canPromote }}
-                data-tip="requires app:promote"
-              {{ end }}>
-              <label
-                class="flex items-center gap-3 {{ if $canPromote }}cursor-pointer{{ end }}">
-                <input
-                  type="radio"
-                  name="promote_mode"
-                  value="none"
-                  class="radio radio-sm radio-primary"
-                  checked
-                  {{ if not $canPromote }}disabled{{ end }} />
-                <span class="text-sm">
-                  No promotion
-                  <span class="block text-xs text-base-content/70">
-                    Changes stay in staging for manual promotion
-                  </span>
-                </span>
-              </label>
-              <label
-                class="flex items-center gap-3 {{ if $canPromote }}cursor-pointer{{ end }}">
-                <input
-                  type="radio"
-                  name="promote_mode"
-                  value="noverify"
-                  class="radio radio-sm radio-primary"
-                  {{ if not $canPromote }}disabled{{ end }} />
-                <span class="text-sm">
-                  Promote without verification
-                  <span class="block text-xs text-base-content/70">
-                    Push the reloaded version to prod immediately
-                  </span>
-                </span>
-              </label>
-              <label
-                class="flex items-center gap-3 {{ if $canPromote }}cursor-pointer{{ end }}">
-                <input
-                  type="radio"
-                  name="promote_mode"
-                  value="verify"
-                  class="radio radio-sm radio-primary"
-                  {{ if not $canPromote }}disabled{{ end }} />
-                <span class="text-sm">
-                  Promote with verification
-                  <span class="block text-xs text-base-content/70">
-                    Reload app containers to verify staging before promoting;
-                    a failed verification is rolled back
-                  </span>
-                </span>
-              </label>
-            </div>
-          </fieldset>
+          {{ template "promote_choices" (dict "Id" "reload-promote-group" "CanPromote" (index .Perms "app:promote") "Mode" "none" "NoVerifyDesc" "Push the reloaded version to prod immediately") }}
         </div>
         <div class="modal-action mt-5">
           <button
@@ -1239,6 +1128,28 @@
   {{ end }}
 {{ end }}
 
+{{/* skipped_apps is the muted "N apps skipped" line of the actions page
+  (both tabs): the apps whose actions or runs could not be read (broken or
+  unapproved), a collapsed list that takes its own full-width line when
+  opened. A flex item of a wrapping row; dict Warnings, optional Class (the
+  text styling when the row does not set it) */}}
+{{ define "skipped_apps" }}
+  <details class="group open:basis-full {{ .Class }}" data-action-warnings>
+    <summary
+      class="cursor-pointer flex items-center gap-1 hover:text-base-content">
+      {{ template "icon" (dict "Name" "alert-triangle" "Class" "size-3.5 text-warning self-center") }}
+      {{ template "count" (dict "N" (len .Warnings) "One" "app") }}
+      skipped (broken or unapproved)
+      {{ template "icon" (dict "Name" "chevron-down" "Class" "size-3 self-center -rotate-90 group-open:rotate-0") }}
+    </summary>
+    <ul class="mt-1 ml-5 space-y-1 font-mono break-all">
+      {{ range .Warnings }}
+        <li data-action-warning>{{ . }}</li>
+      {{ end }}
+    </ul>
+  </details>
+{{ end }}
+
 {{/* action_runs_panel renders the async runs table with its status and
   "mine" filters: the Runs tab of the actions page (across apps; the
   search box narrows the apps, .Data.Tab is "runs") and the runs section of
@@ -1272,6 +1183,9 @@
       <span class="text-xs text-base-content/70" data-runs-count
         >{{ len $runs.Rows }} {{ if eq (len $runs.Rows) 1 }}run{{ else }}runs{{ end }}{{ if ne (len $runs.Rows) $runs.Total }} of the {{ $runs.Total }} loaded{{ end }}{{ if $runs.NextPage }} · scroll for more{{ end }}</span
       >
+      {{ if $runs.Warnings }}
+        {{ template "skipped_apps" (dict "Warnings" $runs.Warnings "Class" "text-xs text-base-content/70 open:order-last") }}
+      {{ end }}
       <div class="ml-auto flex items-center gap-3">
         {{ if $runs.UserId }}
           <label class="flex items-center gap-1.5 text-xs cursor-pointer whitespace-nowrap" title="Only the runs you started">
@@ -1287,14 +1201,6 @@
         </select>
       </div>
     </form>
-    {{ if $runs.Warnings }}
-      <details class="text-xs text-warning px-4 pt-2" data-action-warnings>
-        <summary class="cursor-pointer">The runs of {{ len $runs.Warnings }} {{ if eq (len $runs.Warnings) 1 }}app{{ else }}apps{{ end }} could not be read - expand for details</summary>
-        <ul class="mt-1 space-y-0.5 font-mono break-all">
-          {{ range $runs.Warnings }}<li data-action-warning>{{ . }}</li>{{ end }}
-        </ul>
-      </details>
-    {{ end }}
     {{ if $runs.Error }}
       <p class="text-sm text-error break-all px-4 py-4">{{ $runs.Error }}</p>
     {{ else if not $runs.Rows }}
@@ -1665,39 +1571,16 @@
           <div
             class="flex items-center gap-1.5 px-3 py-1 text-base-content/70 font-medium"
             style="padding-left: calc(0.75rem + {{ .depth }} * 0.75rem)">
-            <svg
-              aria-hidden="true"
-              class="w-3.5 h-3.5 shrink-0"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round">
-              <path
-                d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
-            </svg>
+            {{ template "icon" (dict "Name" "folder" "Class" "w-3.5 h-3.5 shrink-0") }}
             <span class="truncate">{{ .name }}</span>
           </div>
         {{ else }}
           <button
             type="button"
             data-bf-file="{{ .path }}"
-            class="flex items-center gap-1.5 w-full text-left px-3 py-1 font-mono hover:bg-base-200 rounded-none"
+            class="flex items-center gap-1.5 w-full text-left px-3 py-1 font-mono hover:bg-base-200/60 rounded-none"
             style="padding-left: calc(0.75rem + {{ .depth }} * 0.75rem)">
-            <svg
-              aria-hidden="true"
-              class="w-3.5 h-3.5 shrink-0 text-base-content/50"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round">
-              <path
-                d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
-              <path d="M14 2v4a2 2 0 0 0 2 2h4" />
-            </svg>
+            {{ template "icon" (dict "Name" "file" "Class" "w-3.5 h-3.5 shrink-0 text-base-content/50") }}
             <span class="truncate">{{ .name }}</span>
           </button>
         {{ end }}
@@ -1732,3 +1615,181 @@
     {{ template "sync_result_row" (dict "Label" "Bindings ↑" "Items" .bindings_promoted) }}
   </div>
 {{ end }}
+
+{{/* repl_state_dot is THE replication state -> colour mapping (overview
+  tile, /replication table, app detail row): healthy/idle ok, syncing
+  warning, pending neutral (nothing replicated yet), the unhealthy states
+  (sidecar_down/misconfigured/error, handler.star REPL_UNHEALTHY_STATES)
+  error, an unknown state warning. Context: dict State, optional Overview
+  (the overview tile's larger ov-dot). The dot is decorative: callers
+  always print the state as text
+*/}}
+{{ define "repl_state_dot" }}
+  {{ $s := .State }}
+  {{ $tone := "warn" }}
+  {{ if or (eq $s "healthy") (eq $s "idle") }}
+    {{ $tone = "ok" }}
+  {{ else if eq $s "pending" }}
+    {{ $tone = "off" }}
+  {{ else if or (eq $s "sidecar_down") (eq $s "misconfigured") (eq $s "error") }}
+    {{ $tone = "err" }}
+  {{ end }}
+  {{ if .Overview }}
+    <span
+      class="ov-dot ov-dot-{{ $tone }}"
+      aria-hidden="true"></span>
+  {{ else }}
+    <span
+      class="status {{ index (dict "ok" "status-success" "warn" "status-warning" "off" "" "err" "status-error") $tone }}"
+      aria-hidden="true"></span>
+  {{ end }}
+{{ end }}
+
+{{/* promote_choices is the Promotion fieldset (none / noverify / verify
+  radios named promote_mode) of the reload dialog and the sync form.
+  Context: dict CanPromote (app:promote - without it the radios are
+  disabled with a tooltip), Mode (checked value, "" = none), optional Id
+  and NoVerifyDesc (what "without verification" means in the caller)
+*/}}
+{{ define "promote_choices" }}
+  {{ $can := .CanPromote }}
+  {{ $mode := .Mode | default "none" }}
+  <fieldset
+    {{ with .Id }}id="{{ . }}"{{ end }}
+    class="border border-base-300 rounded-box px-4 pb-3 pt-1">
+    <legend class="text-sm font-medium px-1">Promotion</legend>
+    <div
+      class="flex flex-col gap-2 {{ if not $can }}tooltip tooltip-top{{ end }}"
+      {{ if not $can }}data-tip="requires app:promote"{{ end }}>
+      {{ range list
+        (dict "Value" "none" "Label" "No promotion" "Desc" "Changes stay in staging for manual promotion")
+        (dict "Value" "noverify" "Label" "Promote without verification" "Desc" $.NoVerifyDesc)
+        (dict "Value" "verify" "Label" "Promote with verification" "Desc" "Reload app containers to verify staging before promoting; a failed verification is rolled back")
+      }}
+        <label
+          class="flex items-center gap-3 {{ if $can }}cursor-pointer{{ end }}">
+          <input
+            type="radio"
+            name="promote_mode"
+            value="{{ .Value }}"
+            class="radio radio-sm radio-primary"
+            {{ if eq $mode .Value }}checked{{ end }}
+            {{ if not $can }}disabled{{ end }} />
+          <span class="text-sm">
+            {{ .Label }}
+            <span class="block text-xs text-base-content/70">{{ .Desc }}</span>
+          </span>
+        </label>
+      {{ end }}
+    </div>
+  </fieldset>
+{{ end }}
+
+{{/* surface_toggle: the Enable/Disable button of a remote API surface card
+  header (/config/mcp endpoints, /config/api REST). Context dict: Surface
+  (mcp|app_mcp|rest, posted as surface), On, CanEdit, Url (the POST enable
+  fragment), Confirm (the disable confirmation) */}}
+{{ define "surface_toggle" }}
+  <button
+    type="button"
+    class="btn btn-xs ml-auto {{ if .On }}btn-outline text-error{{ else }}btn-primary{{ end }} {{ if not .CanEdit }}tooltip tooltip-left{{ end }}"
+    data-surface-toggle="{{ .Surface }}"
+    {{ if .CanEdit }}
+      hx-post="{{ .Url }}"
+      hx-vals='{"surface": "{{ .Surface }}", "action": "{{ if .On }}disable{{ else }}enable{{ end }}"}'
+      {{ if .On }}hx-confirm="{{ .Confirm }}"{{ end }}
+      hx-target="#page-content"
+      hx-swap="innerHTML"
+      hx-disable="this"
+      hx-indicator="#page-progress"
+    {{ else }}
+      disabled data-tip="requires config:update"
+    {{ end }}>
+    {{ if .On }}Disable{{ else }}Enable{{ end }}
+  </button>
+{{ end }}
+
+{{/* surface_state: the enabled/disabled badge of a surface. Context dict:
+  Surface, On, optional NotServed (enabled but not answering: the app
+  actions MCP endpoint without RBAC enforcement) */}}
+{{ define "surface_state" }}
+  {{ if .NotServed }}
+    <span class="badge badge-warning badge-soft badge-sm" data-surface-state="not_served">not served</span>
+  {{ else if .On }}
+    <span class="badge badge-success badge-soft badge-sm" data-surface-state="on">enabled</span>
+  {{ else }}
+    <span class="badge badge-ghost badge-sm" data-surface-state="off">disabled</span>
+  {{ end }}
+{{ end }}
+
+{{/* surface_checks: the prerequisites of a management surface (RBAC
+  enforcement, an HTTPS listener or TLS proxy, the external url), shown
+  while it is off. Context: the checks list ({key, ok, label, detail}) */}}
+{{ define "surface_checks" }}
+  <ul class="space-y-1.5 text-sm" data-surface-checks>
+    {{ range . }}
+      <li class="flex items-start gap-2" data-surface-check="{{ .key }}" data-ok="{{ if .ok }}true{{ else }}false{{ end }}">
+        {{ if .ok }}
+          <span class="text-success font-medium" aria-label="ok">✓</span>
+        {{ else }}
+          <span class="text-warning font-medium" aria-label="missing">✗</span>
+        {{ end }}
+        <span>
+          <span class="font-medium">{{ .label }}</span>
+          <span class="text-xs text-base-content/70 {{ if and (eq .key "external_url") .ok }}font-mono{{ end }} break-all">- {{ .detail }}</span>
+        </span>
+      </li>
+    {{ end }}
+  </ul>
+{{ end }}
+
+{{/* surface_settings: the settings rows of a surface card (its config
+  group without the enable row - the header toggle is that switch), the
+  advanced ones collapsed. Context dict: Group ({settings, advanced}), Ctx
+  (ActionPath, VersionId, CanEdit) */}}
+{{ define "surface_settings" }}
+  {{ if or .Group.settings .Group.advanced }}
+    <div class="flex flex-col gap-4 pt-3 border-t border-base-300" data-surface-settings>
+      {{ range .Group.settings }}
+        {{ template "config_setting_row" (dict "Row" . "ActionPath" $.Ctx.ActionPath "VersionId" $.Ctx.VersionId "CanEdit" $.Ctx.CanEdit) }}
+      {{ end }}
+      {{ template "config_advanced_rows" (dict "Rows" .Group.advanced "ActionPath" $.Ctx.ActionPath "VersionId" $.Ctx.VersionId "CanEdit" $.Ctx.CanEdit) }}
+    </div>
+  {{ end }}
+{{ end }}
+
+{{/* command_row: one labelled shell command with a copy button (the label
+  stacks above the command on a phone, where a side label left the command
+  a few characters wide). Context dict: Label, Key (data-command value),
+  Cmd, Builder (inside an MCP data-mcp-builder: the code gets data-mcp-cmd
+  so console.js rewrites it) */}}
+{{ define "command_row" }}
+  <div class="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2" data-command="{{ .Key }}">
+    <div class="sm:w-36 shrink-0 sm:pt-1.5 text-xs font-medium">{{ .Label }}</div>
+    <div class="flex items-start gap-2 flex-1 min-w-0">
+      <pre class="flex-1 min-w-0 p-2 rounded bg-base-200 font-mono text-xs leading-relaxed whitespace-pre-wrap break-all"><code {{ if .Builder }}data-mcp-cmd="{{ .Key }}"{{ end }}>{{ .Cmd }}</code></pre>
+      <button
+        type="button"
+        class="btn btn-ghost btn-xs mt-0.5"
+        onclick="copyCommand(this)"
+        aria-label="Copy the {{ .Label }} command">
+        copy
+      </button>
+    </div>
+  </div>
+{{ end }}
+
+{{/* disclosure_summary: the summary line of a collapsed how-to section
+  (the connect commands of /config/api and /config/mcp), styled like
+  config_advanced_rows' "Additional settings". The <details class="group">
+  wraps it, the content follows in a "mt-4 pl-3 border-l" box. Context
+  dict: Label, optional Hint (muted, after the label) */}}
+{{ define "disclosure_summary" }}
+  <summary
+    class="cursor-pointer text-sm font-medium text-base-content/70 hover:text-base-content list-none flex items-center gap-1">
+    <span aria-hidden="true" class="inline-block transition-transform duration-200 group-open:rotate-90">›</span>
+    {{ .Label }}
+    {{ if .Hint }}<span class="text-xs font-normal">- {{ .Hint }}</span>{{ end }}
+  </summary>
+{{ end }}
+

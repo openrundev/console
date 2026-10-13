@@ -10,7 +10,7 @@
             class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" . }}
             <div>
-              {{ template "page_title" "Audit Logs" }}
+              {{ template "page_title" (dict "Title" "Audit Logs" "Help" .Data.HelpUrl) }}
               <p class="page-desc text-sm text-base-content/70">
                 HTTP, system and custom audit events
               </p>
@@ -201,7 +201,6 @@
                     <div
                       role="alert"
                       class="alert alert-vertical sm:alert-horizontal alert-info alert-soft py-2 text-sm justify-items-start text-start">
-                      <span aria-hidden="true">🔍</span>
                       {{/* min-w-0 + break-all: the rid is one unbreakable
                         token, without them it pushes Clear trace off screen
                         on mobile
@@ -250,7 +249,7 @@
                     </th>
                     <th scope="col">Time</th>
                     <th scope="col" class="hidden sm:table-cell">Type</th>
-                    <th scope="col">Operation</th>
+                    <th scope="col" class="hidden sm:table-cell">Operation</th>
                     <th scope="col">Target</th>
                     <th scope="col" class="hidden md:table-cell">App</th>
                     <th scope="col" class="hidden lg:table-cell">User</th>
@@ -291,6 +290,11 @@
                         <td
                           class="text-xs text-base-content/70 whitespace-nowrap">
                           {{ template "time_ago" (dict "Time" $e.create_time "Res" 2 "Pos" "right") }}
+                          {{/* phones: the operation stacks here, its column
+                            is hidden so the target gets the width */}}
+                          <div class="sm:hidden font-mono text-base-content">
+                            {{ $e.operation }}
+                          </div>
                         </td>
                         <td class="hidden sm:table-cell">
                           {{ if eq $e.event_type "http" }}
@@ -314,7 +318,7 @@
                             >
                           {{ end }}
                         </td>
-                        <td class="font-mono text-xs whitespace-nowrap">
+                        <td class="hidden sm:table-cell font-mono text-xs whitespace-nowrap">
                           {{ $e.operation }}
                         </td>
                         <td>
@@ -382,7 +386,6 @@
                           <td colspan="8">
                             <div
                               class="flex flex-col items-center gap-2 py-10 text-center text-sm text-base-content/70">
-                              <span class="text-xl" aria-hidden="true">📜</span>
                               <p>No audit events match the filters</p>
                             </div>
                           </td>

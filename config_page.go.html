@@ -1,9 +1,9 @@
 {{/* Copyright (c) ClaceIO, LLC */}}
 {{/* SPDX-License-Identifier: Apache-2.0 */}}
 {{/* Generic config sub page (/config/auth, /config/git, /config/secrets,
-     /config/system, /config/api, /config/builder; /config/mcp has its own
-     file around the same defines): settings fields with
-     effective values, grouped settings cards (the api page's surfaces),
+     /config/system, /config/builder; /config/api and /config/mcp have
+     their own files around the same defines): settings fields with
+     effective values, grouped settings cards,
      entry section tables (oauth/saml/git_auth/...) and the app_config
      key/value table. Driven by the CONFIG_PAGES descriptors in
      handler.star; all changes take effect immediately (no staging).
@@ -17,7 +17,7 @@
             <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
               {{ template "hamburger" . }}
               <div>
-                {{ template "page_title" "Configuration" }}
+                {{ template "page_title" (dict "Title" "Configuration" "Help" .Data.HelpUrl) }}
                 <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0">
                   <ul>
                     <li>
@@ -72,15 +72,7 @@
                       description wrapping inside its own box */}}
                     <h2 class="text-sm font-medium shrink-0">{{ .title }}</h2>
                     <span class="text-xs text-base-content/70 order-last basis-full sm:order-none sm:basis-0 sm:flex-1 min-w-0 sm:pt-0.5">{{ .desc }}</span>
-                    <a
-                      class="btn btn-xs btn-outline ml-auto shrink-0 {{ if not $canEdit }}btn-disabled tooltip tooltip-left{{ end }}"
-                      {{ if $canEdit }}
-                        href="{{ $.AppPath }}/config/entry?section={{ .section }}"
-                      {{ else }}
-                        data-tip="requires config:update" aria-disabled="true" tabindex="-1"
-                      {{ end }}
-                      >+ Add entry</a
-                    >
+                    {{ template "perm_link" (dict "Allowed" $canEdit "Href" (print $.AppPath "/config/entry") "QueryKey" "section" "QueryValue" .section "Label" "+ Add entry" "Class" "btn-xs btn-outline ml-auto shrink-0" "DeniedTip" "requires config:update" "Pos" "tooltip-left") }}
                   </div>
                   {{ $section := .section }}
                   {{ if .entries }}
@@ -127,7 +119,7 @@
                                 >
                                 {{ if ne .source "static" }}
                                   <button
-                                    class="btn btn-xs btn-ghost text-error"
+                                    class="btn btn-xs btn-ghost text-error {{ if not ($canEdit) }}tooltip tooltip-left{{ end }}"
                                     {{ if $canEdit }}
                                       hx-post="{{ $actionPath }}"
                                       aria-label="Delete {{ $section }} entry {{ .name }}"
@@ -189,7 +181,7 @@
                               <td class="font-mono text-xs">{{ .value }}</td>
                               <td class="text-right whitespace-nowrap w-24">
                                 <button
-                                  class="btn btn-xs btn-ghost text-error"
+                                  class="btn btn-xs btn-ghost text-error {{ if not ($canEdit) }}tooltip tooltip-left{{ end }}"
                                   {{ if $canEdit }}
                                     hx-post="{{ $actionPath }}"
                                     aria-label="Remove {{ $kv.section }} key {{ .key }}"

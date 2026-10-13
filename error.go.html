@@ -7,7 +7,7 @@
 {{ template "page_open" (dict "Ctx" . "Main" "space-y-4 max-w-3xl") }}
           <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" . }}
-            {{ template "page_title" "OpenRun" }}
+            {{ template "page_title" (dict "Title" "OpenRun" "Help" .Data.HelpUrl) }}
           </div>
 
           <div class="card bg-base-100 border border-error/40">

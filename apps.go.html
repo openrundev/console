@@ -10,25 +10,14 @@
             class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" . }}
             <div>
-              {{ template "page_title" "Apps" }}
+              {{ template "page_title" (dict "Title" "Apps" "Help" .Data.HelpUrl) }}
               <p class="page-desc text-sm text-base-content/70">
                 Deployed apps, grouped by the sync source
               </p>
             </div>
             <div class="page-actions ml-auto flex items-center gap-2">
               {{ template "page_search" (dict "Query" .Data.Query "Label" "Filter apps" "Placeholder" "Filter apps…" "Url" (print .AppPath "/apps") "Target" "#app-groups" "Include" "#app-filter-value, #app-tab-value" "Title" "Substring search; a leading /, a :, or \"all\" switches to app path globs like /utils/** or example.com:/**") }}
-              <a
-                class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "app:create") }}
-                  btn-disabled tooltip tooltip-bottom
-                {{ end }}"
-                {{ if index .Data.Perms "app:create" }}
-                  href="{{ .AppPath }}/apps/create"
-                {{ else }}
-                  data-tip="requires app:create" aria-disabled="true"
-                  tabindex="-1"
-                {{ end }}>
-                + New app
-              </a>
+              {{ template "perm_link" (dict "Allowed" (index .Data.Perms "app:create") "Href" (print .AppPath "/apps/create") "Label" "+ New app" "Class" "btn-sm btn-primary transition-transform duration-150 active:scale-95" "DeniedTip" "requires app:create") }}
             </div>
           </div>
 
@@ -145,81 +134,9 @@
                 role="group"
                 aria-label="App list views"
                 class="tabs tabs-border">
-                <button
-                  class="tab transition-colors duration-150 {{ if eq .Data.Tab "" }}
-                    tab-active
-                  {{ end }}"
-                  data-tab=""
-                  aria-pressed="{{ if eq .Data.Tab "" -}}
-                    true
-                  {{- else -}}
-                    false
-                  {{- end }}"
-                  hx-get="{{ .AppPath }}/apps"
-                  hx-vals='{"tab": ""}'
-                  hx-target="#app-groups"
-                  hx-swap="innerHTML"
-                  hx-include="#page-search, #app-filter-value"
-                  hx-push-url="true"
-                  hx-indicator="#page-progress">
-                  All
-                </button>
-                <button
-                  class="tab transition-colors duration-150 {{ if eq .Data.Tab "promote" }}
-                    tab-active
-                  {{ end }}"
-                  data-tab="promote"
-                  aria-pressed="{{ if eq .Data.Tab "promote" -}}
-                    true
-                  {{- else -}}
-                    false
-                  {{- end }}"
-                  title="Apps where staging has changes not promoted to prod yet"
-                  hx-get="{{ .AppPath }}/apps"
-                  hx-vals='{"tab": "promote"}'
-                  hx-target="#app-groups"
-                  hx-swap="innerHTML"
-                  hx-include="#page-search, #app-filter-value"
-                  hx-push-url="true"
-                  hx-indicator="#page-progress">
-                  Pending promotion
-                  <span
-                    class="badge badge-xs tabular-nums ml-1 {{ if .Data.PromoteCount }}
-                      badge-warning badge-soft
-                    {{ else }}
-                      badge-ghost
-                    {{ end }}"
-                    >{{ .Data.PromoteCount }}</span
-                  >
-                </button>
-                <button
-                  class="tab transition-colors duration-150 {{ if eq .Data.Tab "approval" }}
-                    tab-active
-                  {{ end }}"
-                  data-tab="approval"
-                  aria-pressed="{{ if eq .Data.Tab "approval" -}}
-                    true
-                  {{- else -}}
-                    false
-                  {{- end }}"
-                  title="Apps requesting plugin permissions which are not approved yet"
-                  hx-get="{{ .AppPath }}/apps"
-                  hx-vals='{"tab": "approval"}'
-                  hx-target="#app-groups"
-                  hx-swap="innerHTML"
-                  hx-include="#page-search, #app-filter-value"
-                  hx-push-url="true"
-                  hx-indicator="#page-progress">
-                  Needs approval
-                  <span
-                    class="badge badge-xs tabular-nums ml-1 {{ if .Data.ApprovalCount }}
-                      badge-error badge-soft
-                    {{ else }}
-                      badge-ghost
-                    {{ end }}"
-                    >{{ .Data.ApprovalCount }}</span
-                  >
-                </button>
+                {{ template "tab_button" (dict "Label" "All" "Active" (eq .Data.Tab "") "Value" "" "Url" (print .AppPath "/apps") "Vals" `{"tab": ""}` "Target" "#app-groups" "Include" "#page-search, #app-filter-value") }}
+                {{ template "tab_button" (dict "Label" "Pending promotion" "Active" (eq .Data.Tab "promote") "Value" "promote" "Title" "Apps where staging has changes not promoted to prod yet" "Url" (print .AppPath "/apps") "Vals" `{"tab": "promote"}` "Target" "#app-groups" "Include" "#page-search, #app-filter-value" "Count" .Data.PromoteCount "CountTone" "badge-warning") }}
+                {{ template "tab_button" (dict "Label" "Needs approval" "Active" (eq .Data.Tab "approval") "Value" "approval" "Title" "Apps requesting plugin permissions which are not approved yet" "Url" (print .AppPath "/apps") "Vals" `{"tab": "approval"}` "Target" "#app-groups" "Include" "#page-search, #app-filter-value" "Count" .Data.ApprovalCount "CountTone" "badge-error") }}
               </div>
 
               {{ template "flash_alerts" .Data }}
@@ -243,7 +160,6 @@
                   {{ else }}
                     <div
                       class="flex flex-col items-center gap-2 py-10 text-center text-sm text-base-content/70">
-                      <span class="text-xl" aria-hidden="true">✅</span>
                       <p>
                         {{ if or .Data.Query .Data.Filter }}
                           No matching apps are pending promotion
@@ -270,7 +186,6 @@
                   {{ else }}
                     <div
                       class="flex flex-col items-center gap-2 py-10 text-center text-sm text-base-content/70">
-                      <span class="text-xl" aria-hidden="true">✅</span>
                       <p>
                         {{ if or .Data.Query .Data.Filter }}
                           No matching apps are waiting on permission approval
@@ -356,7 +271,6 @@
                     <div
                       class="flex flex-col items-center gap-2 text-center text-sm text-base-content/70">
                       {{ if or .Data.Query .Data.Filter }}
-                        <span class="text-xl" aria-hidden="true">🔍</span>
                         <p>
                           No apps match
                           {{ if .Data.Query }}
@@ -365,33 +279,10 @@
                             the current filter
                           {{ end }}
                         </p>
-                        <button
-                          class="btn btn-xs btn-outline transition-transform duration-150 active:scale-95"
-                          onclick="const s = document.getElementById('page-search'); if (s) s.value = ''"
-                          hx-get="{{ .AppPath }}/apps"
-                          hx-vals='{"query": "", "filter": ""}'
-                          hx-include="#app-tab-value"
-                          hx-target="#app-groups"
-                          hx-swap="innerHTML"
-                          hx-push-url="true"
-                          hx-indicator="#page-progress">
-                          Clear filters
-                        </button>
+                        {{ template "clear_search" (dict "Url" (print .AppPath "/apps") "Vals" `{"query": "", "filter": ""}` "Target" "#app-groups" "Include" "#app-tab-value" "Label" "Clear filters") }}
                       {{ else }}
-                        <span class="text-xl" aria-hidden="true">🌱</span>
                         <p>No apps installed yet</p>
-                        <a
-                          class="btn btn-xs btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "app:create") }}
-                            btn-disabled tooltip tooltip-top
-                          {{ end }}"
-                          {{ if index .Data.Perms "app:create" }}
-                            href="{{ .AppPath }}/apps/create"
-                          {{ else }}
-                            data-tip="requires app:create" aria-disabled="true"
-                            tabindex="-1"
-                          {{ end }}
-                          >+ New app</a
-                        >
+                        {{ template "perm_link" (dict "Allowed" (index .Data.Perms "app:create") "Href" (print .AppPath "/apps/create") "Label" "+ New app" "Class" "btn-xs btn-primary transition-transform duration-150 active:scale-95" "DeniedTip" "requires app:create" "Pos" "tooltip-top") }}
                       {{ end }}
                     </div>
                   </div>

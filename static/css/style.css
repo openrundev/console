@@ -140,34 +140,6 @@ button[hx-disable][disabled]::before {
   height: 55%;
 }
 
-/* ---- Status dots ---------------------------------------------------------
-   Healthy state breathes gently; errors pulse a little more insistently to
-   direct attention (200-400ms attention band, slowed to stay calm). */
-.status-success {
-  animation: status-breathe 3s ease-in-out infinite;
-}
-@keyframes status-breathe {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-success) 35%, transparent);
-  }
-  50% {
-    box-shadow: 0 0 0 4px color-mix(in oklab, var(--color-success) 10%, transparent);
-  }
-}
-.status-error {
-  animation: status-alert 1.6s ease-in-out infinite;
-}
-@keyframes status-alert {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-error) 45%, transparent);
-  }
-  50% {
-    box-shadow: 0 0 0 5px color-mix(in oklab, var(--color-error) 12%, transparent);
-  }
-}
-
 /* ---- Field focus ---------------------------------------------------------
    Focused input labels gain a brand-colored border and glow. */
 label.input {
@@ -203,19 +175,6 @@ label.input:focus-within {
   margin-bottom: 0.6rem;
   border-radius: 2px;
   background: linear-gradient(90deg, color-mix(in oklch, var(--color-secondary) 5%, transparent), var(--color-secondary));
-}
-
-/* ---- Cards --------------------------------------------------------------
-   Content cards lift very slightly on hover, hinting at their grouping
-   without implying every card is clickable. */
-.card.border {
-  transition:
-    box-shadow 200ms var(--ease-out-soft),
-    border-color 200ms var(--ease-out-soft);
-}
-.card.border:hover {
-  box-shadow: 0 2px 10px -4px color-mix(in oklab, var(--color-secondary) 24%, transparent);
-  border-color: color-mix(in oklab, var(--color-secondary) 24%, var(--color-base-300));
 }
 
 /* ---- HTMX swaps ---------------------------------------------------------

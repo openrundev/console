@@ -1,0 +1,156 @@
+{{/* Copyright (c) ClaceIO, LLC */}}
+{{/* SPDX-License-Identifier: Apache-2.0 */}}
+{{/* Remote Management API sub page (/config/api), the MCP page's layout
+  for the one REST surface: a card whose header carries the url the CLI
+  connects to, the state and an Enable/Disable button (POST
+  /config/api/enable); its body the prerequisites while off, the CLI
+  login and API key commands while on, and the surface's settings rows
+  (the CONFIG_PAGES "api" group "rest", GroupByKey, minus its enable row).
+  Below it the settings every API surface shares (external url, token
+  lifetimes). Settings rows post to /config/api/action like the generic
+  sub pages. HTMX partial: block page_content */}}
+{{ template "page_open" (dict "Ctx" . "Main" "max-w-6xl") }}
+          <div id="page-content" class="space-y-4">
+          {{ block "page_content" . }}
+            {{ $actionPath := printf "%s/config/%s/action" .AppPath .Data.Page }}
+            {{ $canEdit := index .Data.Perms "config:update" }}
+            {{ $ctx := dict "ActionPath" $actionPath "VersionId" .Data.VersionId "CanEdit" $canEdit }}
+            <!-- Header -->
+            <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
+              {{ template "hamburger" . }}
+              <div>
+                {{ template "page_title" (dict "Title" "Configuration" "Help" .Data.HelpUrl) }}
+                <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0">
+                  <ul>
+                    <li>
+                      <a href="{{ .AppPath }}/config">Configuration</a>
+                    </li>
+                    <li>{{ .Data.PageTitle }}</li>
+                  </ul></nav>
+                <h2 class="text-xl font-semibold">{{ .Data.PageTitle }}</h2>
+                <p class="page-desc text-sm text-base-content/70">
+                  Manage this server from the OpenRun CLI on other machines
+                </p>
+              </div>
+              <div class="page-actions ml-auto flex items-center gap-2">
+                <a
+                  href="{{ .AppPath }}/config/mcp"
+                  class="btn btn-sm btn-ghost tooltip tooltip-bottom"
+                  data-tip="Connect Claude Code, Codex and other AI clients"
+                  >MCP API</a
+                >
+              </div>
+            </div>
+
+            {{ template "page_progress" }}
+
+            {{ if .Data.Error }}
+              {{ template "error_alert" .Data.Error }}
+            {{ else }}
+            {{ template "flash_alerts" .Data }}
+            {{ if .Data.ApiError }}
+              {{ template "error_alert" .Data.ApiError }}
+            {{ end }}
+            {{ $api := .Data.Api }}
+            {{ $restOn := and $api $api.rest.enabled }}
+
+            <!-- REST surface -->
+            <section
+              id="api-rest"
+              class="card bg-base-100 border border-base-300"
+              aria-labelledby="api-rest-h">
+              <div
+                class="px-4 py-2.5 border-b border-base-300 flex items-center gap-2 flex-wrap">
+                <h2 id="api-rest-h" class="text-sm font-medium">Remote management (REST)</h2>
+                <span class="text-xs text-base-content/70 font-mono break-all" data-api-url
+                  >{{ .Data.ServerUrl }}</span
+                >
+                {{ if $api }}
+                  <div class="ml-auto flex items-center gap-2">
+                    {{ template "surface_state" (dict "Surface" "rest" "On" $restOn) }}
+                    {{ template "surface_toggle" (dict "Surface" "rest" "On" $restOn "CanEdit" $canEdit "Url" (print .AppPath "/config/api/enable")
+                        "Confirm" "Turn off remote management? CLI calls from other machines are refused from now on; the change is live immediately.") }}
+                  </div>
+                {{ end }}
+              </div>
+              <div class="card-body p-4 gap-4">
+                {{ if not $api }}
+                  <p class="text-sm text-base-content/70" data-api-unknown>
+                    Whether remote management is on needs the
+                    <span class="font-mono">config:basic_read</span> permission.
+                  </p>
+                {{ else if $restOn }}
+                  <p class="text-sm">
+                    The CLI logs in through the browser with
+                    <span class="inline-flex flex-wrap gap-1 align-middle">{{ range $api.rest.auth }}<span class="badge badge-ghost badge-xs font-mono">{{ . }}</span>{{ end }}</span>
+                    and acts as that user: RBAC decides what each command may
+                    do.
+                  </p>
+                  <details class="group" data-connect="rest">
+                    {{ template "disclosure_summary" (dict "Label" "CLI commands" "Hint" "log in, run commands, API keys for scripts") }}
+                    <div class="flex flex-col gap-4 mt-4 pl-3 border-l border-base-300">
+                      <div class="space-y-2">
+                        {{ template "command_row" (dict "Label" "Point the CLI here" "Key" "server"
+                            "Cmd" (printf "export OPENRUN_SERVER_URI=\"%s\"" .Data.ServerUrl)) }}
+                        {{ template "command_row" (dict "Label" "Log in" "Key" "login" "Cmd" "openrun login") }}
+                        {{ template "command_row" (dict "Label" "Run a command" "Key" "list" "Cmd" "openrun app list") }}
+                      </div>
+                      <div class="space-y-2">
+                        <p class="text-xs text-base-content/70">
+                          Scripts and CI use an API key instead of a login: mint it
+                          while logged in (or on the server), it is shown once.
+                        </p>
+                        {{ template "command_row" (dict "Label" "Mint a key" "Key" "apikey"
+                            "Cmd" "openrun apikey create --desc \"ci runner\"") }}
+                        {{ template "command_row" (dict "Label" "Use the key" "Key" "use-key"
+                            "Cmd" "export OPENRUN_API_KEY=\"orun_pat_...\"") }}
+                      </div>
+                    </div>
+                  </details>
+                {{ else }}
+                  <p class="text-sm">
+                    Lets the OpenRun CLI on other machines manage this server as
+                    the logged-in user: apps, versions, services, syncs and
+                    config, within their RBAC permissions. Enabling needs:
+                  </p>
+                  {{ template "surface_checks" .Data.Checks }}
+                {{ end }}
+                {{ if and $api (not .Data.ServerUrlCanonical) }}
+                  <p class="text-xs text-base-content/70" data-api-origin-note>
+                    No external url is configured, so the url above is this
+                    console's origin. Set
+                    <span class="font-mono">api.external_url</span> below to the
+                    https origin remote clients use.
+                  </p>
+                {{ end }}
+                {{ with index .Data.GroupByKey "rest" }}
+                  {{ template "surface_settings" (dict "Group" . "Ctx" $ctx) }}
+                {{ end }}
+              </div>
+            </section>
+
+            <!-- Settings shared by every API surface -->
+            <section
+              id="api-shared"
+              class="card bg-base-100 border border-base-300"
+              aria-labelledby="api-shared-h">
+              <div
+                class="px-4 py-2.5 border-b border-base-300 flex items-center gap-x-2 gap-y-1 flex-wrap sm:flex-nowrap">
+                <h2 id="api-shared-h" class="text-sm font-medium shrink-0">Shared settings</h2>
+                <span class="text-xs text-base-content/70 basis-full sm:basis-auto"
+                  >the external url and token lifetimes, used by the REST API
+                  and the MCP endpoints</span
+                >
+              </div>
+              <div class="card-body p-4 gap-4">
+                {{ range .Data.Settings }}
+                  {{ template "config_setting_row" (dict "Row" . "ActionPath" $actionPath "VersionId" $.Data.VersionId "CanEdit" $canEdit) }}
+                {{ end }}
+                {{ template "config_advanced_rows" (dict "Rows" .Data.AdvancedSettings "ActionPath" $actionPath "VersionId" $.Data.VersionId "CanEdit" $canEdit) }}
+              </div>
+            </section>
+            {{ end }}
+          {{ end }}
+          <!-- End of "page_content" block -->
+          </div>
+{{ template "page_close" . }}

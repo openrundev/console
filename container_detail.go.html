@@ -12,8 +12,8 @@
             <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
               {{ template "hamburger" . }}
               <div>
-                {{ template "page_title" "Containers" }}
-                <div class="flex items-center gap-2"><nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0"><ul><li><a href="{{ .AppPath }}/containers">Containers</a></li><li class="font-mono">{{ if .Data.Container }}{{ trunc 24 .Data.Container.name }}…{{ else }}detail{{ end }}</li></ul></nav>{{ template "help_link" .Data.HelpUrl }}</div>
+                {{ template "page_title" (dict "Title" "Containers" "Help" .Data.HelpUrl) }}
+                <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0"><ul><li><a href="{{ .AppPath }}/containers">Containers</a></li><li class="font-mono">{{ if .Data.Container }}{{ trunc 24 .Data.Container.name }}…{{ else }}detail{{ end }}</li></ul></nav>
                 <h2 class="text-xl font-medium font-mono break-all">
                   {{ if .Data.Container }}
                     {{ .Data.Container.name }}
@@ -25,8 +25,11 @@
                   {{ if .Data.Container }}
                     {{ template "container_state" .Data.Container }}
                     {{ if .Data.Container.health }}
-                      <span class="badge badge-success badge-xs badge-soft"
-                        >{{ .Data.Container.health }}</span
+                      {{/* docker health: healthy / unhealthy / starting */}}
+                      {{ $h := .Data.Container.health }}
+                      <span
+                        class="badge badge-xs badge-soft {{ if eq $h "healthy" }}badge-success{{ else if eq $h "unhealthy" }}badge-error{{ else }}badge-warning{{ end }}"
+                        >{{ $h }}</span
                       >
                     {{ end }}
                   {{ end }}
@@ -139,7 +142,7 @@
                     value in the narrow 2-col mobile grid */}}
                   <div class="stat px-4 py-2.5">
                     <div class="stat-title text-xs flex items-center gap-1.5">
-                      <svg aria-hidden="true" focusable="false" class="w-3.5 h-3.5 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" /><rect x="9" y="9" width="6" height="6" /><path d="M15 2v2" /><path d="M15 20v2" /><path d="M2 15h2" /><path d="M2 9h2" /><path d="M20 15h2" /><path d="M20 9h2" /><path d="M9 2v2" /><path d="M9 20v2" /></svg>
+                      {{ template "icon" (dict "Name" "cpu" "Class" "w-3.5 h-3.5 text-base-content/60" "Stroke" "1.5") }}
                       CPU
                     </div>
                     <div class="stat-value text-base">
@@ -149,7 +152,7 @@
                   </div>
                   <div class="stat px-4 py-2.5">
                     <div class="stat-title text-xs flex items-center gap-1.5">
-                      <svg aria-hidden="true" focusable="false" class="w-3.5 h-3.5 text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 19v-3" /><path d="M10 19v-3" /><path d="M14 19v-3" /><path d="M18 19v-3" /><path d="M8 11V9" /><path d="M16 11V9" /><path d="M12 11V9" /><path d="M2 15h20" /><path d="M2 7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v1.1a2 2 0 0 0 0 3.837V17a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-5.1a2 2 0 0 0 0-3.837Z" /></svg>
+                      {{ template "icon" (dict "Name" "memory" "Class" "w-3.5 h-3.5 text-base-content/60" "Stroke" "1.5") }}
                       Memory
                     </div>
                     <div class="stat-value text-base">
@@ -161,7 +164,7 @@
                   </div>
                   <div class="stat px-4 py-2.5">
                     <div class="stat-title text-xs flex items-center gap-1.5">
-                      <svg aria-hidden="true" focusable="false" class="w-3.5 h-3.5 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m3 16 4 4 4-4" /><path d="M7 20V4" /><path d="m21 8-4-4-4 4" /><path d="M17 4v16" /></svg>
+                      {{ template "icon" (dict "Name" "arrows" "Class" "w-3.5 h-3.5 text-base-content/60" "Stroke" "1.5") }}
                       Network I/O
                     </div>
                     <div class="stat-value text-base">
@@ -171,7 +174,7 @@
                   </div>
                   <div class="stat px-4 py-2.5">
                     <div class="stat-title text-xs flex items-center gap-1.5">
-                      <svg aria-hidden="true" focusable="false" class="w-3.5 h-3.5 text-warning" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M3 5v14a9 3 0 0 0 18 0V5" /><path d="M3 12a9 3 0 0 0 18 0" /></svg>
+                      {{ template "icon" (dict "Name" "database" "Class" "w-3.5 h-3.5 text-base-content/60" "Stroke" "1.5") }}
                       Disk I/O
                     </div>
                     <div class="stat-value text-base">
@@ -181,7 +184,7 @@
                   </div>
                   <div class="stat px-4 py-2.5">
                     <div class="stat-title text-xs flex items-center gap-1.5">
-                      <svg aria-hidden="true" focusable="false" class="w-3.5 h-3.5 text-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2" /></svg>
+                      {{ template "icon" (dict "Name" "activity" "Class" "w-3.5 h-3.5 text-base-content/60" "Stroke" "1.5") }}
                       PIDs
                     </div>
                     <div class="stat-value text-base">
@@ -191,7 +194,7 @@
                   </div>
                   <div class="stat px-4 py-2.5">
                     <div class="stat-title text-xs flex items-center gap-1.5">
-                      <svg aria-hidden="true" focusable="false" class="w-3.5 h-3.5 text-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12H3" /><path d="M5 12V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6" /><path d="M5 12v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" /><circle cx="17" cy="16" r=".5" /></svg>
+                      {{ template "icon" (dict "Name" "hard-drive" "Class" "w-3.5 h-3.5 text-base-content/60" "Stroke" "1.5") }}
                       Disk usage
                     </div>
                     <div class="stat-value text-base">

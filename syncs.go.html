@@ -9,25 +9,14 @@
             class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" . }}
             <div>
-              {{ template "page_title" "Syncs" }}
+              {{ template "page_title" (dict "Title" "Syncs" "Help" .Data.HelpUrl) }}
               <p class="page-desc text-sm text-base-content/70">
                 Declaratively managed apps
               </p>
             </div>
             <div class="page-actions ml-auto flex items-center gap-2">
               {{ template "page_search" (dict "Query" .Data.Query "Label" "Filter syncs" "Placeholder" "Filter syncs…" "Url" (print .AppPath "/syncs") "Target" "#sync-rows") }}
-              <a
-                class="btn btn-sm btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "sync:create") }}
-                  btn-disabled tooltip tooltip-bottom
-                {{ end }}"
-                {{ if index .Data.Perms "sync:create" }}
-                  href="{{ .AppPath }}/syncs/create"
-                {{ else }}
-                  data-tip="requires sync:create" aria-disabled="true"
-                  tabindex="-1"
-                {{ end }}>
-                + Add sync source
-              </a>
+              {{ template "perm_link" (dict "Allowed" (index .Data.Perms "sync:create") "Href" (print .AppPath "/syncs/create") "Label" "+ Add sync source" "Class" "btn-sm btn-primary transition-transform duration-150 active:scale-95" "DeniedTip" "requires sync:create") }}
             </div>
           </div>
 
@@ -210,37 +199,15 @@
                   <div
                     class="flex flex-col items-center gap-2 text-center text-sm text-base-content/70">
                     {{ if .Data.Query }}
-                      <span class="text-xl" aria-hidden="true">🔍</span>
                       <p>No syncs match "{{ .Data.Query }}"</p>
-                      <button
-                        class="btn btn-xs btn-outline transition-transform duration-150 active:scale-95"
-                        onclick="const s = document.getElementById('page-search'); if (s) s.value = ''"
-                        hx-get="{{ .AppPath }}/syncs"
-                        hx-vals='{"query": ""}'
-                        hx-target="#sync-rows"
-                        hx-swap="innerHTML"
-                        hx-push-url="true"
-                        hx-indicator="#page-progress">
-                        Clear search
-                      </button>
+                      {{ template "clear_search" (dict "Url" (print .AppPath "/syncs") "Vals" `{"query": ""}` "Target" "#sync-rows") }}
                     {{ else }}
-                      <span class="text-xl" aria-hidden="true">🔄</span>
                       <p>No sync sources configured yet</p>
                       <p class="text-xs text-base-content/70">
                         Manage apps declaratively - point OpenRun at a git repo
                         with app declarations
                       </p>
-                      <a
-                        class="btn btn-xs btn-primary transition-transform duration-150 active:scale-95 {{ if not (index .Data.Perms "sync:create") }}
-                          btn-disabled tooltip tooltip-top
-                        {{ end }}"
-                        {{ if index .Data.Perms "sync:create" }}
-                          href="{{ .AppPath }}/syncs/create"
-                        {{ else }}
-                          data-tip="requires sync:create"
-                        {{ end }}
-                        >+ Add sync source</a
-                      >
+                      {{ template "perm_link" (dict "Allowed" (index .Data.Perms "sync:create") "Href" (print .AppPath "/syncs/create") "Label" "+ Add sync source" "Class" "btn-xs btn-primary transition-transform duration-150 active:scale-95" "DeniedTip" "requires sync:create" "Pos" "tooltip-top") }}
                     {{ end }}
                   </div>
                 </div>

@@ -10,10 +10,7 @@
             class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" . }}
             <div>
-              <div class="flex items-center gap-2">
-                {{ template "page_title" "Actions" }}
-                {{ template "help_link" .Data.HelpUrl }}
-              </div>
+              {{ template "page_title" (dict "Title" "Actions" "Help" .Data.HelpUrl) }}
               <p class="page-desc text-sm text-base-content/70">
                 Operations exposed by the apps you can use, and their background
                 runs
@@ -50,46 +47,8 @@
                 role="group"
                 aria-label="Actions page views"
                 class="tabs tabs-border">
-                <button
-                  class="tab transition-colors duration-150 {{ if eq .Data.Tab "" }}
-                    tab-active
-                  {{ end }}"
-                  data-tab=""
-                  aria-pressed="{{ if eq .Data.Tab "" -}}
-                    true
-                  {{- else -}}
-                    false
-                  {{- end }}"
-                  title="The actions you can run, grouped by app"
-                  hx-get="{{ .AppPath }}/actions"
-                  hx-vals='{"tab": ""}'
-                  hx-target="#action-content"
-                  hx-swap="innerHTML"
-                  hx-include="#page-search"
-                  hx-push-url="true"
-                  hx-indicator="#page-progress">
-                  Actions
-                </button>
-                <button
-                  class="tab transition-colors duration-150 {{ if eq .Data.Tab "runs" }}
-                    tab-active
-                  {{ end }}"
-                  data-tab="runs"
-                  aria-pressed="{{ if eq .Data.Tab "runs" -}}
-                    true
-                  {{- else -}}
-                    false
-                  {{- end }}"
-                  title="The recent background runs of async actions, across apps"
-                  hx-get="{{ .AppPath }}/actions"
-                  hx-vals='{"tab": "runs"}'
-                  hx-target="#action-content"
-                  hx-swap="innerHTML"
-                  hx-include="#page-search"
-                  hx-push-url="true"
-                  hx-indicator="#page-progress">
-                  Runs
-                </button>
+                {{ template "tab_button" (dict "Label" "Actions" "Active" (eq .Data.Tab "") "Value" "" "Title" "The actions you can run, grouped by app" "Url" (print .AppPath "/actions") "Vals" `{"tab": ""}` "Target" "#action-content" "Include" "#page-search") }}
+                {{ template "tab_button" (dict "Label" "Runs" "Active" (eq .Data.Tab "runs") "Value" "runs" "Title" "The recent background runs of async actions, across apps" "Url" (print .AppPath "/actions") "Vals" `{"tab": "runs"}` "Target" "#action-content" "Include" "#page-search") }}
               </div>
 
               {{ if eq .Data.Tab "runs" }}
@@ -103,45 +62,34 @@
                 {{ if $listing.Error }}
                   {{ template "error_alert" $listing.Error }}
                 {{ end }}
-                {{ if $listing.Warnings }}
-                  {{/* One collapsed alert: a server with many broken or
-                    unapproved apps would otherwise push the list down
-                  */}}
-                  <details
-                    class="alert alert-warning alert-soft text-xs py-2 block"
-                    data-action-warnings>
-                    <summary class="cursor-pointer" role="alert">
-                      The actions of
-                      {{ len $listing.Warnings }}
-                      {{ if eq (len $listing.Warnings) 1 }}
-                        app
-                      {{ else }}
-                        apps
-                      {{ end }}
-                      could not be read (broken or unapproved apps) - expand for
-                      details
-                    </summary>
-                    <ul class="mt-2 space-y-1 font-mono break-all">
-                      {{ range $listing.Warnings }}
-                        <li data-action-warning>{{ . }}</li>
-                      {{ end }}
-                    </ul>
-                  </details>
+                {{/* One muted line: the count, then the apps whose actions
+                  could not be read as a collapsed list - a server with many
+                  broken or unapproved apps would otherwise push the actions
+                  down */}}
+                {{ if or $listing.Groups $listing.Warnings }}
+                  <div
+                    class="flex flex-wrap items-start gap-x-2 gap-y-1 text-xs text-base-content/70">
+                    {{ if $listing.Groups }}
+                      <p data-actions-count>
+                        {{ $listing.Shown }}
+                        {{ if eq $listing.Shown 1 }}action{{ else }}actions{{ end }}
+                        in
+                        {{ len $listing.Groups }}
+                        {{ if eq (len $listing.Groups) 1 }}
+                          app
+                        {{ else }}
+                          apps
+                        {{ end }}{{ if ne $listing.Shown $listing.Total }}
+                          (of {{ $listing.Total }})
+                        {{ end }}
+                      </p>
+                    {{ end }}
+                    {{ if $listing.Warnings }}
+                      {{ template "skipped_apps" (dict "Warnings" $listing.Warnings) }}
+                    {{ end }}
+                  </div>
                 {{ end }}
                 {{ if $listing.Groups }}
-                  <p class="text-xs text-base-content/70" data-actions-count>
-                    {{ $listing.Shown }}
-                    {{ if eq $listing.Shown 1 }}action{{ else }}actions{{ end }}
-                    in
-                    {{ len $listing.Groups }}
-                    {{ if eq (len $listing.Groups) 1 }}
-                      app
-                    {{ else }}
-                      apps
-                    {{ end }}{{ if ne $listing.Shown $listing.Total }}
-                      (of {{ $listing.Total }})
-                    {{ end }}
-                  </p>
                   {{ range $listing.Groups }}
                     <section
                       class="card bg-base-100 border border-base-300"
@@ -172,7 +120,10 @@
                       </div>
                       <div class="overflow-x-auto">
                         {{/* Fixed layout from md up: one table per app, the
-                          columns have to line up from card to card */}}
+                          columns have to line up from card to card. Every
+                          column but Action has a width: an auto column
+                          splits the rest evenly with Action. Traits ride
+                          the Action cell, most actions have none */}}
                         <table class="table table-sm md:table-fixed">
                           <thead>
                             <tr>
@@ -180,13 +131,12 @@
                                 <span class="sr-only">Details</span>
                               </th>
                               <th scope="col">Action</th>
-                              <th scope="col" class="hidden md:table-cell md:w-52">
+                              <th scope="col" class="hidden md:table-cell md:w-44">
                                 Tool
                               </th>
-                              <th scope="col" class="hidden lg:table-cell lg:w-44">
-                                Traits
+                              <th scope="col" class="text-right w-16 md:w-20">
+                                Actions
                               </th>
-                              <th scope="col" class="text-right">Actions</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -213,9 +163,15 @@
                                     class="font-mono text-xs text-base-content/70 ml-1"
                                     >{{ .path }}</span
                                   >
+                                  {{ if or .async .suggest .hints }}
+                                    <span
+                                      class="inline-flex flex-wrap gap-1 ml-1 align-middle">
+                                      {{ template "action_badges" . }}
+                                    </span>
+                                  {{ end }}
                                   {{ if .description }}
                                     <p
-                                      class="text-xs text-base-content/70 break-words max-w-xl">
+                                      class="text-xs text-base-content/70 break-words max-w-2xl">
                                       {{ .description }}
                                     </p>
                                   {{ end }}
@@ -224,12 +180,6 @@
                                   <span class="font-mono text-xs"
                                     >{{ .tool }}</span
                                   >
-                                </td>
-                                <td class="hidden lg:table-cell">
-                                  <div
-                                    class="flex items-center gap-1 flex-wrap">
-                                    {{ template "action_badges" . }}
-                                  </div>
                                 </td>
                                 <td class="text-right whitespace-nowrap">
                                   <a
@@ -252,21 +202,9 @@
                     <div
                       class="flex flex-col items-center gap-2 text-center text-sm text-base-content/70">
                       {{ if .Data.Query }}
-                        <span class="text-xl" aria-hidden="true">🔍</span>
                         <p>No actions match "{{ .Data.Query }}"</p>
-                        <button
-                          class="btn btn-xs btn-outline transition-transform duration-150 active:scale-95"
-                          onclick="const s = document.getElementById('page-search'); if (s) s.value = ''"
-                          hx-get="{{ .AppPath }}/actions"
-                          hx-vals='{"query": ""}'
-                          hx-target="#action-content"
-                          hx-swap="innerHTML"
-                          hx-push-url="true"
-                          hx-indicator="#page-progress">
-                          Clear search
-                        </button>
+                        {{ template "clear_search" (dict "Url" (print .AppPath "/actions") "Vals" `{"query": ""}` "Target" "#action-content") }}
                       {{ else }}
-                        <span class="text-xl" aria-hidden="true">⚡</span>
                         <p>No actions available</p>
                         <p class="text-xs text-base-content/70">
                           Actions are operations an app declares with

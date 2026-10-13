@@ -198,20 +198,7 @@
       aria-controls="main-nav"
       aria-expanded="false"
       onclick="toggleNavDrawer(this)">
-      <svg
-        aria-hidden="true"
-        focusable="false"
-        class="w-7 h-7"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round">
-        <path d="M4 6h16" />
-        <path d="M4 12h16" />
-        <path d="M4 18h16" />
-      </svg>
+      {{ template "icon" (dict "Name" "menu" "Class" "w-7 h-7") }}
     </button>
   </div>
 {{ end }}
@@ -266,10 +253,24 @@
   Context: the title string
 */}}
 {{ define "page_title" }}
-  <h1
-    class="page-title text-2xl md:text-3xl font-bold italic tracking-tight">
-    {{ . }}{{ template "ext_brand" }}
-  </h1>
+  {{/* Context: the title string, or dict Title + Help (docs url, the ?
+    link sits beside the title - the one place every page puts it). The
+    plain string form stays for the pro hook pages */}}
+  {{ $title := . }}
+  {{ $help := "" }}
+  {{ if not (kindIs "string" .) }}
+    {{ $title = .Title }}
+    {{ $help = .Help }}
+  {{ end }}
+  {{/* Top-aligned: the h1's accent bar sits under the text, so centring
+    would drop the link to the bar's level */}}
+  <div class="flex items-start gap-1.5">
+    <h1
+      class="page-title text-2xl md:text-3xl font-bold italic tracking-tight">
+      {{ $title }}{{ template "ext_brand" }}
+    </h1>
+    {{ template "help_link" $help }}
+  </div>
 {{ end }}
 
 {{/* help_link renders a page's documentation link, next to its breadcrumbs.
@@ -282,23 +283,10 @@
       href="{{ . }}"
       target="_blank"
       rel="noopener"
-      class="btn btn-xs btn-ghost btn-square text-primary tooltip tooltip-bottom"
-      data-tip="Open the documentation in a new tab"
+      class="btn btn-ghost btn-square w-5 h-5 min-h-0 mt-0.5 md:mt-1 p-0 text-primary/80 hover:text-primary tooltip tooltip-bottom tooltip-anchor-start-lg"
+      data-tip="Documentation (new tab)"
       aria-label="Open the documentation in a new tab">
-      <svg
-        aria-hidden="true"
-        focusable="false"
-        class="w-4 h-4"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round">
-        <circle cx="12" cy="12" r="10" />
-        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-        <path d="M12 17h.01" />
-      </svg>
+      {{ template "icon" (dict "Name" "help" "Class" "w-3.5 h-3.5") }}
     </a>
   {{ end }}
 {{ end }}
@@ -347,8 +335,8 @@
       type="checkbox"
       role="switch"
       aria-label="Light theme" />
-    <span class="swap-on" aria-hidden="true">🌙</span>
-    <span class="swap-off" aria-hidden="true">☀️</span>
+    {{ template "icon" (dict "Name" "moon" "Class" "swap-on w-4 h-4") }}
+    {{ template "icon" (dict "Name" "sun" "Class" "swap-off w-4 h-4") }}
   </label>
   <script>
     // Set the toggle to the active theme before first paint; doing this
@@ -368,6 +356,31 @@
   user footer with theme toggle, the nav progress bar and the error toast
   target used by the error_handler fallback
 */}}
+{{/* nav_item renders one sidebar entry. The tooltip sits on the li, not
+  the a (daisyui menu styles the a's ::before). Without the area's read
+  permission the item is disabled (no href, DisabledTip as the tooltip) so
+  a role that cannot load the page never gets a 403 from clicking it.
+  Context: dict Ctx (page context), Nav (the .Data.Nav key, also the
+  path), Label, Icon (icon define name), Enabled, Tip, DisabledTip
+*/}}
+{{ define "nav_item" }}
+  {{ $active := eq .Ctx.Data.Nav .Nav }}
+  <li
+    class="tooltip tooltip-bottom {{ if not .Enabled }}menu-disabled{{ end }}"
+    data-tip="{{ if .Enabled }}{{ .Tip }}{{ else }}{{ .DisabledTip }}{{ end }}">
+    <a
+      {{ if .Enabled }}
+        href="{{ .Ctx.AppPath }}/{{ .Nav }}"
+      {{ else }}
+        aria-disabled="true" tabindex="-1"
+      {{ end }}
+      {{ if $active }}aria-current="page"{{ end }}
+      class="{{ if $active }}menu-active{{ end }}"
+      >{{ template "icon" (dict "Name" .Icon "Class" "w-5 h-5 text-primary") }}{{ .Label }}</a
+    >
+  </li>
+{{ end }}
+
 {{ define "sidebar" }}
   <!-- Indeterminate top bar shown while navigating to the next page -->
   <div id="nav-progress" class="nav-progress" aria-hidden="true"></div>
@@ -440,27 +453,7 @@
             on its own read permission, so any signed-in role sees the page
             with its readable tiles
           */}}
-          <li class="tooltip tooltip-bottom" data-tip="System status overview">
-            <a
-              href="{{ .AppPath }}/overview"
-              {{ if eq .Data.Nav "overview" }}aria-current="page"{{ end }}
-              class="{{ if eq .Data.Nav "overview" }}menu-active{{ end }}"
-              ><svg
-                aria-hidden="true"
-                focusable="false"
-                class="w-5 h-5 text-primary"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round">
-                <path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" />
-                <path
-                  d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg
-              >Overview</a
-            >
-          </li>
+          {{ template "nav_item" (dict "Ctx" $ "Nav" "overview" "Label" "Overview" "Icon" "home" "Enabled" true "Tip" "System status overview") }}
           {{/* The nav groups: Deploy (apps and the resources they use),
             Operate (runtime state, logs and server admin - the pro
             Analytics item lands here through the ext_nav hook). Plain
@@ -469,110 +462,11 @@
           */}}
           <li class="menu-title">Deploy</li>
           {{ $appsView := or (not .Data.Perms) (index .Data.Perms "app:read") (index .Data.Perms "admin") }}
-          <li
-            class="tooltip tooltip-bottom {{ if not $appsView }}
-              menu-disabled
-            {{ end }}"
-            data-tip="{{ if $appsView }}
-              Deployed apps: status, versions and lifecycle actions
-            {{ else }}
-              requires the app:read or admin permission
-            {{ end }}">
-            <a
-              {{ if $appsView }}
-                href="{{ .AppPath }}/apps"
-              {{ else }}
-                aria-disabled="true" tabindex="-1"
-              {{ end }}
-              {{ if eq .Data.Nav "apps" }}aria-current="page"{{ end }}
-              class="{{ if eq .Data.Nav "apps" }}menu-active{{ end }}"
-              ><svg
-                aria-hidden="true"
-                focusable="false"
-                class="w-5 h-5 text-primary"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round">
-                <rect width="7" height="7" x="3" y="3" rx="1" />
-                <rect width="7" height="7" x="14" y="3" rx="1" />
-                <rect width="7" height="7" x="14" y="14" rx="1" />
-                <rect width="7" height="7" x="3" y="14" rx="1" /></svg
-              >Apps</a
-            >
-          </li>
+          {{ template "nav_item" (dict "Ctx" $ "Nav" "apps" "Label" "Apps" "Icon" "grid" "Enabled" $appsView "Tip" "Deployed apps: status, versions and lifecycle actions" "DisabledTip" "requires the app:read or admin permission") }}
           {{ $syncsView := or (not .Data.Perms) (index .Data.Perms "sync:read") (index .Data.Perms "admin") }}
-          <li
-            class="tooltip tooltip-bottom {{ if not $syncsView }}
-              menu-disabled
-            {{ end }}"
-            data-tip="{{ if $syncsView }}
-              Declarative sync sources which install and update apps from git
-            {{ else }}
-              requires the sync:read or admin permission
-            {{ end }}">
-            <a
-              {{ if $syncsView }}
-                href="{{ .AppPath }}/syncs"
-              {{ else }}
-                aria-disabled="true" tabindex="-1"
-              {{ end }}
-              {{ if eq .Data.Nav "syncs" }}aria-current="page"{{ end }}
-              class="{{ if eq .Data.Nav "syncs" }}menu-active{{ end }}"
-              ><svg
-                aria-hidden="true"
-                focusable="false"
-                class="w-5 h-5 text-primary"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round">
-                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
-                <path d="M21 3v5h-5" />
-                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
-                <path d="M8 16H3v5" /></svg
-              >Syncs</a
-            >
-          </li>
+          {{ template "nav_item" (dict "Ctx" $ "Nav" "syncs" "Label" "Syncs" "Icon" "refresh" "Enabled" $syncsView "Tip" "Declarative sync sources which install and update apps from git" "DisabledTip" "requires the sync:read or admin permission") }}
           {{ $bindingsView := or (not .Data.Perms) (index .Data.Perms "binding:read") (index .Data.Perms "admin") }}
-          <li
-            class="tooltip tooltip-bottom {{ if not $bindingsView }}
-              menu-disabled
-            {{ end }}"
-            data-tip="{{ if $bindingsView }}
-              Services and the bindings connecting apps to them
-            {{ else }}
-              requires the binding:read or admin permission
-            {{ end }}">
-            <a
-              {{ if $bindingsView }}
-                href="{{ .AppPath }}/bindings"
-              {{ else }}
-                aria-disabled="true" tabindex="-1"
-              {{ end }}
-              {{ if eq .Data.Nav "bindings" }}aria-current="page"{{ end }}
-              class="{{ if eq .Data.Nav "bindings" }}menu-active{{ end }}"
-              ><svg
-                aria-hidden="true"
-                focusable="false"
-                class="w-5 h-5 text-primary"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round">
-                <path
-                  d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-                <path
-                  d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg
-              >Bindings</a
-            >
-          </li>
+          {{ template "nav_item" (dict "Ctx" $ "Nav" "bindings" "Label" "Bindings" "Icon" "link" "Enabled" $bindingsView "Tip" "Services and the bindings connecting apps to them" "DisabledTip" "requires the binding:read or admin permission") }}
           {{/* Builder screens are install-gated (enable_builder param);
             a disabled install has no /builder routes at all and its nav
             item is OMITTED entirely (not disabled-with-tooltip)
@@ -580,186 +474,33 @@
           {{ $builderOff := and .Data.Perms (not (index .Data.Perms "feature:builder")) }}
           {{ $builderView := or (not .Data.Perms) (index .Data.Perms "builder:list") (index .Data.Perms "admin") }}
           {{ if not $builderOff }}
-          <li
-            class="tooltip tooltip-bottom {{ if not $builderView }}
-              menu-disabled
-            {{ end }}"
-            data-tip="{{ if not $builderView }}
-              requires the builder:list or admin permission
-            {{ else }}
-              AI agent sessions for building and publishing apps
-            {{ end }}">
-            <a
-              {{ if not $builderView }}
-                aria-disabled="true" tabindex="-1"
-              {{ else }}
-                href="{{ .AppPath }}/builder"
-              {{ end }}
-              {{ if eq .Data.Nav "builder" }}aria-current="page"{{ end }}
-              class="{{ if eq .Data.Nav "builder" }}menu-active{{ end }}"
-              ><svg
-                aria-hidden="true"
-                focusable="false"
-                class="w-5 h-5 text-primary"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round">
-                <path
-                  d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
-                <path d="M20 3v4" />
-                <path d="M22 5h-4" />
-                <path d="M4 17v2" />
-                <path d="M5 18H3" /></svg
-              >Builder</a
-            >
-          </li>
+            {{ template "nav_item" (dict "Ctx" $ "Nav" "builder" "Label" "Builder" "Icon" "sparkles" "Enabled" $builderView "Tip" "AI agent sessions for building and publishing apps" "DisabledTip" "requires the builder:list or admin permission") }}
           {{ end }}
           <li class="menu-title">Operate</li>
           {{/* Actions: always registered (no feature flag); the list is
             whatever the server's action checks allow the user */}}
-          <li
-            class="tooltip tooltip-bottom"
-            data-tip="Actions of the apps you can use, and their background runs">
-            <a
-              href="{{ .AppPath }}/actions"
-              {{ if eq .Data.Nav "actions" }}aria-current="page"{{ end }}
-              class="{{ if eq .Data.Nav "actions" }}menu-active{{ end }}"
-              ><svg
-                aria-hidden="true"
-                focusable="false"
-                class="w-5 h-5 text-primary"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round">
-                <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" /></svg
-              >Actions</a
-            >
-          </li>
+          {{ template "nav_item" (dict "Ctx" $ "Nav" "actions" "Label" "Actions" "Icon" "zap" "Enabled" true "Tip" "Actions of the apps you can use, and their background runs") }}
           {{/* Containers screens are install-gated (enable_container param);
             a disabled install has no /containers routes at all
           */}}
           {{ $containersOff := and .Data.Perms (not (index .Data.Perms "feature:container")) }}
           {{ $containersView := and (not $containersOff) (or (not .Data.Perms) (index .Data.Perms "container:read") (index .Data.Perms "admin")) }}
-          <li
-            class="tooltip tooltip-bottom {{ if not $containersView }}
-              menu-disabled
-            {{ end }}"
-            data-tip="{{ if $containersOff }}
-              containers are disabled for this console install
-            {{ else if not $containersView }}
-              requires the container:read or admin permission
-            {{ else }}
-              Containers and pods managed by OpenRun
-            {{ end }}">
-            <a
-              {{ if not $containersView }}
-                aria-disabled="true" tabindex="-1"
-              {{ else }}
-                href="{{ .AppPath }}/containers"
-              {{ end }}
-              {{ if eq .Data.Nav "containers" }}aria-current="page"{{ end }}
-              class="{{ if eq .Data.Nav "containers" }}menu-active{{ end }}"
-              ><svg
-                aria-hidden="true"
-                focusable="false"
-                class="w-5 h-5 text-primary"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round">
-                <path
-                  d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
-                <path d="m3.3 7 8.7 5 8.7-5" />
-                <path d="M12 22V12" /></svg
-              >Containers</a
-            >
-          </li>
+          {{/* $...Off may be a non-bool (and returns its first falsy arg) */}}
+          {{ $containersTip := "requires the container:read or admin permission" }}
+          {{ if $containersOff }}{{ $containersTip = "containers are disabled for this console install" }}{{ end }}
+          {{ template "nav_item" (dict "Ctx" $ "Nav" "containers" "Label" "Containers" "Icon" "box" "Enabled" $containersView "Tip" "Containers and pods managed by OpenRun" "DisabledTip" $containersTip) }}
           {{ $auditView := or (not .Data.Perms) (index .Data.Perms "audit:read") (index .Data.Perms "admin") }}
-          <li
-            class="tooltip tooltip-bottom {{ if not $auditView }}
-              menu-disabled
-            {{ end }}"
-            data-tip="{{ if $auditView }}
-              Audit trail of management operations and app calls
-            {{ else }}
-              requires the audit:read or admin permission
-            {{ end }}">
-            <a
-              {{ if $auditView }}
-                href="{{ .AppPath }}/audit"
-              {{ else }}
-                aria-disabled="true" tabindex="-1"
-              {{ end }}
-              {{ if eq .Data.Nav "audit" }}aria-current="page"{{ end }}
-              class="{{ if eq .Data.Nav "audit" }}menu-active{{ end }}"
-              ><svg
-                aria-hidden="true"
-                focusable="false"
-                class="w-5 h-5 text-primary"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round">
-                <path
-                  d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
-                <path d="M14 2v4a2 2 0 0 0 2 2h4" />
-                <path d="M10 9H8" />
-                <path d="M16 13H8" />
-                <path d="M16 17H8" /></svg
-              >Audit Logs</a
-            >
-          </li>
+          {{ template "nav_item" (dict "Ctx" $ "Nav" "audit" "Label" "Audit Logs" "Icon" "file-text" "Enabled" $auditView "Tip" "Audit trail of management operations and app calls" "DisabledTip" "requires the audit:read or admin permission") }}
           {{ template "ext_nav" . }}
           {{/* Configuration screens are install-gated (enable_config
             param); a disabled install has no /config routes at all
           */}}
           {{ $configOff := and .Data.Perms (not (index .Data.Perms "feature:config")) }}
           {{ $configView := and (not $configOff) (or (not .Data.Perms) (index .Data.Perms "config:read") (index .Data.Perms "admin")) }}
-          <li
-            class="tooltip tooltip-bottom {{ if not $configView }}
-              menu-disabled
-            {{ end }}"
-            data-tip="{{ if $configOff }}
-              configuration is disabled for this console install
-            {{ else if not $configView }}
-              requires the config:read or admin permission
-            {{ else }}
-              Server configuration and RBAC settings
-            {{ end }}">
-            <a
-              {{ if not $configView }}
-                aria-disabled="true" tabindex="-1"
-              {{ else }}
-                href="{{ .AppPath }}/config"
-              {{ end }}
-              {{ if eq .Data.Nav "config" }}aria-current="page"{{ end }}
-              class="{{ if eq .Data.Nav "config" }}menu-active{{ end }}"
-              ><svg
-                aria-hidden="true"
-                focusable="false"
-                class="w-5 h-5 text-primary"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round">
-                <path
-                  d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-                <circle cx="12" cy="12" r="3" /></svg
-              >Configuration</a
-            >
-          </li>
+          {{/* $...Off may be a non-bool (and returns its first falsy arg) */}}
+          {{ $configTip := "requires the config:read or admin permission" }}
+          {{ if $configOff }}{{ $configTip = "configuration is disabled for this console install" }}{{ end }}
+          {{ template "nav_item" (dict "Ctx" $ "Nav" "config" "Label" "Configuration" "Icon" "settings" "Enabled" $configView "Tip" "Server configuration and RBAC settings" "DisabledTip" $configTip) }}
         </ul>
       </nav>
       {{/* feature:system_blocked: the caller is anonymous and the server's
@@ -810,21 +551,7 @@
                 class="btn btn-sm btn-ghost btn-circle tooltip tooltip-left"
                 data-tip="Sign out"
                 aria-label="Sign out {{ .UserId }}">
-                <svg
-                  aria-hidden="true"
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round">
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                  <polyline points="16 17 21 12 16 7" />
-                  <line x1="21" x2="9" y1="12" y2="12" />
-                </svg>
+                {{ template "icon" (dict "Name" "logout" "Class" "w-4 h-4") }}
               </a>
             {{ end }}
             {{ template "theme_toggle" . }}

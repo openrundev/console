@@ -12,9 +12,8 @@
             class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" . }}
             <div>
-              {{ template "page_title" "Builder" }}
-              <div class="flex items-center gap-2">
-                <nav
+              {{ template "page_title" (dict "Title" "Builder" "Help" .Data.HelpUrl) }}
+              <nav
                   aria-label="Breadcrumb"
                   class="breadcrumbs text-xs text-base-content/70 p-0">
                   <ul>
@@ -28,8 +27,6 @@
                     </li>
                   </ul>
                 </nav>
-                {{ template "help_link" .Data.HelpUrl }}
-              </div>
               <h2 class="text-xl font-semibold">
                 {{ if .Data.Session }}
                   {{ .Data.Session.name }}
@@ -112,7 +109,7 @@
                     */}}
                     {{ if not .Data.IsLive }}
                       <button
-                        class="btn btn-ghost btn-sm"
+                        class="btn btn-ghost btn-sm {{ if not ($canWrite) }}tooltip tooltip-bottom{{ end }}"
                         {{ if $canWrite }}
                           hx-post="{{ .AppPath }}/builder/detail/resume?id={{ $s.id }}"
                           hx-target="#session-content"
@@ -126,7 +123,7 @@
                       </button>
                     {{ else }}
                       <button
-                        class="btn btn-ghost btn-sm"
+                        class="btn btn-ghost btn-sm {{ if not ($canWrite) }}tooltip tooltip-bottom{{ end }}"
                         {{ if $canWrite }}
                           hx-post="{{ .AppPath }}/builder/detail/stop?id={{ $s.id }}"
                           hx-target="#session-content"
@@ -140,7 +137,7 @@
                       </button>
                     {{ end }}
                     <button
-                      class="btn btn-ghost btn-sm text-error"
+                      class="btn btn-ghost btn-sm text-error {{ if not ($canWrite) }}tooltip tooltip-bottom{{ end }}"
                       {{ if $canWrite }}
                         hx-post="{{ .AppPath }}/builder/detail/delete?id={{ $s.id }}"
                         hx-target="#session-content"
@@ -239,7 +236,7 @@
                     >
                     {{ if not $s.edit_app }}
                       <button
-                        class="btn btn-ghost btn-xs text-error ml-2"
+                        class="btn btn-ghost btn-xs text-error ml-2 {{ if not ($canPublish) }}tooltip tooltip-left{{ end }}"
                         {{ if $canPublish }}
                           hx-post="{{ .AppPath }}/builder/detail/unpublish?id={{ $s.id }}"
                           hx-target="#session-content"
@@ -272,30 +269,14 @@
                     <div class="card-body p-0 h-full flex flex-col gap-0">
                       <div
                         class="flex items-center gap-2 px-4 py-2.5 border-b border-base-300 bg-base-200/50">
-                        <svg
-                          aria-hidden="true"
-                          focusable="false"
-                          class="w-4 h-4 text-primary"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                          stroke-linecap="round"
-                          stroke-linejoin="round">
-                          <path d="M12 8V4H8" />
-                          <rect width="16" height="12" x="4" y="8" rx="2" />
-                          <path d="M2 14h2" />
-                          <path d="M20 14h2" />
-                          <path d="M15 13v2" />
-                          <path d="M9 13v2" />
-                        </svg>
+                        {{ template "icon" (dict "Name" "bot" "Class" "w-4 h-4 text-primary") }}
                         <h3 class="font-semibold text-sm">Agent</h3>
                         {{ if .Data.SandboxContainerId }}
                           <a
                             href="{{ .AppPath }}/containers/detail?id={{ .Data.SandboxContainerId }}"
                             data-tip="Agent container detail and logs (raw ACP traffic)"
                             aria-label="Agent container detail for this session"
-                            class="inline-block text-primary text-xs"
+                            class="inline-block text-primary text-xs tooltip tooltip-bottom"
                             >agent <span aria-hidden="true">↗</span></a
                           >
                         {{ end }}
@@ -306,7 +287,7 @@
                           type="button"
                           class="btn btn-ghost btn-xs text-error ml-auto {{ if not .Data.TurnActive }}
                             hidden
-                          {{ end }}"
+                          {{ end }} {{ if not $canWrite }}tooltip tooltip-left{{ end }}"
                           data-builder-cancel
                           {{ if $canWrite }}
                             hx-post="{{ .AppPath }}/builder/detail/cancel?id={{ $s.id }}"
@@ -348,19 +329,7 @@
                             {{ else if eq .kind "tool_call" }}
                               <div
                                 class="pl-1 flex items-center flex-wrap gap-x-2 gap-y-0.5 text-xs text-base-content/70">
-                                <svg
-                                  aria-hidden="true"
-                                  focusable="false"
-                                  class="w-3 h-3 shrink-0"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  stroke-width="2"
-                                  stroke-linecap="round"
-                                  stroke-linejoin="round">
-                                  <path
-                                    d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-                                </svg>
+                                {{ template "icon" (dict "Name" "wrench" "Class" "w-3 h-3 shrink-0") }}
                                 {{ range .parts }}
                                   <span
                                     class="inline-flex items-center gap-1 font-mono">
@@ -382,6 +351,10 @@
                             {{ else if eq .kind "error" }}
                               <div
                                 class="pl-1 text-error text-xs whitespace-pre-wrap break-words">
+                                {{ .content | trim }}
+                              </div>
+                            {{ else if eq .kind "stop" }}
+                              <div class="pl-1 text-xs {{ .tone }}" data-stop-reason="{{ .metadata.stop_reason }}">
                                 {{ .content | trim }}
                               </div>
                             {{ else if eq .kind "lifecycle" }}
@@ -448,19 +421,7 @@
                                 sandbox is stopped
                               {{ end }}"
                             {{ end }}>
-                            <svg
-                              aria-hidden="true"
-                              focusable="false"
-                              class="w-4 h-4"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              stroke-width="2"
-                              stroke-linecap="round"
-                              stroke-linejoin="round">
-                              <path d="m5 12 14-9-4 18-4.5-7z" />
-                              <path d="M19 3 10.5 14" />
-                            </svg>
+                            {{ template "icon" (dict "Name" "send" "Class" "w-4 h-4") }}
                           </button>
                         </form>
                       </builder-chat>
@@ -486,14 +447,6 @@
                       <!-- Browser-style header bar -->
                       <div
                         class="flex items-center gap-2 px-4 py-2.5 border-b border-base-300 bg-base-200/50">
-                        <span class="flex gap-1.5" aria-hidden="true">
-                          <span
-                            class="w-2.5 h-2.5 rounded-full bg-base-300"></span>
-                          <span
-                            class="w-2.5 h-2.5 rounded-full bg-base-300"></span>
-                          <span
-                            class="w-2.5 h-2.5 rounded-full bg-base-300"></span>
-                        </span>
                         <div
                           class="tabs tabs-box tabs-xs p-0.5"
                           role="tablist"
@@ -524,21 +477,7 @@
                             class="btn btn-ghost btn-xs btn-circle tooltip tooltip-bottom"
                             data-tip="Download the source files as a zip"
                             aria-label="Download the source files as a zip">
-                            <svg
-                              aria-hidden="true"
-                              focusable="false"
-                              class="w-3.5 h-3.5"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              stroke-width="2"
-                              stroke-linecap="round"
-                              stroke-linejoin="round">
-                              <path
-                                d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                              <polyline points="7 10 12 15 17 10" />
-                              <line x1="12" y1="3" x2="12" y2="15" />
-                            </svg>
+                            {{ template "icon" (dict "Name" "download" "Class" "w-3.5 h-3.5") }}
                           </a>
                         {{ end }}
                         {{ if $s.preview_path }}
@@ -551,23 +490,7 @@
                             class="btn btn-ghost btn-xs btn-circle"
                             data-builder-refresh
                             aria-label="Refresh preview">
-                            <svg
-                              aria-hidden="true"
-                              focusable="false"
-                              class="w-3.5 h-3.5"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              stroke-width="2"
-                              stroke-linecap="round"
-                              stroke-linejoin="round">
-                              <path
-                                d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
-                              <path d="M21 3v5h-5" />
-                              <path
-                                d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
-                              <path d="M8 16H3v5" />
-                            </svg>
+                            {{ template "icon" (dict "Name" "refresh" "Class" "w-3.5 h-3.5") }}
                           </button>
                           <a
                             href="{{ $s.preview_path }}"
@@ -610,23 +533,7 @@
                                 agent reply.
                               </p>
                             {{ else }}
-                              <svg
-                                aria-hidden="true"
-                                focusable="false"
-                                class="w-12 h-12 text-base-content/20"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="1.5"
-                                stroke-linecap="round"
-                                stroke-linejoin="round">
-                                <path
-                                  d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
-                                <path d="M20 3v4" />
-                                <path d="M22 5h-4" />
-                                <path d="M4 17v2" />
-                                <path d="M5 18H3" />
-                              </svg>
+                              {{ template "icon" (dict "Name" "sparkles" "Class" "w-12 h-12 text-base-content/20" "Stroke" "1.5") }}
                               {{ if and .Data.Files (not .Data.HasAppStar) }}
                                 <p class="max-w-md">
                                   The workspace has no

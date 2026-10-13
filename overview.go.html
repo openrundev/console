@@ -21,9 +21,9 @@
             class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
             {{ template "hamburger" . }}
             <div>
-              {{ template "page_title" "Overview" }}
+              {{ template "page_title" (dict "Title" "Overview" "Help" .Data.HelpUrl) }}
               <p class="page-desc text-sm text-base-content/70">
-                Overall system status at a glance
+                Status of apps, syncs, containers and replication
               </p>
             </div>
             <div class="page-actions ml-auto flex items-center gap-2">
@@ -33,23 +33,7 @@
                 hx-target="#overview-root"
                 hx-swap="innerHTML"
                 hx-indicator="#page-progress">
-                <svg
-                  aria-hidden="true"
-                  focusable="false"
-                  class="w-4 h-4"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round">
-                  <path
-                    d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
-                  <path d="M21 3v5h-5" />
-                  <path
-                    d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
-                  <path d="M8 16H3v5" /></svg
-                >Refresh
+                {{ template "icon" (dict "Name" "refresh" "Class" "w-4 h-4") }}Refresh
               </button>
             </div>
           </div>
@@ -288,7 +272,7 @@
                     {{ if .Metadata }}
                       <div class="space-y-2">
                         {{ range .Metadata }}
-                          {{ template "ov_repl_row" (dict "Row" . "Context" (print "metadata · " .state) "Pulse" true) }}
+                          {{ template "ov_repl_row" (dict "Row" . "Context" (print "metadata · " .state)) }}
                         {{ end }}
                       </div>
                     {{ else if .ShowMetadata }}
@@ -466,7 +450,7 @@
                         <div>
                           <div class="ov-num-sm">{{ .Bindings }}</div>
                           <div class="text-xs text-base-content/70">
-                            bindings{{ if .Auto }}· {{ .Auto }} auto{{ end }}
+                            bindings{{ if .Auto }} · {{ .Auto }} auto{{ end }}
                           </div>
                         </div>
                       {{ end }}
@@ -652,23 +636,22 @@
                       <div class="text-xs text-base-content/70">containers</div>
                     </section>
                     {{ with .Api }}
-                      <!-- MCP: the management endpoint state; the app
-                           actions endpoint is on by default (served while
-                           RBAC is enforced). Links the MCP config page -->
-                      <section class="ov-tile ov-mini" aria-label="MCP">
-                        <div class="ov-label">MCP</div>
-                        <div class="ov-mini-num">
-                          {{ if .mcp.enabled }}on{{ else }}off{{ end }}
-                        </div>
-                        <div class="text-xs text-base-content/70">
-                          {{ $text := printf "management %s · app actions %s" (ternary "on" "off" .mcp.enabled) (ternary "on" "off" .app_mcp.served) }}
-                          {{ if and (index $.Data.Perms "feature:config") (index $.Data.Perms "config:read") }}
-                            <a href="{{ $.AppPath }}/config/mcp" class="link link-hover"
-                              >{{ $text }} <span aria-hidden="true">→</span></a
-                            >
-                          {{ else }}
-                            {{ $text }}
-                          {{ end }}
+                      <!-- Remote API: the state of each remote surface -
+                           the REST management API, the management MCP
+                           endpoint and the app actions MCP endpoint (on by
+                           default, served while RBAC is enforced). The
+                           names link their config pages -->
+                      {{ $cfg := and (index $.Data.Perms "feature:config") (index $.Data.Perms "config:read") }}
+                      <section class="ov-tile ov-mini ov-mini-wide" aria-label="Remote API">
+                        <div class="ov-label">Remote API</div>
+                        <div class="flex flex-col gap-1.5 mt-1">
+                          {{ template "ov_api_row" (dict "Key" "rest" "Name" "REST API" "On" .rest.enabled
+                              "Href" (ternary (print $.AppPath "/config/api") "" $cfg)) }}
+                          {{ template "ov_api_row" (dict "Key" "mcp" "Name" "Management MCP" "On" .mcp.enabled
+                              "Href" (ternary (print $.AppPath "/config/mcp#mcp-management") "" $cfg)) }}
+                          {{ template "ov_api_row" (dict "Key" "app_mcp" "Name" "App MCP" "On" .app_mcp.enabled
+                              "NotServed" (and .app_mcp.enabled (not .app_mcp.served))
+                              "Href" (ternary (print $.AppPath "/config/mcp#mcp-apps") "" $cfg)) }}
                         </div>
                       </section>
                     {{ end }}
@@ -690,24 +673,12 @@
 {{/* One replication status row: state dot, mono target, muted context,
   optional last-sync age and error line. Context keys: Row (target/
   state/last_sync/error, binding rows add apps), Context (the muted
-  middle text), Pulse (heartbeat ring on the live states)
+  middle text)
 */}}
 {{ define "ov_repl_row" }}
   {{ $s := .Row.state }}
   <div class="flex items-center gap-2 text-sm">
-    <span
-      class="ov-dot {{ if or (eq $s "healthy") (eq $s "idle") }}
-        ov-dot-ok
-      {{ else if eq $s "syncing" }}
-        ov-dot-warn
-      {{ else if eq $s "pending" }}
-        ov-dot-off
-      {{ else }}
-        ov-dot-err
-      {{ end }}{{ if and .Pulse (or (eq $s "healthy") (eq $s "syncing")) }}
-        ov-pulse
-      {{ end }}"
-      aria-hidden="true"></span>
+    {{ template "repl_state_dot" (dict "State" $s "Overview" true) }}
     <span
       class="font-mono text-xs truncate"
       {{ if .Row.apps }}title="used by {{ .Row.apps }}"{{ end }}
@@ -723,6 +694,24 @@
   {{ if .Row.error }}
     <div class="text-xs text-error break-all">{{ .Row.error }}</div>
   {{ end }}
+{{ end }}
+
+{{/* One Remote API tile row: the surface name (a link to its config page
+  when Href is set) and its state dot + text. Context dict: Key (data-api-
+  surface), Name, On, optional NotServed, Href */}}
+{{ define "ov_api_row" }}
+  <div class="flex items-center gap-2 text-xs" data-api-surface="{{ .Key }}">
+    {{ if .Href }}
+      <a href="{{ .Href }}" class="link link-hover truncate">{{ .Name }}</a>
+    {{ else }}
+      <span class="truncate">{{ .Name }}</span>
+    {{ end }}
+    <span class="ml-auto flex items-center gap-1.5 whitespace-nowrap text-base-content/70"
+      data-state="{{ if .NotServed }}not_served{{ else if .On }}on{{ else }}off{{ end }}">
+      <span class="ov-dot {{ if .NotServed }}ov-dot-warn{{ else if .On }}ov-dot-ok{{ else }}ov-dot-off{{ end }}" aria-hidden="true"></span>
+      {{ if .NotServed }}not served{{ else if .On }}enabled{{ else }}disabled{{ end }}
+    </span>
+  </div>
 {{ end }}
 
 {{ define "ov_error" }}

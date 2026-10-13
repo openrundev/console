@@ -10,9 +10,8 @@
           <div class="page-header flex items-center gap-2 flex-wrap">
             {{ template "hamburger" . }}
             <div>
-              {{ template "page_title" "Actions" }}
-              <div class="flex items-center gap-2">
-                <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0">
+              {{ template "page_title" (dict "Title" "Actions" "Help" .Data.HelpUrl) }}
+              <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0">
                   <ul>
                     <li><a href="{{ .AppPath }}/actions">Actions</a></li>
                     <li class="font-mono"><a href="{{ .AppPath }}/actions?query={{ .Data.Path }}">{{ .Data.Path }}</a></li>
@@ -24,9 +23,7 @@
                     {{ end }}
                   </ul>
                 </nav>
-                {{ template "help_link" .Data.HelpUrl }}
-              </div>
-              <h2 class="text-xl font-medium break-all">
+              <h2 class="text-xl font-semibold break-all">
                 {{ if $act }}{{ $act.name }}{{ if .Data.RunId }} run{{ end }}{{ else }}{{ .Data.Selector }}{{ end }}
               </h2>
             </div>

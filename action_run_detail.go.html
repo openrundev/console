@@ -25,9 +25,8 @@
                 <div class="page-header flex items-center gap-2 flex-wrap mb-2 md:mb-6">
                   {{ template "hamburger" . }}
                   <div>
-                    {{ template "page_title" "Actions" }}
-                    <div class="flex items-center gap-2">
-                      <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0">
+                    {{ template "page_title" (dict "Title" "Actions" "Help" .Data.HelpUrl) }}
+                    <nav aria-label="Breadcrumb" class="breadcrumbs text-xs text-base-content/70 p-0">
                         <ul>
                           <li><a href="{{ .AppPath }}/actions">Actions</a></li>
                           <li><a href="{{ .AppPath }}/actions?tab=runs">Runs</a></li>
@@ -37,9 +36,7 @@
                           <li class="font-mono">{{ .Data.RunId }}</li>
                         </ul>
                       </nav>
-                      {{ template "help_link" .Data.HelpUrl }}
-                    </div>
-                    <h2 class="text-xl font-medium break-all">
+                    <h2 class="text-xl font-semibold break-all">
                       {{ if $run }}{{ $run.action_name }} run{{ else }}Run {{ .Data.RunId }}{{ end }}
                     </h2>
                     {{ if $run }}
